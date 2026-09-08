@@ -1,0 +1,22 @@
+﻿.venv/
+__pycache__/
+*.pyc
+
+# Generated data
+processed_data/
+data/
+
+# Raw/video datasets
+dataset/
+demo_videos/
+
+# Model checkpoints
+models/*.pth
+
+# Python / IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
