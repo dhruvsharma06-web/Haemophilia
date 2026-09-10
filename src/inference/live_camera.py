@@ -948,10 +948,19 @@ while cap.isOpened():
         # DRAW SKELETON ON SAME FRAME
         # ====================================================
 
+        if state in ("RAISING", "TOP", "LOWERING"):
+            wireframe_color = (
+                (0, 0, 255) if first_error is not None else (0, 255, 0)
+            )
+        else:
+            wireframe_color = (255, 0, 0)
+
         mp_drawing.draw_landmarks(
             display_frame,
             results.pose_landmarks,
-            mp_pose.POSE_CONNECTIONS
+            mp_pose.POSE_CONNECTIONS,
+            mp_drawing.DrawingSpec(color=wireframe_color),
+            mp_drawing.DrawingSpec(color=wireframe_color)
         )
 
     else:
