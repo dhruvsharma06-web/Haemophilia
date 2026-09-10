@@ -4,6 +4,8 @@ import numpy as np
 import torch
 import sys
 import os
+import json
+from datetime import datetime
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -36,6 +38,10 @@ ERROR_CONFIRM_FRAMES = 5
 
 UPWARD_MOVEMENT_THRESHOLD = 0.25
 MIN_REP_FRAMES = 20
+
+ERROR_FRAMES_DIR = os.path.join("data", "error_frames")
+SESSION_RECORDS_DIR = os.path.join("data", "session_records")
+ERROR_RESULT_DISPLAY_SECONDS = 3.0
 
 # ============================================================
 # DEVICE
@@ -208,6 +214,140 @@ def get_rule_error(
 
     return None, None
 
+
+def get_advanced_error_type(error):
+    """Map existing assessment errors to review labels without changing rules."""
+    error_type = error["type"]
+
+    if error_type == "incomplete_arm":
+        return (
+            "LEFT_ARM_LOW"
+            if error.get("bad_arm") == "left"
+            else "RIGHT_ARM_LOW"
+        )
+    if error_type == "torso_tilt":
+        return "BODY_TILT"
+    if error_type in ("arm_asymmetry", "bar_tilt"):
+        return "ARM_ASYMMETRY"
+
+    return "GENERAL_FORM_ERROR"
+
+
+def get_error_label(error_type):
+    return {
+        "RIGHT_ARM_LOW": "RIGHT ARM TOO LOW",
+        "LEFT_ARM_LOW": "LEFT ARM TOO LOW",
+        "ARM_ASYMMETRY": "ARMS NOT SYMMETRIC",
+        "BODY_TILT": "BODY TILT DETECTED",
+        "GENERAL_FORM_ERROR": "GENERAL FORM ERROR"
+    }[error_type]
+
+
+def save_error_frame(frame, pose_landmarks, error_type, rep_number, frame_number):
+    """Save one annotated, review-only frame for a confirmed assessment error."""
+    os.makedirs(ERROR_FRAMES_DIR, exist_ok=True)
+
+    annotated_frame = frame.copy()
+    red = (0, 0, 255)
+    highlight = (0, 255, 255)
+
+    mp_drawing.draw_landmarks(
+        annotated_frame,
+        pose_landmarks,
+        mp_pose.POSE_CONNECTIONS,
+        mp_drawing.DrawingSpec(color=red),
+        mp_drawing.DrawingSpec(color=red)
+    )
+
+    regions = {
+        "RIGHT_ARM_LOW": [[12, 14, 16]],
+        "LEFT_ARM_LOW": [[11, 13, 15]],
+        "ARM_ASYMMETRY": [[11, 13, 15], [12, 14, 16]],
+        "BODY_TILT": [[11, 12, 24, 23, 11]],
+        "GENERAL_FORM_ERROR": [[11, 13, 15], [12, 14, 16], [11, 12, 24, 23, 11]]
+    }
+
+    height, width = annotated_frame.shape[:2]
+    landmarks = pose_landmarks.landmark
+    for region in regions[error_type]:
+        points = [
+            (int(landmarks[index].x * width), int(landmarks[index].y * height))
+            for index in region
+        ]
+        for start, end in zip(points, points[1:]):
+            cv2.line(annotated_frame, start, end, highlight, 4)
+        for point in points:
+            cv2.circle(annotated_frame, point, 7, highlight, -1)
+
+    cv2.putText(
+        annotated_frame,
+        get_error_label(error_type),
+        (30, 45),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.9,
+        red,
+        3
+    )
+
+    filename = (
+        f"assisted_flexion_rep_{rep_number:02d}_{error_type}_"
+        f"frame_{frame_number}.jpg"
+    )
+    path = os.path.join(ERROR_FRAMES_DIR, filename)
+    cv2.imwrite(path, annotated_frame)
+    return path
+
+
+def save_session_record(record):
+    os.makedirs(SESSION_RECORDS_DIR, exist_ok=True)
+    filename = f"assisted_flexion_rep_{record['rep_number']:02d}.json"
+    path = os.path.join(SESSION_RECORDS_DIR, filename)
+    with open(path, "w", encoding="utf-8") as file:
+        json.dump(record, file, indent=2)
+    return path
+
+
+def build_error_result_display(live_frame, error_image, error_type, feedback):
+    """Fit a saved annotated frame into the live window with a text panel."""
+    height, width = live_frame.shape[:2]
+    panel_height = 150
+    image_height = height - panel_height
+    result_frame = np.full_like(live_frame, (35, 35, 35))
+    result_frame[:image_height] = cv2.resize(
+        error_image,
+        (width, image_height)
+    )
+
+    cv2.putText(
+        result_frame,
+        f"ERROR: {get_error_label(error_type)}",
+        (30, image_height + 38),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.75,
+        (0, 0, 255),
+        2
+    )
+    cv2.putText(
+        result_frame,
+        feedback[:110],
+        (30, image_height + 78),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.52,
+        (255, 255, 255),
+        2
+    )
+    cv2.putText(
+        result_frame,
+        "Returning to live camera...",
+        (30, image_height + 120),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.5,
+        (200, 200, 200),
+        1
+    )
+    return result_frame
+
+
 def reset_rep_buffers():
     return (
         [], [], [], [], [], [], [], [], [], []
@@ -266,6 +406,12 @@ current_feedback = "Get ready — raise your arm."
 active_error = None
 active_error_count = 0
 first_error = None
+error_frame_path = None
+error_frame_number = None
+error_result_image = None
+error_result_type = None
+error_result_feedback = None
+error_result_until_frame = 0
 
 last_result = {
     "form": "Waiting",
@@ -389,6 +535,8 @@ while cap.isOpened():
             active_error = None
             active_error_count = 0
             first_error = None
+            error_frame_path = None
+            error_frame_number = None
 
             current_feedback = "Raise your arm higher."
 
@@ -452,6 +600,18 @@ while cap.isOpened():
                                 left_angle - right_angle
                             )
                         }
+
+                        advanced_error_type = get_advanced_error_type(
+                            first_error
+                        )
+                        error_frame_path = save_error_frame(
+                            display_frame,
+                            results.pose_landmarks,
+                            advanced_error_type,
+                            rep_count + 1,
+                            frame_number
+                        )
+                        error_frame_number = frame_number
 
                     current_feedback = error_message
 
@@ -732,6 +892,7 @@ while cap.isOpened():
                     final_error = {
                         "type": "incomplete_arm",
                         "frame": end_frame,
+                        "bad_arm": bad_arm,
                         "feedback": (
                             f"Incorrect: your {bad_arm} arm did not go fully overhead. "
                             "Raise both arms completely above your head."
@@ -742,6 +903,7 @@ while cap.isOpened():
                     final_error = {
                         "type": "incomplete_arm",
                         "frame": end_frame,
+                        "bad_arm": bad_arm,
                         "feedback": (
                             f"Incorrect: your {bad_arm} arm stopped short. "
                             "Both arms must reach the full overhead position."
@@ -765,6 +927,24 @@ while cap.isOpened():
                             "Raise both arms together without tilting the bar."
                         )
                     }
+
+                advanced_error_type = (
+                    get_advanced_error_type(final_error)
+                    if final_error is not None
+                    else None
+                )
+
+                # Incomplete range is only confirmed by the existing end-of-rep
+                # validation, so save that frame if no live error was captured.
+                if final_error is not None and error_frame_path is None:
+                    error_frame_path = save_error_frame(
+                        display_frame,
+                        results.pose_landmarks,
+                        advanced_error_type,
+                        rep_count,
+                        frame_number
+                    )
+                    error_frame_number = frame_number
 
                 form = "Incorrect" if final_error is not None else "Correct"
 
@@ -841,8 +1021,42 @@ while cap.isOpened():
                     ),
                     'smoothness': smoothness_raw * 100.0,
                     'score': round(score, 1),
-                    'feedback': feedback
+                    'feedback': feedback,
+                    'error_type': advanced_error_type,
+                    'error_frame_path': error_frame_path
                 }
+
+                save_session_record({
+                    'timestamp': datetime.now().astimezone().isoformat(),
+                    'exercise': 'assisted_shoulder_flexion',
+                    'rep_number': rep_count,
+                    'predicted_label': prediction,
+                    'score': last_result['score'],
+                    'error_type': advanced_error_type,
+                    'error_frame_path': error_frame_path,
+                    'frame_number': error_frame_number,
+                    'relevant_measurements': {
+                        'left_max_angle': float(left_max_angle),
+                        'right_max_angle': float(right_max_angle),
+                        'weaker_arm_max': float(weaker_arm_max),
+                        'relative_torso_tilt': float(robust_relative_tilt),
+                        'peak_arm_asymmetry': float(peak_asymmetry),
+                        'duration': float(duration),
+                        'range_of_motion': float(range_of_motion),
+                        'smoothness': float(smoothness_raw * 100.0)
+                    },
+                    'ai_generated_review_required': True
+                })
+
+                if final_error is not None and error_frame_path is not None:
+                    loaded_error_image = cv2.imread(error_frame_path)
+                    if loaded_error_image is not None:
+                        error_result_image = loaded_error_image
+                        error_result_type = advanced_error_type
+                        error_result_feedback = feedback
+                        error_result_until_frame = frame_number + int(
+                            ERROR_RESULT_DISPLAY_SECONDS * fps
+                        )
 
                 # ------------------------------------------------
                 # RESULT
@@ -906,6 +1120,9 @@ while cap.isOpened():
                     last_result["score"],
                     "/ 100"
                 )
+                if advanced_error_type is not None:
+                    print("Error:", get_error_label(advanced_error_type))
+                    print("Error frame:", error_frame_path)
                 print(
                     "Feedback:",
                     last_result["feedback"]
@@ -937,6 +1154,8 @@ while cap.isOpened():
             active_error = None
             active_error_count = 0
             first_error = None
+            error_frame_path = None
+            error_frame_number = None
 
             current_feedback = (
                 "Get ready — raise your arm."
@@ -1120,6 +1339,19 @@ while cap.isOpened():
         (200, 200, 200),
         1
     )
+
+    if error_result_image is not None:
+        if frame_number <= error_result_until_frame:
+            display_frame = build_error_result_display(
+                display_frame,
+                error_result_image,
+                error_result_type,
+                error_result_feedback
+            )
+        else:
+            error_result_image = None
+            error_result_type = None
+            error_result_feedback = None
 
     cv2.imshow(
         "AI Physiotherapy Assessment",
