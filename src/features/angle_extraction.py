@@ -1,17 +1,15 @@
+import os
 import pandas as pd
 import numpy as np
-import os
-import sys
+
+
+KEYPOINT_DIR = "processed_data/keypoints"
+ANGLE_DIR = "processed_data/angles"
+
+VISIBILITY_THRESHOLD = 0.5
 
 
 def calculate_angle(a, b, c):
-    """
-    Calculate angle ABC in degrees.
-    a = first point
-    b = vertex point
-    c = third point
-    """
-
     a = np.array(a, dtype=float)
     b = np.array(b, dtype=float)
     c = np.array(c, dtype=float)
@@ -19,170 +17,284 @@ def calculate_angle(a, b, c):
     ba = a - b
     bc = c - b
 
-    norm_ba = np.linalg.norm(ba)
-    norm_bc = np.linalg.norm(bc)
+    denominator = np.linalg.norm(ba) * np.linalg.norm(bc)
 
-    if norm_ba == 0 or norm_bc == 0:
+    if denominator < 1e-8:
         return np.nan
 
-    cosine_angle = np.dot(ba, bc) / (norm_ba * norm_bc)
-
+    cosine_angle = np.dot(ba, bc) / denominator
     cosine_angle = np.clip(cosine_angle, -1.0, 1.0)
 
-    angle = np.degrees(np.arccos(cosine_angle))
-
-    return angle
+    return np.degrees(np.arccos(cosine_angle))
 
 
-def extract_angles(keypoint_file):
+def process_file(filepath):
 
-    if not os.path.exists(keypoint_file):
-        print(f"Keypoint file not found: {keypoint_file}")
-        return
+    df = pd.read_csv(filepath)
 
-    filename = os.path.splitext(
-        os.path.basename(keypoint_file)
-    )[0]
-
-    output_dir = "processed_data/angles"
-    os.makedirs(output_dir, exist_ok=True)
-
-    output_file = os.path.join(
-        output_dir,
-        filename.replace("_keypoints", "") + "_angles.csv"
-    )
-
-    df = pd.read_csv(keypoint_file)
-
-    angle_rows = []
+    rows = []
 
     for _, row in df.iterrows():
 
-        # MediaPipe landmark numbers
-        #
-        # 11 = left shoulder
-        # 12 = right shoulder
-        # 13 = left elbow
-        # 14 = right elbow
-        # 23 = left hip
-        # 24 = right hip
+        # ====================================================
+        # LANDMARKS
+        # ====================================================
 
-        left_hip = [
+        left_hip = np.array([
             row["landmark_23_x"],
-            row["landmark_23_y"],
-            row["landmark_23_z"]
-        ]
+            row["landmark_23_y"]
+        ])
 
-        left_shoulder = [
-            row["landmark_11_x"],
-            row["landmark_11_y"],
-            row["landmark_11_z"]
-        ]
-
-        left_elbow = [
-            row["landmark_13_x"],
-            row["landmark_13_y"],
-            row["landmark_13_z"]
-        ]
-
-        right_hip = [
+        right_hip = np.array([
             row["landmark_24_x"],
-            row["landmark_24_y"],
-            row["landmark_24_z"]
-        ]
+            row["landmark_24_y"]
+        ])
 
-        right_shoulder = [
+        left_shoulder = np.array([
+            row["landmark_11_x"],
+            row["landmark_11_y"]
+        ])
+
+        right_shoulder = np.array([
             row["landmark_12_x"],
-            row["landmark_12_y"],
-            row["landmark_12_z"]
-        ]
+            row["landmark_12_y"]
+        ])
 
-        right_elbow = [
+        left_elbow = np.array([
+            row["landmark_13_x"],
+            row["landmark_13_y"]
+        ])
+
+        right_elbow = np.array([
             row["landmark_14_x"],
-            row["landmark_14_y"],
-            row["landmark_14_z"]
-        ]
+            row["landmark_14_y"]
+        ])
 
-        # Check landmark visibility
-        left_visibility = min(
-            row["landmark_23_visibility"],
-            row["landmark_11_visibility"],
-            row["landmark_13_visibility"]
+        # ====================================================
+        # VISIBILITY
+        # ====================================================
+
+        left_vis = row["landmark_11_visibility"]
+        right_vis = row["landmark_12_visibility"]
+
+        # ====================================================
+        # SHOULDER FLEXION ANGLES
+        # ====================================================
+
+        left_angle = calculate_angle(
+            left_hip,
+            left_shoulder,
+            left_elbow
         )
 
-        right_visibility = min(
-            row["landmark_24_visibility"],
-            row["landmark_12_visibility"],
-            row["landmark_14_visibility"]
+        right_angle = calculate_angle(
+            right_hip,
+            right_shoulder,
+            right_elbow
         )
 
-        if left_visibility >= 0.5:
-            left_angle = calculate_angle(
-                left_hip,
-                left_shoulder,
-                left_elbow
-            )
-        else:
-            left_angle = np.nan
+        # ====================================================
+        # TORSO CENTERS
+        # ====================================================
 
-        if right_visibility >= 0.5:
-            right_angle = calculate_angle(
-                right_hip,
-                right_shoulder,
-                right_elbow
-            )
-        else:
-            right_angle = np.nan
+        shoulder_mid = (
+            left_shoulder + right_shoulder
+        ) / 2.0
 
-        angle_rows.append({
-            "frame": int(row["frame"]),
+        hip_mid = (
+            left_hip + right_hip
+        ) / 2.0
+
+        torso_dx = shoulder_mid[0] - hip_mid[0]
+        torso_dy = shoulder_mid[1] - hip_mid[1]
+
+        # ====================================================
+        # 7. TORSO TILT
+        #
+        # Upright ≈ 0 degrees
+        # Larger value = more body tilt
+        # ====================================================
+
+        torso_tilt = np.degrees(
+            np.arctan2(
+                abs(torso_dx),
+                abs(torso_dy) + 1e-8
+            )
+        )
+
+        # ====================================================
+        # 8. TORSO ROTATION
+        #
+        # Uses 3D depth difference between shoulders,
+        # normalized by shoulder width.
+        # ====================================================
+
+        left_shoulder_z = row["landmark_11_z"]
+        right_shoulder_z = row["landmark_12_z"]
+
+        shoulder_width = np.linalg.norm(
+            right_shoulder - left_shoulder
+        )
+
+        if shoulder_width > 1e-8:
+            torso_rotation = (
+                right_shoulder_z -
+                left_shoulder_z
+            ) / shoulder_width
+        else:
+            torso_rotation = 0.0
+
+        # ====================================================
+        # 9. LEFT ARM TRAJECTORY
+        #
+        # Lateral elbow displacement relative to shoulder.
+        # ====================================================
+
+        torso_length = np.linalg.norm(
+            shoulder_mid - hip_mid
+        )
+
+        if torso_length > 1e-8:
+
+            left_arm_trajectory = (
+                left_elbow[0] -
+                left_shoulder[0]
+            ) / torso_length
+
+            right_arm_trajectory = (
+                right_elbow[0] -
+                right_shoulder[0]
+            ) / torso_length
+
+        else:
+
+            left_arm_trajectory = 0.0
+            right_arm_trajectory = 0.0
+
+        # ====================================================
+        # SAVE FRAME
+        # ====================================================
+
+        rows.append({
+
+            "frame": row["frame"],
+
             "left_shoulder_angle": left_angle,
             "right_shoulder_angle": right_angle,
-            "left_visibility": left_visibility,
-            "right_visibility": right_visibility
+
+            "left_visibility": left_vis,
+            "right_visibility": right_vis,
+
+            "torso_tilt": torso_tilt,
+            "torso_rotation": torso_rotation,
+
+            "left_arm_trajectory":
+                left_arm_trajectory,
+
+            "right_arm_trajectory":
+                right_arm_trajectory
         })
 
-    angle_df = pd.DataFrame(angle_rows)
+    output = pd.DataFrame(rows)
 
-    angle_df.to_csv(
-        output_file,
+    # ========================================================
+    # ANGULAR VELOCITY
+    # ========================================================
+
+    output["left_angular_velocity"] = (
+        output["left_shoulder_angle"]
+        .diff()
+        .fillna(0)
+    )
+
+    output["right_angular_velocity"] = (
+        output["right_shoulder_angle"]
+        .diff()
+        .fillna(0)
+    )
+
+    # ========================================================
+    # FINAL COLUMN ORDER
+    # ========================================================
+
+    output = output[
+        [
+            "frame",
+
+            "left_shoulder_angle",
+            "right_shoulder_angle",
+
+            "left_angular_velocity",
+            "right_angular_velocity",
+
+            "left_visibility",
+            "right_visibility",
+
+            "torso_tilt",
+            "torso_rotation",
+
+            "left_arm_trajectory",
+            "right_arm_trajectory"
+        ]
+    ]
+
+    # ========================================================
+    # OUTPUT PATH
+    # ========================================================
+
+    filename = os.path.basename(filepath)
+
+    name = os.path.splitext(filename)[0]
+
+    name = name.replace(
+        "_keypoints",
+        ""
+    )
+
+    output_path = os.path.join(
+        ANGLE_DIR,
+        name + "_angles.csv"
+    )
+
+    os.makedirs(
+        ANGLE_DIR,
+        exist_ok=True
+    )
+
+    output.to_csv(
+        output_path,
         index=False
     )
 
-    print()
-    print("Angle extraction completed!")
-    print(f"Frames: {len(angle_df)}")
-    print(f"Output: {output_file}")
+    print(f"Saved: {output_path}")
 
-    print()
-    print("Left shoulder angle:")
-    print(
-        f"Min = {angle_df['left_shoulder_angle'].min():.2f}°"
-    )
-    print(
-        f"Max = {angle_df['left_shoulder_angle'].max():.2f}°"
-    )
 
-    print()
-    print("Right shoulder angle:")
-    print(
-        f"Min = {angle_df['right_shoulder_angle'].min():.2f}°"
-    )
-    print(
-        f"Max = {angle_df['right_shoulder_angle'].max():.2f}°"
-    )
-
+# ============================================================
+# MAIN
+# ============================================================
 
 if __name__ == "__main__":
 
-    if len(sys.argv) < 2:
+    os.makedirs(
+        ANGLE_DIR,
+        exist_ok=True
+    )
 
-        print("Usage:")
-        print(
-            'python src\\features\\angle_extraction.py '
-            '"path\\to\\keypoints.csv"'
+    files = [
+        f
+        for f in os.listdir(KEYPOINT_DIR)
+        if f.endswith("_keypoints.csv")
+    ]
+
+    print(f"Found {len(files)} keypoint files.")
+
+    for filename in files:
+
+        filepath = os.path.join(
+            KEYPOINT_DIR,
+            filename
         )
 
-        sys.exit(1)
+        process_file(filepath)
 
-    extract_angles(sys.argv[1])
+    print("\nFeature extraction complete.")

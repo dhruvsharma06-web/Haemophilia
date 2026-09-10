@@ -115,7 +115,7 @@ def main():
         )
 
     model = ExerciseLSTM(
-        input_size=6,
+        input_size=10,
         hidden_size=64,
         num_layers=2,
         num_classes=2,

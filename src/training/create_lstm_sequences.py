@@ -59,13 +59,20 @@ def process_file(rep_file):
         if len(rep_frames) < 5:
             continue
 
-        # Fill missing angles
+        # ====================================================
+        # 1. RIGHT SHOULDER ANGLE
+        # ====================================================
+
         right_angle = (
             rep_frames["right_shoulder_angle"]
             .interpolate(limit_direction="both")
             .bfill()
             .ffill()
         )
+
+        # ====================================================
+        # 2. LEFT SHOULDER ANGLE
+        # ====================================================
 
         left_angle = (
             rep_frames["left_shoulder_angle"]
@@ -77,12 +84,43 @@ def process_file(rep_file):
         if right_angle.isna().all() or left_angle.isna().all():
             continue
 
-        # Visibility
+        # ====================================================
+        # 3. RIGHT ANGULAR VELOCITY
+        # ====================================================
+
+        right_velocity = (
+            rep_frames["right_angular_velocity"]
+            .interpolate(limit_direction="both")
+            .bfill()
+            .ffill()
+            .values
+        )
+
+        # ====================================================
+        # 4. LEFT ANGULAR VELOCITY
+        # ====================================================
+
+        left_velocity = (
+            rep_frames["left_angular_velocity"]
+            .interpolate(limit_direction="both")
+            .bfill()
+            .ffill()
+            .values
+        )
+
+        # ====================================================
+        # 5. RIGHT VISIBILITY
+        # ====================================================
+
         right_visibility = (
             rep_frames["right_visibility"]
             .fillna(0.0)
             .values
         )
+
+        # ====================================================
+        # 6. LEFT VISIBILITY
+        # ====================================================
 
         left_visibility = (
             rep_frames["left_visibility"]
@@ -90,55 +128,149 @@ def process_file(rep_file):
             .values
         )
 
-        # Angular velocity
-        right_velocity = np.gradient(
-            right_angle.values
+        # ====================================================
+        # 7. TORSO TILT
+        # ====================================================
+
+        torso_tilt = (
+            rep_frames["torso_tilt"]
+            .interpolate(limit_direction="both")
+            .bfill()
+            .ffill()
+            .fillna(0.0)
+            .values
         )
 
-        left_velocity = np.gradient(
-            left_angle.values
+        # ====================================================
+        # 8. TORSO ROTATION
+        # ====================================================
+
+        torso_rotation = (
+            rep_frames["torso_rotation"]
+            .interpolate(limit_direction="both")
+            .bfill()
+            .ffill()
+            .fillna(0.0)
+            .values
         )
 
-        # Build feature matrix
-        #
-        # 0 = right angle
-        # 1 = left angle
-        # 2 = right angular velocity
-        # 3 = left angular velocity
-        # 4 = right visibility
-        # 5 = left visibility
+        # ====================================================
+        # 9. LEFT ARM TRAJECTORY
+        # ====================================================
+
+        left_arm_trajectory = (
+            rep_frames["left_arm_trajectory"]
+            .interpolate(limit_direction="both")
+            .bfill()
+            .ffill()
+            .fillna(0.0)
+            .values
+        )
+
+        # ====================================================
+        # 10. RIGHT ARM TRAJECTORY
+        # ====================================================
+
+        right_arm_trajectory = (
+            rep_frames["right_arm_trajectory"]
+            .interpolate(limit_direction="both")
+            .bfill()
+            .ffill()
+            .fillna(0.0)
+            .values
+        )
+
+        # ====================================================
+        # BUILD 10-FEATURE MATRIX
+        # ====================================================
 
         sequence = np.column_stack([
+
+            # 0
             right_angle.values,
+
+            # 1
             left_angle.values,
+
+            # 2
             right_velocity,
+
+            # 3
             left_velocity,
+
+            # 4
             right_visibility,
-            left_visibility
+
+            # 5
+            left_visibility,
+
+            # 6
+            torso_tilt,
+
+            # 7
+            torso_rotation,
+
+            # 8
+            left_arm_trajectory,
+
+            # 9
+            right_arm_trajectory
         ])
 
-        # Resize to 128 frames
+        # ====================================================
+        # RESIZE TO 128 FRAMES
+        # ====================================================
+
         resized = np.zeros(
-            (SEQUENCE_LENGTH, 6),
+            (SEQUENCE_LENGTH, 10),
             dtype=np.float32
         )
 
-        for feature in range(6):
+        for feature in range(10):
+
             resized[:, feature] = resize_sequence(
                 sequence[:, feature],
                 SEQUENCE_LENGTH
             )
 
-        # Normalize angle features
+        # ====================================================
+        # NORMALIZATION
+        # ====================================================
+
+        # Shoulder angles: 0-180 degrees
         resized[:, 0] /= 180.0
         resized[:, 1] /= 180.0
 
-        # Normalize angular velocity
-        # Typical values are much smaller than angles.
+        # Angular velocity
         resized[:, 2] /= 10.0
         resized[:, 3] /= 10.0
 
-        # Visibility is already approximately 0-1
+        # Visibility already approximately 0-1
+
+        # Torso tilt: normalize 0-90 degrees
+        resized[:, 6] /= 90.0
+
+        # Torso rotation is a normalized depth ratio.
+        # Keep as-is.
+
+        # Arm trajectory is a normalized body-relative
+        # horizontal displacement.
+        # Keep as-is.
+
+        # ====================================================
+        # SAFETY: REMOVE NaN / INF
+        # ====================================================
+
+        resized = np.nan_to_num(
+            resized,
+            nan=0.0,
+            posinf=1.0,
+            neginf=-1.0
+        )
+
+        # ====================================================
+        # SAVE
+        # ====================================================
 
         rep_number = int(rep["rep"])
 
@@ -146,7 +278,10 @@ def process_file(rep_file):
             f"{video_id}_rep_{rep_number}_{label}.npy"
         )
 
-        np.save(output_file, resized)
+        np.save(
+            output_file,
+            resized
+        )
 
         created += 1
 
@@ -155,31 +290,52 @@ def process_file(rep_file):
 
 def main():
 
-    # Remove old sequence files first
-    old_files = list(OUTPUT_DIR.glob("*.npy"))
+    # ========================================================
+    # REMOVE OLD SEQUENCES
+    # ========================================================
+
+    old_files = list(
+        OUTPUT_DIR.glob("*.npy")
+    )
 
     for file in old_files:
         file.unlink()
 
-    print(f"Removed {len(old_files)} old sequence files.")
+    print(
+        f"Removed {len(old_files)} old sequence files."
+    )
+
+    # ========================================================
+    # FIND REP FILES
+    # ========================================================
 
     rep_files = sorted(
         ANGLES_DIR.glob("*_reps.csv")
     )
 
     if not rep_files:
-        print("No *_reps.csv files found.")
+
+        print(
+            "No *_reps.csv files found."
+        )
+
         return
+
+    # ========================================================
+    # CREATE SEQUENCES
+    # ========================================================
 
     total = 0
 
     print("\n" + "=" * 60)
-    print("CREATING LSTM SEQUENCES")
+    print("CREATING 10-FEATURE LSTM SEQUENCES")
     print("=" * 60)
 
     for rep_file in rep_files:
 
-        count = process_file(rep_file)
+        count = process_file(
+            rep_file
+        )
 
         print(
             f"{rep_file.name}: "
@@ -188,24 +344,75 @@ def main():
 
         total += count
 
+    # ========================================================
+    # SUMMARY
+    # ========================================================
+
     print("\n" + "=" * 60)
     print("SEQUENCE CREATION COMPLETE")
     print("=" * 60)
 
-    print(f"Total sequences: {total}")
-    print(f"Sequence length: {SEQUENCE_LENGTH}")
-    print("Features per frame: 6")
+    print(
+        f"Total sequences: {total}"
+    )
+
+    print(
+        f"Sequence length: {SEQUENCE_LENGTH}"
+    )
+
+    print(
+        "Features per frame: 10"
+    )
 
     print("\nFeatures:")
-    print("1. Right shoulder angle")
-    print("2. Left shoulder angle")
-    print("3. Right angular velocity")
-    print("4. Left angular velocity")
-    print("5. Right visibility")
-    print("6. Left visibility")
 
-    print(f"\nOutput directory:")
-    print(OUTPUT_DIR)
+    print(
+        "1. Right shoulder angle"
+    )
+
+    print(
+        "2. Left shoulder angle"
+    )
+
+    print(
+        "3. Right angular velocity"
+    )
+
+    print(
+        "4. Left angular velocity"
+    )
+
+    print(
+        "5. Right visibility"
+    )
+
+    print(
+        "6. Left visibility"
+    )
+
+    print(
+        "7. Torso tilt"
+    )
+
+    print(
+        "8. Torso rotation"
+    )
+
+    print(
+        "9. Left arm trajectory"
+    )
+
+    print(
+        "10. Right arm trajectory"
+    )
+
+    print(
+        f"\nOutput directory:"
+    )
+
+    print(
+        OUTPUT_DIR
+    )
 
 
 if __name__ == "__main__":
