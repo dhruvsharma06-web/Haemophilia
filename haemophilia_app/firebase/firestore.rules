@@ -1,0 +1,80 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function myUser() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function isAdmin() {
+      return signedIn() && myUser().data.role == 'admin';
+    }
+
+    function isDoctor() {
+      return signedIn() && myUser().data.role == 'doctor';
+    }
+
+    function isAssignedDoctor(patientId) {
+      return isDoctor()
+        && get(/databases/$(database)/documents/users/$(patientId)).data.doctorId == request.auth.uid;
+    }
+
+    match /users/{userId} {
+      // Registration creates a patient profile. Admins may create/manage profiles.
+      allow create: if isAdmin()
+        || (isSelf(userId) && request.resource.data.role == 'patient');
+
+      // Patients can read themselves. Assigned doctors can read their patients.
+      // Admins can read all user profiles.
+      allow read: if isSelf(userId) || isAdmin() || isAssignedDoctor(userId);
+
+      // Patients cannot promote themselves or change their doctor assignment.
+      // Admins have full user-management access.
+      allow update: if isAdmin()
+        || (isSelf(userId)
+            && request.resource.data.role == resource.data.role
+            && request.resource.data.doctorId == resource.data.doctorId);
+
+      allow delete: if isAdmin();
+
+      match /assessments/{assessmentId} {
+        // Patient app creates its own assessment result.
+        allow create: if isSelf(userId);
+
+        // Patient, assigned doctor and admin can review results.
+        allow read: if isSelf(userId) || isAdmin() || isAssignedDoctor(userId);
+
+        // Only an admin or assigned doctor may change a stored assessment,
+        // and a doctor may only add clinical feedback fields.
+        allow update: if isAdmin()
+          || (isAssignedDoctor(userId)
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                'doctorFeedback',
+                'doctorFeedbackBy',
+                'doctorFeedbackAt'
+              ]));
+
+        allow delete: if isAdmin();
+      }
+
+      match /messages/{messageId} {
+        // Patient or assigned doctor can create a message in this patient's thread.
+        allow create: if isSelf(userId) || isAssignedDoctor(userId) || isAdmin();
+
+        allow read: if isSelf(userId) || isAssignedDoctor(userId) || isAdmin();
+
+        // Keep message history immutable from the client except for admins.
+        allow update, delete: if isAdmin();
+      }
+    }
+  }
+}

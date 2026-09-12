@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "540980899385",
+    "project_id": "haemophilia-physiotherapy-ai",
+    "storage_bucket": "haemophilia-physiotherapy-ai.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:540980899385:android:e0eb3a7a063973a9d527e8",
+        "android_client_info": {
+          "package_name": "com.example.haemophilia_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCzy8O2Pb7Jqk8qBHVDOUGufOjLlPI5zUE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
