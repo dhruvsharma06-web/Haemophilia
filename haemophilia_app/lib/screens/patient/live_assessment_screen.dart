@@ -30,7 +30,7 @@ class _LiveAssessmentScreenState
   // ============================================================
 
   static const String websocketUrl =
-      'wss://licence-infinite-horizon-mind.trycloudflare.com/v1/assessments/live';
+      'wss://driving-naval-charge-surgeon.trycloudflare.com/v1/assessments/live';
 
   static const Duration frameInterval =
       Duration(milliseconds: 50);
@@ -916,7 +916,7 @@ class _LiveAssessmentScreenState
       return null;
     }
 
-    return 'https://licence-infinite-horizon-mind.trycloudflare.com/v1/assets/error-frames/'
+    return 'https://driving-naval-charge-surgeon.trycloudflare.com/v1/assets/error-frames/'
         '${Uri.encodeComponent(filename)}';
   }
 
