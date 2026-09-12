@@ -5,7 +5,7 @@ import torch.nn as nn
 class ExerciseLSTM(nn.Module):
     def __init__(
         self,
-        input_size=6,
+        input_size=10,
         hidden_size=64,
         num_layers=2,
         num_classes=2,

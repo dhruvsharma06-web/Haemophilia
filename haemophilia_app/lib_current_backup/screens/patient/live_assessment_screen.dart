@@ -30,7 +30,7 @@ class _LiveAssessmentScreenState
   // ============================================================
 
   static const String websocketUrl =
-      'wss://licence-infinite-horizon-mind.trycloudflare.com/v1/assessments/live';
+      'ws://192.168.1.43:8000/v1/assessments/live';
 
   static const Duration frameInterval =
       Duration(milliseconds: 50);
@@ -90,7 +90,6 @@ class _LiveAssessmentScreenState
 
   // Last completed rep returned by the backend.
   Map<String, dynamic>? _lastCompletedRep;
-  String? _lastShownErrorFrameSignature;
 
   final AssessmentHistoryService _historyService =
       AssessmentHistoryService();
@@ -369,23 +368,6 @@ class _LiveAssessmentScreenState
           }
           rep['rep_number'] = normalizedRepNumber;
 
-          // Show the captured wrong-form image to the patient immediately
-          // after an incorrect repetition, matching the clinical workflow.
-          final completedForm =
-              rep['form']?.toString().toLowerCase() ?? '';
-          final completedErrorFrameUrl = _errorFrameUrl(rep);
-          final errorFrameSignature = jsonEncode(rep);
-          if (completedForm == 'incorrect' &&
-              completedErrorFrameUrl != null &&
-              errorFrameSignature != _lastShownErrorFrameSignature) {
-            _lastShownErrorFrameSignature = errorFrameSignature;
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) {
-                _showErrorFrame(completedErrorFrameUrl);
-              }
-            });
-          }
-
           // Save every completed repetition once. The JSON signature prevents
           // duplicate writes if the same completed_rep message is received twice.
           final repSignature = jsonEncode(rep);
@@ -453,7 +435,7 @@ class _LiveAssessmentScreenState
     }
 
     _landmarkTimer ??= Timer.periodic(
-      const Duration(milliseconds: 33),
+      const Duration(milliseconds: 16),
       (_) {
         if (!mounted || _targetLandmarks.length != 33) {
           _landmarkTimer?.cancel();
@@ -470,7 +452,7 @@ class _LiveAssessmentScreenState
           return;
         }
 
-        const double alpha = 0.55;
+        const double alpha = 0.42;
         bool closeEnough = true;
 
         final smoothed = <LiveLandmark>[];
@@ -916,7 +898,7 @@ class _LiveAssessmentScreenState
       return null;
     }
 
-    return 'https://licence-infinite-horizon-mind.trycloudflare.com/v1/assets/error-frames/'
+    return 'http://192.168.1.43:8000/v1/assets/error-frames/'
         '${Uri.encodeComponent(filename)}';
   }
 
@@ -1222,15 +1204,11 @@ class _LiveAssessmentScreenState
             left: 12,
             right: 12,
             bottom: 86,
-            child: SizedBox(
-              height: 205,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: SingleChildScrollView(
-                  physics: const ClampingScrollPhysics(),
-                  child: _buildCompletedRepPanel(),
-                ),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxHeight: 215,
               ),
+              child: _buildCompletedRepPanel(),
             ),
           )
         else
