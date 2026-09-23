@@ -1,1 +1,26 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"haemophilia-physiotherapy-ai","appId":"1:540980899385:android:e0eb3a7a063973a9d527e8","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"haemophilia-physiotherapy-ai","configurations":{"android":"1:540980899385:android:e0eb3a7a063973a9d527e8","ios":"1:540980899385:ios:ec188bd7033715aad527e8","web":"1:540980899385:web:62659d5b9b271e94d527e8"}}}}}}
+{
+  "firestore": {
+    "rules": "firebase/firestore.rules"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "haemophilia-physiotherapy-ai",
+          "appId": "1:540980899385:android:e0eb3a7a063973a9d527e8",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "haemophilia-physiotherapy-ai",
+          "configurations": {
+            "android": "1:540980899385:android:e0eb3a7a063973a9d527e8",
+            "ios": "1:540980899385:ios:ec188bd7033715aad527e8",
+            "web": "1:540980899385:web:62659d5b9b271e94d527e8"
+          }
+        }
+      }
+    }
+  }
+}

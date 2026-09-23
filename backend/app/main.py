@@ -20,6 +20,10 @@ from backend.app.api.routes.live import (
     router as live_router,
 )
 
+from backend.app.api.routes.notifications import (
+    router as notifications_router,
+)
+
 
 app = FastAPI(
     title="Haemophilia Physiotherapy AI",
@@ -49,6 +53,10 @@ app.include_router(
 
 app.include_router(
     live_router,
+)
+
+app.include_router(
+    notifications_router,
 )
 
 

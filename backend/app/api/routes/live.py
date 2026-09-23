@@ -1,16 +1,20 @@
+import json
+
 import cv2
 import mediapipe as mp
 import numpy as np
-
 from fastapi import APIRouter, WebSocket
 from starlette.websockets import WebSocketDisconnect
 
-from backend.app.services.model_registry import (
-    model_registry,
-)
-
+from backend.app.services.model_registry import model_registry
 from src.exercises.assisted_shoulder_flexion import (
     AssistedShoulderFlexionAssessment,
+)
+from src.exercises.elbow_flexion_assessment import (
+    ElbowFlexionAssessment,
+)
+from src.exercises.shoulder_rotation_assessment import (
+    ShoulderRotationAssessment,
 )
 
 
@@ -23,9 +27,6 @@ mp_pose = mp.solutions.pose
 
 
 def make_json_safe(value):
-    """
-    Convert NumPy/Python values into JSON-serializable values.
-    """
     if isinstance(value, dict):
         return {
             str(key): make_json_safe(val)
@@ -47,30 +48,74 @@ def make_json_safe(value):
     return value
 
 
+def _create_assessment(exercise: str):
+    exercise_normalized = (
+        (exercise or "")
+        .strip()
+        .lower()
+    )
+
+    if exercise_normalized in {
+        "elbow_flexion",
+        "elbow flexion",
+        "elbow flexion & extension",
+        "elbow flexion and extension",
+    }:
+        return ElbowFlexionAssessment(
+            model=None,
+            device=None,
+            fps=20.0,
+            data_dir="data",
+            save_artifacts=True,
+        )
+
+    if exercise_normalized in {
+        "shoulder_rotation",
+        "shoulder rotation",
+    }:
+        model, device = (
+            model_registry.get_shoulder_rotation()
+        )
+
+        return ShoulderRotationAssessment(
+            model=model,
+            device=device,
+            fps=20.0,
+            data_dir="data",
+            save_artifacts=True,
+        )
+
+    model, device = (
+        model_registry.get_assisted_flexion()
+    )
+
+    return AssistedShoulderFlexionAssessment(
+        model=model,
+        device=device,
+        fps=20.0,
+        data_dir="data",
+        save_artifacts=True,
+    )
+
+
 @router.websocket("/live")
 async def live_assessment(
     websocket: WebSocket,
 ):
     await websocket.accept()
 
+    exercise = websocket.query_params.get(
+        "exercise",
+        "Assisted Shoulder Flexion",
+    )
+
     print(
-        "Live assessment WebSocket connected."
+        "Live assessment WebSocket connected. "
+        f"Exercise: {exercise}"
     )
 
     try:
-        model, device = (
-            model_registry.get_assisted_flexion()
-        )
-
-        assessment = (
-            AssistedShoulderFlexionAssessment(
-                model=model,
-                device=device,
-                fps=20.0,
-                data_dir="data",
-                save_artifacts=True,
-            )
-        )
+        assessment = _create_assessment(exercise)
 
         with mp_pose.Pose(
             static_image_mode=False,
@@ -83,12 +128,74 @@ async def live_assessment(
             frame_number = 0
 
             while True:
-                message = await websocket.receive()
+                message = (
+                    await websocket.receive()
+                )
 
-                if message.get("type") == (
-                    "websocket.disconnect"
+                if (
+                    message.get("type")
+                    == "websocket.disconnect"
                 ):
                     break
+
+                # -------------------------------------------------
+                # TEXT CONTROL MESSAGE
+                # -------------------------------------------------
+
+                text_message = message.get("text")
+
+                if text_message:
+                    try:
+                        control = json.loads(
+                            text_message
+                        )
+                    except json.JSONDecodeError:
+                        control = {}
+
+                    if (
+                        control.get("type")
+                        == "switch_exercise"
+                    ):
+                        next_exercise = (
+                            control
+                            .get("exercise")
+                        )
+
+                        if not next_exercise:
+                            await websocket.send_json({
+                                "type": "error",
+                                "message":
+                                    "Exercise name is required.",
+                            })
+                            continue
+
+                        print(
+                            "Switching exercise: "
+                            f"{exercise} -> "
+                            f"{next_exercise}"
+                        )
+
+                        assessment = (
+                            _create_assessment(
+                                next_exercise
+                            )
+                        )
+
+                        exercise = next_exercise
+                        frame_number = 0
+
+                        await websocket.send_json({
+                            "type":
+                                "exercise_switched",
+                            "exercise":
+                                exercise,
+                        })
+
+                    continue
+
+                # -------------------------------------------------
+                # CAMERA FRAME
+                # -------------------------------------------------
 
                 frame_bytes = message.get(
                     "bytes"
@@ -98,6 +205,12 @@ async def live_assessment(
                     continue
 
                 frame_number += 1
+
+                if frame_number % 30 == 0:
+                    print(
+                        f"Received {frame_number} "
+                        f"frames. Exercise: {exercise}"
+                    )
 
                 encoded = np.frombuffer(
                     frame_bytes,
@@ -112,9 +225,9 @@ async def live_assessment(
                 if frame is None:
                     await websocket.send_json({
                         "type": "error",
-                        "message": (
-                            "Could not decode camera frame."
-                        ),
+                        "message":
+                            "Could not decode "
+                            "camera frame.",
                     })
                     continue
 
@@ -143,6 +256,7 @@ async def live_assessment(
 
                 response = {
                     "type": "live_state",
+                    "exercise": exercise,
                     **live_state,
                 }
 
@@ -151,8 +265,6 @@ async def live_assessment(
                         "completed_rep"
                     ] = completed_rep
 
-                # Convert NumPy float32/int32/etc.
-                # into normal JSON-compatible types.
                 response = make_json_safe(
                     response
                 )
@@ -181,5 +293,6 @@ async def live_assessment(
 
     finally:
         print(
-            "Live assessment session ended."
+            "Live assessment session ended. "
+            f"Exercise: {exercise}"
         )

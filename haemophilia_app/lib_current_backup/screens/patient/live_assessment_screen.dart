@@ -13,9 +13,15 @@ import '../../services/assessment_history_service.dart';
 class LiveAssessmentScreen extends StatefulWidget {
   final String exerciseName;
 
+  // Optional ordered assignment supplied by the patient assignment flow.
+  // When this is null, the screen behaves exactly like the original
+  // single-exercise assessment screen.
+  final List<Map<String, dynamic>>? assignedExercises;
+
   const LiveAssessmentScreen({
     super.key,
     required this.exerciseName,
+    this.assignedExercises,
   });
 
   @override
@@ -101,13 +107,98 @@ class _LiveAssessmentScreenState
   final String _sessionId = DateTime.now().microsecondsSinceEpoch.toString();
 
   // ============================================================
+  // ASSIGNED ASSESSMENT
+  // ============================================================
+
+  bool _assignedMode = false;
+  bool _switchingExercise = false;
+
+  int _currentAssignedIndex = 0;
+  int _currentCorrectReps = 0;
+  int _currentTotalReps = 0;
+
+  List<Map<String, dynamic>> _assignedExercises = [];
+
+  // ============================================================
   // LIFECYCLE
   // ============================================================
 
   @override
   void initState() {
     super.initState();
+
+    if (widget.assignedExercises != null &&
+        widget.assignedExercises!.isNotEmpty) {
+      _assignedMode = true;
+
+      _assignedExercises = widget.assignedExercises!
+          .map(
+            (exercise) => Map<String, dynamic>.from(exercise),
+          )
+          .toList();
+
+      // Defensive sort so the live screen always follows the doctor's
+      // intended sequence even if the caller did not pre-sort the list.
+      _assignedExercises.sort(
+        (a, b) => _toInt(a['order']).compareTo(
+          _toInt(b['order']),
+        ),
+      );
+
+      _currentAssignedIndex = 0;
+    }
+
     _initialize();
+  }
+
+  String _currentAssignedExercise() {
+    if (!_assignedMode ||
+        _assignedExercises.isEmpty ||
+        _currentAssignedIndex >= _assignedExercises.length) {
+      return widget.exerciseName;
+    }
+
+    return _assignedExercises[_currentAssignedIndex]['exercise']
+            ?.toString() ??
+        widget.exerciseName;
+  }
+
+  int _currentAssignedTarget() {
+    if (!_assignedMode ||
+        _assignedExercises.isEmpty ||
+        _currentAssignedIndex >= _assignedExercises.length) {
+      return 0;
+    }
+
+    return _toInt(
+      _assignedExercises[_currentAssignedIndex]['targetCorrectReps'],
+    );
+  }
+
+  String _assignedExerciseDisplayName(String exercise) {
+    switch (exercise) {
+      case 'assisted_shoulder_flexion':
+        return 'Assisted Shoulder Flexion';
+
+      case 'elbow_flexion':
+        return 'Elbow Flexion & Extension';
+
+      case 'shoulder_rotation':
+        return 'Shoulder Rotation';
+
+      default:
+        return exercise;
+    }
+  }
+
+  String _currentExerciseDisplayName() {
+    if (!_assignedMode) {
+      return widget.exerciseName;
+    }
+
+    return _assignedExerciseDisplayName(
+      _currentAssignedExercise(),
+    );
   }
 
   Future<void> _initialize() async {
@@ -320,6 +411,48 @@ class _LiveAssessmentScreenState
         );
       }
 
+      // Assignment progress is based ONLY on completed correct repetitions.
+      // Incorrect repetitions are still saved in history, but they do not
+      // advance the doctor's prescribed target.
+      if (completedRep is Map &&
+          _assignedMode &&
+          !_switchingExercise) {
+        final form =
+            completedRep['form']
+                    ?.toString()
+                    .toLowerCase() ??
+                completedRep['label']
+                    ?.toString()
+                    .toLowerCase() ??
+                '';
+
+        final bool correct =
+            form == 'correct' ||
+            form.contains('correct') &&
+            !form.contains('incorrect');
+
+        _currentTotalReps++;
+
+        if (correct) {
+          _currentCorrectReps++;
+        }
+
+        final target = _currentAssignedTarget();
+
+        debugPrint(
+          'Assignment progress: '
+          '$_currentCorrectReps/$target correct '
+          '(total=$_currentTotalReps)',
+        );
+
+        if (target > 0 &&
+            _currentCorrectReps >= target) {
+          unawaited(
+            _switchToNextAssignedExercise(),
+          );
+        }
+      }
+
       if (!mounted) return;
 
       setState(() {
@@ -387,6 +520,119 @@ class _LiveAssessmentScreenState
     }
   }
 
+  Future<void> _switchToNextAssignedExercise() async {
+    if (!_assignedMode || _switchingExercise) {
+      return;
+    }
+
+    _switchingExercise = true;
+
+    final bool hasNext =
+        _currentAssignedIndex + 1 <
+        _assignedExercises.length;
+
+    // All assigned exercises have reached their correct-rep targets.
+    if (!hasNext) {
+      _switchingExercise = false;
+
+      if (mounted) {
+        setState(() {
+          _feedback = 'Assessment complete.';
+        });
+      }
+
+      // The current implementation keeps the same camera/WebSocket session
+      // open until the patient explicitly ends it. This prevents the camera
+      // and working pose overlay from being disturbed.
+      return;
+    }
+
+    final nextIndex = _currentAssignedIndex + 1;
+
+    final nextExercise =
+        _assignedExercises[nextIndex]['exercise']
+            ?.toString();
+
+    if (nextExercise == null || nextExercise.isEmpty) {
+      debugPrint(
+        'Cannot switch exercise: missing exercise name at index $nextIndex',
+      );
+      _switchingExercise = false;
+      return;
+    }
+
+    try {
+      if (_channel == null || !_socketConnected) {
+        throw StateError(
+          'WebSocket is not connected.',
+        );
+      }
+
+      _channel!.sink.add(
+        jsonEncode({
+          'type': 'switch_exercise',
+          'exercise': nextExercise,
+        }),
+      );
+
+      debugPrint(
+        'Requested exercise switch: '
+        '${_currentAssignedExercise()} -> $nextExercise',
+      );
+    } catch (e) {
+      debugPrint(
+        'Could not switch exercise: $e',
+      );
+
+      _switchingExercise = false;
+
+      if (mounted) {
+        setState(() {
+          _feedback =
+              'Could not start the next exercise. Please try again.';
+        });
+      }
+
+      return;
+    }
+
+    if (!mounted) {
+      _switchingExercise = false;
+      return;
+    }
+
+    setState(() {
+      _currentAssignedIndex = nextIndex;
+
+      _currentCorrectReps = 0;
+      _currentTotalReps = 0;
+
+      _lastCompletedRep = null;
+
+      _repCount = 0;
+
+      _form = 'Waiting';
+
+      _feedback =
+          'Starting ${_assignedExerciseDisplayName(nextExercise)}...';
+
+      _score = 0;
+      _rom = 0;
+      _smoothness = 0;
+
+      _speed = 'Waiting';
+      _errorType = '';
+    });
+
+    // Give the backend a short moment to replace the assessment object before
+    // the next live frames are evaluated.
+    await Future<void>.delayed(
+      const Duration(milliseconds: 500),
+    );
+
+    _switchingExercise = false;
+  }
+
   Future<void> _saveCompletedRepToHistory(
     Map<String, dynamic> rep,
   ) async {
@@ -397,7 +643,7 @@ class _LiveAssessmentScreenState
       );
 
       await _historyService.saveCompletedRep(
-        exercise: widget.exerciseName,
+        exercise: _currentExerciseDisplayName(),
         sessionId: _sessionId,
         rep: rep,
         errorFrameUrl: _errorFrameUrl(rep),
@@ -1152,7 +1398,7 @@ class _LiveAssessmentScreenState
       appBar: AppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
-        title: Text(widget.exerciseName),
+        title: Text(_currentExerciseDisplayName()),
       ),
       body: _buildBody(),
     );
@@ -1292,6 +1538,29 @@ class _LiveAssessmentScreenState
                 ),
               ],
             ),
+
+            if (_assignedMode) ...[
+              const SizedBox(height: 8),
+              Text(
+                'EXERCISE ${_currentAssignedIndex + 1} OF '
+                '${_assignedExercises.length}',
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                '${_currentCorrectReps}/${_currentAssignedTarget()} '
+                'correct reps',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
 
             const SizedBox(height: 12),
 
@@ -1622,21 +1891,22 @@ class PosePainter extends CustomPainter {
               : Colors.blueAccent;
 
     Offset point(int index) {
-      final landmark = landmarks[index];
+  final landmark = landmarks[index];
 
-      // CameraPreview shows the front camera as a mirror.
-      // MediaPipe receives the upright JPEG, so mirror X for the overlay.
-      final double x =
-          (1.0 - landmark.x).clamp(0.0, 1.0);
+  // Camera buffer is landscape while the preview is portrait.
+  // Rotate the MediaPipe coordinates 90 degrees clockwise
+  // to match the portrait CameraPreview.
+  final double x =
+      (1.0 - landmark.y).clamp(0.0, 1.0);
 
-      final double y =
-          landmark.y.clamp(0.0, 1.0);
+  final double y =
+      landmark.x.clamp(0.0, 1.0);
 
-      return Offset(
-        x * size.width,
-        y * size.height,
-      );
-    }
+  return Offset(
+    x * size.width,
+    y * size.height,
+  );
+}
 
     for (final connection in connections) {
       final int first = connection[0];

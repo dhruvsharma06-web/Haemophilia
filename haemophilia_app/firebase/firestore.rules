@@ -35,14 +35,17 @@ service cloud.firestore {
 
       // Patients can read themselves. Assigned doctors can read their patients.
       // Admins can read all user profiles.
-      allow read: if isSelf(userId) || isAdmin() || isAssignedDoctor(userId);
+      // Any signed-in user can read doctor profiles to discover and select clinicians.
+      allow read: if isSelf(userId) || isAdmin()
+        || (isDoctor() && resource.data.doctorId == request.auth.uid)
+        || (signedIn() && resource.data.role == 'doctor');
 
-      // Patients cannot promote themselves or change their doctor assignment.
+      // Users can edit only their own personal profile.
+      // Cannot modify role, doctorId, uid, or security-sensitive fields.
       // Admins have full user-management access.
       allow update: if isAdmin()
         || (isSelf(userId)
-            && request.resource.data.role == resource.data.role
-            && request.resource.data.doctorId == resource.data.doctorId);
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'doctorId', 'uid']));
 
       allow delete: if isAdmin();
 
@@ -74,6 +77,149 @@ service cloud.firestore {
 
         // Keep message history immutable from the client except for admins.
         allow update, delete: if isAdmin();
+      }
+
+      match /notifications/{notificationId} {
+        // User can read, update (e.g. mark read), delete their own notifications.
+        // Signed-in users (e.g. doctor or patient) can create notifications.
+        allow read, update, delete: if isSelf(userId) || isAdmin();
+        allow create: if signedIn();
+      }
+    }
+
+    match /exerciseAssignments/{patientId} {
+      // Patient, assigned doctor, and admin can read.
+      allow read: if isSelf(patientId) || isAssignedDoctor(patientId) || isAdmin();
+
+      // Doctor or admin can assign exercises.
+      allow create: if isAssignedDoctor(patientId) || isAdmin();
+
+      // Doctor or admin can update assignment.
+      // Patient can update status, session progress, and completion/discard timestamps.
+      // Patient cannot reset status to assigned, create assignments, or modify doctor-assigned exercises.
+      allow update: if isAssignedDoctor(patientId) || isAdmin()
+        || (isSelf(patientId)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'status',
+              'sessionId',
+              'currentExerciseIndex',
+              'currentExercise',
+              'completedCorrectReps',
+              'totalCompletedReps',
+              'progressPercentage',
+              'exerciseProgress',
+              'lastUpdatedAt',
+              'completedAt',
+              'discardedAt',
+              'updatedAt'
+            ])
+            && request.resource.data.status in ['in_progress', 'completed', 'paused', 'cancelled', 'discarded', 'abandoned']
+            && resource.data.status != 'completed');
+
+      allow delete: if isAdmin();
+    }
+
+    match /assessmentSessions/{sessionId} {
+      // Patient, assigned doctor, or admin can read.
+      allow read: if signedIn() && (
+        resource.data.patientId == request.auth.uid ||
+        resource.data.doctorId == request.auth.uid ||
+        isAdmin()
+      );
+
+      // Patient, assigned doctor, or admin can create session document.
+      // Creator must be the patient or doctor recorded in the session document.
+      allow create: if signedIn() && (
+        request.resource.data.patientId == request.auth.uid ||
+        request.resource.data.doctorId == request.auth.uid ||
+        isAdmin()
+      );
+
+      // Patient, doctor, or admin can update session.
+      // Immutable ownership fields (patientId, sessionId) cannot be modified.
+      allow update: if signedIn() && (
+        (
+          (resource.data.patientId == request.auth.uid || resource.data.doctorId == request.auth.uid) &&
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['patientId', 'sessionId'])
+        ) ||
+        isAdmin()
+      );
+
+      allow delete: if isAdmin();
+    }
+
+    match /conversations/{conversationId} {
+      // Patient, doctor in this conversation, or admin can read.
+      allow read: if signedIn() && (
+        resource.data.patientId == request.auth.uid ||
+        resource.data.doctorId == request.auth.uid ||
+        request.auth.uid in conversationId.split('_') ||
+        isAdmin()
+      );
+
+      // Either the patient, the doctor in this thread, or admin can create the conversation document.
+      allow create: if signedIn() && (
+        (
+          (request.resource.data.patientId == request.auth.uid || request.resource.data.doctorId == request.auth.uid) &&
+          request.auth.uid in conversationId.split('_') &&
+          request.resource.data.patientId == conversationId.split('_')[0] &&
+          request.resource.data.doctorId == conversationId.split('_')[1]
+        ) ||
+        isAdmin()
+      );
+
+      // Participants or admin can update conversation metadata (last message, unread counts, etc.).
+      // Cannot modify ownership fields (patientId, doctorId).
+      allow update: if signedIn() && (
+        (
+          (resource.data.patientId == request.auth.uid || resource.data.doctorId == request.auth.uid) &&
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['patientId', 'doctorId'])
+        ) ||
+        isAdmin()
+      );
+
+      allow delete: if isAdmin();
+
+      match /messages/{messageId} {
+        // Only the patient or doctor in this thread, or admin can read messages.
+        // request.auth.uid in conversationId.split('_') allows subcollection queries
+        // without requiring composite indexes on (patientId, createdAt).
+        allow read: if signedIn() && (
+          request.auth.uid in conversationId.split('_') ||
+          resource.data.patientId == request.auth.uid ||
+          resource.data.doctorId == request.auth.uid ||
+          isAdmin()
+        );
+
+        // Sender must be authenticated user and must be either the patient or doctor participant.
+        // Sender cannot impersonate another user and must match the conversation identity.
+        allow create: if signedIn() && (
+          (
+            request.resource.data.senderId == request.auth.uid &&
+            (request.auth.uid == request.resource.data.patientId || request.auth.uid == request.resource.data.doctorId) &&
+            request.resource.data.conversationId == conversationId &&
+            request.auth.uid in conversationId.split('_') &&
+            request.resource.data.patientId == conversationId.split('_')[0] &&
+            request.resource.data.doctorId == conversationId.split('_')[1]
+          ) ||
+          isAdmin()
+        );
+
+        // Participants can update (e.g. mark read status) or admin.
+        // Cannot modify ownership or identity fields.
+        allow update: if isAdmin() || (
+          signedIn() &&
+          request.auth.uid in conversationId.split('_') &&
+          (resource.data.patientId == request.auth.uid || resource.data.doctorId == request.auth.uid) &&
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+            'patientId',
+            'doctorId',
+            'senderId',
+            'conversationId'
+          ])
+        );
+
+        allow delete: if isAdmin();
       }
     }
   }

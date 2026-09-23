@@ -32,6 +32,7 @@ class AssessmentHistoryService {
     required String exercise,
     required String sessionId,
     required Map<String, dynamic> rep,
+    String? sessionName,
     String? errorFrameUrl,
   }) async {
     final user = _auth.currentUser;
@@ -43,22 +44,35 @@ class AssessmentHistoryService {
     final now = Timestamp.now();
     String? uploadedErrorFrameUrl;
 
-    if (errorFrameUrl != null && errorFrameUrl.isNotEmpty) {
+    // Prefer the URL passed by the live screen. Also accept a URL embedded
+    // directly in the completed-rep payload.
+    final frameUrl = (errorFrameUrl != null && errorFrameUrl.trim().isNotEmpty)
+        ? errorFrameUrl.trim()
+        : (rep['error_frame_url']?.toString().trim() ??
+            rep['errorFrameUrl']?.toString().trim() ??
+            '');
+
+    if (frameUrl.isNotEmpty) {
       try {
         uploadedErrorFrameUrl = await _uploadErrorFrame(
           uid: uid,
           sessionId: sessionId,
           repNumber: _number(rep['rep_number'])?.toInt() ?? 0,
-          url: errorFrameUrl,
+          url: frameUrl,
         );
       } catch (e) {
         print('Error frame upload failed: $e');
       }
     }
 
+    final resolvedSessionName = (sessionName != null && sessionName.trim().isNotEmpty)
+        ? sessionName.trim()
+        : (rep['sessionName']?.toString().trim() ?? '');
+
     final data = <String, dynamic>{
       'exercise': exercise,
       'sessionId': sessionId,
+      'sessionName': resolvedSessionName,
       'form': rep['form']?.toString() ?? rep['label']?.toString() ?? 'Unknown',
       'repNumber': _number(rep['rep_number'])?.toInt(),
       'score': _number(rep['score']),
@@ -88,13 +102,23 @@ class AssessmentHistoryService {
     required int repNumber,
     required String url,
   }) async {
-    final response = await http.get(Uri.parse(url));
+    final response = await http
+        .get(Uri.parse(url))
+        .timeout(const Duration(seconds: 15));
+
     if (response.statusCode != 200) {
       throw Exception('Backend returned HTTP ${response.statusCode}.');
     }
 
     final Uint8List bytes = response.bodyBytes;
-    final safeRep = repNumber > 0 ? repNumber : DateTime.now().millisecondsSinceEpoch;
+    if (bytes.isEmpty) {
+      throw Exception('Backend returned an empty error-frame image.');
+    }
+
+    final safeRep = repNumber > 0
+        ? repNumber
+        : DateTime.now().millisecondsSinceEpoch;
+
     final ref = _storage.ref(
       'assessment_errors/$uid/$sessionId/rep_$safeRep.jpg',
     );
@@ -103,6 +127,7 @@ class AssessmentHistoryService {
       bytes,
       SettableMetadata(contentType: 'image/jpeg'),
     );
+
     return ref.getDownloadURL();
   }
 

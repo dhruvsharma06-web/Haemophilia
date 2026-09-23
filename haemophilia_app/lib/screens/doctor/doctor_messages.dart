@@ -1,8 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/user_model.dart';
 import '../../services/clinical_data_service.dart';
+import '../../services/notification_service.dart';
 
 class DoctorMessages extends StatefulWidget {
   final String patientId;
@@ -20,28 +22,71 @@ class DoctorMessages extends StatefulWidget {
 
 class _DoctorMessagesState extends State<DoctorMessages> {
   final TextEditingController _controller = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   final ClinicalDataService _service = ClinicalDataService();
   bool _sending = false;
+
+  String get _doctorId => FirebaseAuth.instance.currentUser?.uid ?? '';
+  String get _conversationId =>
+      _service.getConversationId(widget.patientId, _doctorId);
+
+  @override
+  void initState() {
+    super.initState();
+    _initConversation();
+  }
+
+  Future<void> _initConversation() async {
+    if (_doctorId.isEmpty) return;
+    // 1. Migrate any legacy unthreaded messages for this patient & doctor pair
+    await _service.migrateLegacyMessagesIfAny(widget.patientId, _doctorId);
+    // 2. Mark unread messages as read by doctor
+    await _service.markConversationAsRead(
+      conversationId: _conversationId,
+      userRole: 'doctor',
+    );
+  }
 
   @override
   void dispose() {
     _controller.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
   Future<void> _send() async {
     final text = _controller.text.trim();
-    if (text.isEmpty || _sending) return;
+    if (text.isEmpty || _sending || _doctorId.isEmpty) return;
 
     setState(() => _sending = true);
 
     try {
-      await _service.sendMessage(
+      final doctorUser = FirebaseAuth.instance.currentUser;
+      final doctorName = doctorUser?.displayName ?? 'Doctor';
+
+      await _service.sendThreadMessage(
         patientId: widget.patientId,
+        doctorId: _doctorId,
         text: text,
         senderRole: 'doctor',
+        patientName: widget.patient.name,
+        doctorName: doctorName,
       );
       _controller.clear();
+
+      final preview =
+          text.length > 60 ? '${text.substring(0, 57)}...' : text;
+      await NotificationService().sendNotification(
+        targetUserId: widget.patientId,
+        title: 'New message from $doctorName',
+        body: preview,
+        data: {
+          'type': 'new_message',
+          'patientId': widget.patientId,
+          'doctorId': _doctorId,
+          'conversationId': _conversationId,
+        },
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -66,16 +111,30 @@ class _DoctorMessagesState extends State<DoctorMessages> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          widget.patient.name,
-          style: const TextStyle(fontWeight: FontWeight.w800),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              widget.patient.name,
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+            ),
+            Text(
+              'Private Consultation Thread',
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.grey.shade600,
+                fontWeight: FontWeight.normal,
+              ),
+            ),
+          ],
         ),
       ),
       body: Column(
         children: [
           Expanded(
             child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-              stream: _service.watchPatientMessages(widget.patientId),
+              // Stream strictly this doctor's private conversation with this patient
+              stream: _service.watchConversationMessages(_conversationId),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
                   return Center(
@@ -95,17 +154,48 @@ class _DoctorMessagesState extends State<DoctorMessages> {
 
                 final docs = snapshot.data!.docs;
 
+                // Whenever new messages arrive while this screen is active, mark read
+                if (docs.isNotEmpty) {
+                  _service.markConversationAsRead(
+                    conversationId: _conversationId,
+                    userRole: 'doctor',
+                  );
+                }
+
                 if (docs.isEmpty) {
                   return Center(
-                    child: Text(
-                      'No conversation yet.\nSend the first message.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.grey.shade600),
+                    child: Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.forum_outlined,
+                            size: 48,
+                            color: Colors.grey.shade400,
+                          ),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'No conversation yet',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Messages here are private between you and ${widget.patient.name}.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.grey.shade600),
+                          ),
+                        ],
+                      ),
                     ),
                   );
                 }
 
                 return ListView.builder(
+                  controller: _scrollController,
                   padding: const EdgeInsets.all(16),
                   itemCount: docs.length,
                   itemBuilder: (context, index) {
@@ -170,8 +260,8 @@ class _DoctorMessagesState extends State<DoctorMessages> {
                       controller: _controller,
                       minLines: 1,
                       maxLines: 4,
-                      decoration: const InputDecoration(
-                        hintText: 'Write to your patient...',
+                      decoration: InputDecoration(
+                        hintText: 'Write to ${widget.patient.name}...',
                       ),
                     ),
                   ),

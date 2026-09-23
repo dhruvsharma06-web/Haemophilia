@@ -6,6 +6,7 @@ import '../../services/auth_service.dart';
 import '../../services/clinical_data_service.dart';
 import '../auth/login_screen.dart';
 import '../patient/patient_history.dart';
+import '../profile/edit_profile_screen.dart';
 import 'doctor_patient_detail.dart';
 
 class DoctorDashboard extends StatelessWidget {
@@ -27,94 +28,122 @@ class DoctorDashboard extends StatelessWidget {
   Widget build(BuildContext context) {
     final primary = Theme.of(context).colorScheme.primary;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          children: [
-            _BrandMark(color: primary, icon: Icons.medical_services_outlined),
-            const SizedBox(width: 10),
-            const Text(
-              'Clinician Portal',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            onPressed: () => _logout(context),
-            icon: const Icon(Icons.logout_rounded),
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: SafeArea(
-        child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-          stream: ClinicalDataService().watchAssignedPatients(),
-          builder: (context, snapshot) {
-            if (snapshot.hasError) {
-              return _ErrorState(message: snapshot.error.toString());
-            }
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .snapshots(),
+      builder: (context, userSnap) {
+        final userData = userSnap.data?.data();
+        final currentUser = userData != null
+            ? UserModel.fromMap(user.uid, userData)
+            : user;
 
-            if (snapshot.connectionState == ConnectionState.waiting &&
-                !snapshot.hasData) {
-              return const Center(child: CircularProgressIndicator());
-            }
-
-            final patients = snapshot.data?.docs ?? [];
-
-            return ListView(
-              padding: const EdgeInsets.fromLTRB(20, 10, 20, 32),
+        return Scaffold(
+          appBar: AppBar(
+            title: Row(
               children: [
-                _Hero(
-                  title: 'Welcome, Dr. ${user.name}',
-                  subtitle:
-                      'Review patient progress, movement quality and clinical feedback.',
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _Metric(
-                        'Patients',
-                        '${patients.length}',
-                        Icons.people_outline,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _Metric(
-                        'Assigned',
-                        '${patients.length}',
-                        Icons.assignment_ind_outlined,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 28),
+                _BrandMark(
+                    color: primary, icon: Icons.medical_services_outlined),
+                const SizedBox(width: 10),
                 const Text(
-                  'Your patients',
-                  style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800),
+                  'Clinician Portal',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'Open a patient to review sessions and errors.',
-                  style: TextStyle(color: Colors.grey.shade600),
-                ),
-                const SizedBox(height: 14),
-                if (patients.isEmpty)
-                  const _EmptyCard()
-                else
-                  ...patients.map(
-                    (doc) => Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: _PatientCard(doc: doc),
-                    ),
-                  ),
               ],
-            );
-          },
-        ),
-      ),
+            ),
+            actions: [
+              IconButton(
+                tooltip: 'Edit Profile',
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => EditProfileScreen(user: currentUser),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.person_outline_rounded),
+              ),
+              IconButton(
+                tooltip: 'Log out',
+                onPressed: () => _logout(context),
+                icon: const Icon(Icons.logout_rounded),
+              ),
+              const SizedBox(width: 8),
+            ],
+          ),
+          body: SafeArea(
+            child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: ClinicalDataService().watchAssignedPatients(),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return _ErrorState(message: snapshot.error.toString());
+                }
+
+                if (snapshot.connectionState == ConnectionState.waiting &&
+                    !snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                final patients = snapshot.data?.docs ?? [];
+
+                return ListView(
+                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 32),
+                  children: [
+                    _Hero(
+                      title: 'Welcome, Dr. ${currentUser.name}',
+                      subtitle:
+                          'Review patient progress, movement quality and clinical feedback.',
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _Metric(
+                            'Patients',
+                            '${patients.length}',
+                            Icons.people_outline,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _Metric(
+                            'Assigned',
+                            '${patients.length}',
+                            Icons.assignment_ind_outlined,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 28),
+                    const Text(
+                      'Your patients',
+                      style:
+                          TextStyle(fontSize: 21, fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Open a patient to review sessions and errors.',
+                      style: TextStyle(color: Colors.grey.shade600),
+                    ),
+                    const SizedBox(height: 14),
+                    if (patients.isEmpty)
+                      const _EmptyCard()
+                    else
+                      ...patients.map(
+                        (doc) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _PatientCard(doc: doc),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -129,77 +158,166 @@ class _PatientCard extends StatelessWidget {
     final data = doc.data();
     final primary = Theme.of(context).colorScheme.primary;
 
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: ClinicalDataService().watchPatientAssessments(doc.id),
-      builder: (context, snapshot) {
-        final assessments = snapshot.data?.docs ?? [];
-        final sessions = groupAssessmentSessions(assessments);
-        final latest = sessions.isEmpty ? null : sessions.first;
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance
+          .collection('exerciseAssignments')
+          .doc(doc.id)
+          .snapshots(),
+      builder: (context, assignmentSnap) {
+        final assignData = assignmentSnap.data?.data();
+        final assignStatus = assignData?['status']?.toString().toLowerCase();
+        final isPaused = assignStatus == 'paused';
+        final isInProgress = assignStatus == 'in_progress';
+        final sessionName = assignData?['sessionName']?.toString();
+        final progressPct =
+            (assignData?['progressPercentage'] as num?)?.toInt() ?? 0;
 
-        final patient = UserModel.fromMap(doc.id, data);
+        return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream: ClinicalDataService().watchPatientAssessments(doc.id),
+          builder: (context, snapshot) {
+            final assessments = snapshot.data?.docs ?? [];
+            final sessions = groupAssessmentSessions(assessments);
+            final latest = sessions.isEmpty ? null : sessions.first;
 
-        return Card(
-          child: InkWell(
-            borderRadius: BorderRadius.circular(20),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => DoctorPatientDetail(
-                    patientId: doc.id,
-                    patient: patient,
-                  ),
-                ),
-              );
-            },
-            child: Padding(
-              padding: const EdgeInsets.all(17),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 25,
-                    backgroundColor: primary.withValues(alpha: .10),
-                    child: Text(
-                      data['name']?.toString().isNotEmpty == true
-                          ? data['name'].toString()[0].toUpperCase()
-                          : 'P',
-                      style: TextStyle(
-                        color: primary,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 18,
+            final patient = UserModel.fromMap(doc.id, data);
+
+            return Card(
+              child: InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => DoctorPatientDetail(
+                        patientId: doc.id,
+                        patient: patient,
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 13),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          data['name']?.toString() ?? 'Patient',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 16,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          latest == null
-                              ? 'No assessments yet'
-                              : 'Latest session • ${latest.averageScore.toStringAsFixed(0)}/100',
+                  );
+                },
+                child: Padding(
+                  padding: const EdgeInsets.all(17),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 25,
+                        backgroundColor: primary.withValues(alpha: .10),
+                        child: Text(
+                          data['name']?.toString().isNotEmpty == true
+                              ? data['name'].toString()[0].toUpperCase()
+                              : 'P',
                           style: TextStyle(
-                            color: Colors.grey.shade600,
-                            fontSize: 12,
+                            color: primary,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 18,
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(width: 13),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    data['name']?.toString() ?? 'Patient',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ),
+                                if (isPaused)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 7, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.amber.shade100,
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                          color: Colors.amber.shade400),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.pause_circle_outline,
+                                            size: 11,
+                                            color: Colors.amber.shade900),
+                                        const SizedBox(width: 3),
+                                        Text(
+                                          'PAUSED ($progressPct%)',
+                                          style: TextStyle(
+                                            color: Colors.amber.shade900,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                else if (isInProgress)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 7, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.blue.shade100,
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                          color: Colors.blue.shade400),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.play_circle_outline,
+                                            size: 11,
+                                            color: Colors.blue.shade900),
+                                        const SizedBox(width: 3),
+                                        Text(
+                                          'IN PROGRESS ($progressPct%)',
+                                          style: TextStyle(
+                                            color: Colors.blue.shade900,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              isPaused
+                                  ? '${sessionName ?? "Session"} paused • $progressPct% complete'
+                                  : isInProgress
+                                      ? '${sessionName ?? "Session"} in progress • $progressPct%'
+                                      : latest == null
+                                          ? 'No assessments yet'
+                                          : 'Latest session • ${latest.averageScore.toStringAsFixed(0)}/100',
+                              style: TextStyle(
+                                color: isPaused
+                                    ? Colors.amber.shade800
+                                    : isInProgress
+                                        ? Colors.blue.shade800
+                                        : Colors.grey.shade600,
+                                fontSize: 12,
+                                fontWeight: (isPaused || isInProgress)
+                                    ? FontWeight.w600
+                                    : FontWeight.normal,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.chevron_right_rounded),
+                    ],
                   ),
-                  const Icon(Icons.chevron_right_rounded),
-                ],
+                ),
               ),
-            ),
-          ),
+            );
+          },
         );
       },
     );

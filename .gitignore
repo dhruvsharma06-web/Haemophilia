@@ -20,3 +20,8 @@ models/*.pth
 # OS
 .DS_Store
 Thumbs.db
+
+# Local tools / large files
+haemophilia_app/Antigravity IDE.exe
+haemophilia_app/Antigravity-x64.exe
+haemophilia_app/Smart_Spray_Circuit_Diagram_Components.pdf
