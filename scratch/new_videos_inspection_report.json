@@ -1,0 +1,874 @@
+[
+  {
+    "folder": "Correct",
+    "video": "20260910_144241.mp4",
+    "resolution": "3840x2160",
+    "fps": 60.02557146863934,
+    "effective_fps": 30.01278573431967,
+    "total_frames": 2435,
+    "duration_sec": 40.57,
+    "total_sampled_frames": 1216,
+    "low_vis_pct": 0.0,
+    "reps_detected": 15,
+    "reps_accepted": 9,
+    "reps_rejected": 6,
+    "rejection_reasons": [
+      "HIGH_DEBOUNCE_OVERLAP",
+      "HIGH_DEBOUNCE_OVERLAP",
+      "HIGH_DEBOUNCE_OVERLAP",
+      "HIGH_DEBOUNCE_OVERLAP",
+      "HIGH_DEBOUNCE_OVERLAP",
+      "HIGH_DEBOUNCE_OVERLAP"
+    ],
+    "ref_shoulder_width": 0.1553,
+    "accepted_reps_info": [
+      {
+        "rep_idx": 1,
+        "rom": 33.3,
+        "peak_angle": 96.1,
+        "duration": 4.46
+      },
+      {
+        "rep_idx": 2,
+        "rom": 34.3,
+        "peak_angle": 95.6,
+        "duration": 4.53
+      },
+      {
+        "rep_idx": 3,
+        "rom": 33.1,
+        "peak_angle": 96.8,
+        "duration": 4.83
+      },
+      {
+        "rep_idx": 4,
+        "rom": 35.9,
+        "peak_angle": 98.2,
+        "duration": 4.23
+      },
+      {
+        "rep_idx": 5,
+        "rom": 31.9,
+        "peak_angle": 98.4,
+        "duration": 4.26
+      },
+      {
+        "rep_idx": 6,
+        "rom": 35.6,
+        "peak_angle": 94.8,
+        "duration": 4.63
+      },
+      {
+        "rep_idx": 7,
+        "rom": 31.4,
+        "peak_angle": 98.3,
+        "duration": 4.46
+      },
+      {
+        "rep_idx": 8,
+        "rom": 33.6,
+        "peak_angle": 96.1,
+        "duration": 2.6
+      },
+      {
+        "rep_idx": 9,
+        "rom": 33.5,
+        "peak_angle": 92.4,
+        "duration": 2.4
+      }
+    ]
+  },
+  {
+    "folder": "Correct",
+    "video": "20260910_144325.mp4",
+    "resolution": "3840x2160",
+    "fps": 60.02557291910899,
+    "effective_fps": 30.012786459554494,
+    "total_frames": 2233,
+    "duration_sec": 37.2,
+    "total_sampled_frames": 1115,
+    "low_vis_pct": 0.0,
+    "reps_detected": 16,
+    "reps_accepted": 11,
+    "reps_rejected": 5,
+    "rejection_reasons": [
+      "HIGH_DEBOUNCE_OVERLAP",
+      "HIGH_DEBOUNCE_OVERLAP",
+      "HIGH_DEBOUNCE_OVERLAP",
+      "HIGH_DEBOUNCE_OVERLAP",
+      "HIGH_DEBOUNCE_OVERLAP"
+    ],
+    "ref_shoulder_width": 0.1562,
+    "accepted_reps_info": [
+      {
+        "rep_idx": 1,
+        "rom": 36.1,
+        "peak_angle": 96.0,
+        "duration": 1.9
+      },
+      {
+        "rep_idx": 2,
+        "rom": 33.5,
+        "peak_angle": 94.3,
+        "duration": 4.93
+      },
+      {
+        "rep_idx": 3,
+        "rom": 28.7,
+        "peak_angle": 98.2,
+        "duration": 3.9
+      },
+      {
+        "rep_idx": 4,
+        "rom": 29.4,
+        "peak_angle": 95.9,
+        "duration": 4.36
+      },
+      {
+        "rep_idx": 5,
+        "rom": 31.0,
+        "peak_angle": 94.2,
+        "duration": 2.8
+      },
+      {
+        "rep_idx": 6,
+        "rom": 29.2,
+        "peak_angle": 95.9,
+        "duration": 4.46
+      },
+      {
+        "rep_idx": 7,
+        "rom": 36.2,
+        "peak_angle": 94.5,
+        "duration": 1.97
+      },
+      {
+        "rep_idx": 8,
+        "rom": 29.8,
+        "peak_angle": 100.8,
+        "duration": 2.5
+      },
+      {
+        "rep_idx": 9,
+        "rom": 38.2,
+        "peak_angle": 90.8,
+        "duration": 4.56
+      },
+      {
+        "rep_idx": 10,
+        "rom": 34.6,
+        "peak_angle": 96.8,
+        "duration": 2.0
+      },
+      {
+        "rep_idx": 11,
+        "rom": 38.4,
+        "peak_angle": 93.0,
+        "duration": 2.5
+      }
+    ]
+  },
+  {
+    "folder": "Correct",
+    "video": "20260910_144405.mp4",
+    "resolution": "3840x2160",
+    "fps": 60.02557531156792,
+    "effective_fps": 30.01278765578396,
+    "total_frames": 2383,
+    "duration_sec": 39.7,
+    "total_sampled_frames": 1190,
+    "low_vis_pct": 0.0,
+    "reps_detected": 16,
+    "reps_accepted": 12,
+    "reps_rejected": 4,
+    "rejection_reasons": [
+      "HIGH_DEBOUNCE_OVERLAP",
+      "HIGH_DEBOUNCE_OVERLAP",
+      "HIGH_DEBOUNCE_OVERLAP",
+      "HIGH_DEBOUNCE_OVERLAP"
+    ],
+    "ref_shoulder_width": 0.152,
+    "accepted_reps_info": [
+      {
+        "rep_idx": 1,
+        "rom": 32.4,
+        "peak_angle": 97.6,
+        "duration": 2.33
+      },
+      {
+        "rep_idx": 2,
+        "rom": 31.2,
+        "peak_angle": 98.8,
+        "duration": 1.93
+      },
+      {
+        "rep_idx": 3,
+        "rom": 32.8,
+        "peak_angle": 93.1,
+        "duration": 5.1
+      },
+      {
+        "rep_idx": 4,
+        "rom": 38.3,
+        "peak_angle": 88.7,
+        "duration": 4.46
+      },
+      {
+        "rep_idx": 5,
+        "rom": 36.9,
+        "peak_angle": 96.1,
+        "duration": 4.26
+      },
+      {
+        "rep_idx": 6,
+        "rom": 35.7,
+        "peak_angle": 97.2,
+        "duration": 2.2
+      },
+      {
+        "rep_idx": 7,
+        "rom": 37.1,
+        "peak_angle": 91.2,
+        "duration": 2.37
+      },
+      {
+        "rep_idx": 8,
+        "rom": 34.2,
+        "peak_angle": 96.8,
+        "duration": 2.17
+      },
+      {
+        "rep_idx": 9,
+        "rom": 41.8,
+        "peak_angle": 90.8,
+        "duration": 2.43
+      },
+      {
+        "rep_idx": 10,
+        "rom": 31.9,
+        "peak_angle": 100.7,
+        "duration": 2.63
+      },
+      {
+        "rep_idx": 11,
+        "rom": 30.4,
+        "peak_angle": 97.2,
+        "duration": 4.56
+      },
+      {
+        "rep_idx": 12,
+        "rom": 26.0,
+        "peak_angle": 99.5,
+        "duration": 3.43
+      }
+    ]
+  },
+  {
+    "folder": "Correct",
+    "video": "20260910_144448.mp4",
+    "resolution": "3840x2160",
+    "fps": 60.025576286192084,
+    "effective_fps": 30.012788143096042,
+    "total_frames": 2034,
+    "duration_sec": 33.89,
+    "total_sampled_frames": 1016,
+    "low_vis_pct": 0.0,
+    "reps_detected": 14,
+    "reps_accepted": 10,
+    "reps_rejected": 4,
+    "rejection_reasons": [
+      "HIGH_DEBOUNCE_OVERLAP",
+      "HIGH_DEBOUNCE_OVERLAP",
+      "HIGH_DEBOUNCE_OVERLAP",
+      "HIGH_DEBOUNCE_OVERLAP"
+    ],
+    "ref_shoulder_width": 0.1528,
+    "accepted_reps_info": [
+      {
+        "rep_idx": 1,
+        "rom": 42.8,
+        "peak_angle": 90.0,
+        "duration": 2.83
+      },
+      {
+        "rep_idx": 2,
+        "rom": 33.4,
+        "peak_angle": 95.5,
+        "duration": 4.96
+      },
+      {
+        "rep_idx": 3,
+        "rom": 34.1,
+        "peak_angle": 91.7,
+        "duration": 2.83
+      },
+      {
+        "rep_idx": 4,
+        "rom": 31.7,
+        "peak_angle": 94.0,
+        "duration": 4.26
+      },
+      {
+        "rep_idx": 5,
+        "rom": 31.0,
+        "peak_angle": 95.5,
+        "duration": 1.93
+      },
+      {
+        "rep_idx": 6,
+        "rom": 22.5,
+        "peak_angle": 104.0,
+        "duration": 4.43
+      },
+      {
+        "rep_idx": 7,
+        "rom": 37.6,
+        "peak_angle": 92.3,
+        "duration": 2.1
+      },
+      {
+        "rep_idx": 8,
+        "rom": 36.8,
+        "peak_angle": 93.1,
+        "duration": 2.0
+      },
+      {
+        "rep_idx": 9,
+        "rom": 33.3,
+        "peak_angle": 100.9,
+        "duration": 4.7
+      },
+      {
+        "rep_idx": 10,
+        "rom": 43.5,
+        "peak_angle": 90.8,
+        "duration": 2.97
+      }
+    ]
+  },
+  {
+    "folder": "Correct",
+    "video": "20260910_150515.mp4",
+    "resolution": "3840x2160",
+    "fps": 60.025569715726945,
+    "effective_fps": 30.012784857863473,
+    "total_frames": 1360,
+    "duration_sec": 22.66,
+    "total_sampled_frames": 679,
+    "low_vis_pct": 0.0,
+    "reps_detected": 10,
+    "reps_accepted": 7,
+    "reps_rejected": 3,
+    "rejection_reasons": [
+      "HIGH_DEBOUNCE_OVERLAP",
+      "HIGH_DEBOUNCE_OVERLAP",
+      "HIGH_DEBOUNCE_OVERLAP"
+    ],
+    "ref_shoulder_width": 0.1206,
+    "accepted_reps_info": [
+      {
+        "rep_idx": 1,
+        "rom": 76.0,
+        "peak_angle": 72.9,
+        "duration": 4.0
+      },
+      {
+        "rep_idx": 2,
+        "rom": 74.1,
+        "peak_angle": 76.2,
+        "duration": 4.46
+      },
+      {
+        "rep_idx": 3,
+        "rom": 79.0,
+        "peak_angle": 73.6,
+        "duration": 1.9
+      },
+      {
+        "rep_idx": 4,
+        "rom": 45.5,
+        "peak_angle": 92.9,
+        "duration": 2.7
+      },
+      {
+        "rep_idx": 5,
+        "rom": 46.5,
+        "peak_angle": 90.1,
+        "duration": 2.63
+      },
+      {
+        "rep_idx": 6,
+        "rom": 38.3,
+        "peak_angle": 92.8,
+        "duration": 2.53
+      },
+      {
+        "rep_idx": 7,
+        "rom": 39.4,
+        "peak_angle": 98.8,
+        "duration": 4.0
+      }
+    ]
+  },
+  {
+    "folder": "Correct",
+    "video": "20260910_150539.mp4",
+    "resolution": "3840x2160",
+    "fps": 60.025546040236286,
+    "effective_fps": 30.012773020118143,
+    "total_frames": 1308,
+    "duration_sec": 21.79,
+    "total_sampled_frames": 653,
+    "low_vis_pct": 0.0,
+    "reps_detected": 10,
+    "reps_accepted": 6,
+    "reps_rejected": 4,
+    "rejection_reasons": [
+      "HIGH_DEBOUNCE_OVERLAP",
+      "HIGH_DEBOUNCE_OVERLAP",
+      "HIGH_DEBOUNCE_OVERLAP",
+      "HIGH_DEBOUNCE_OVERLAP"
+    ],
+    "ref_shoulder_width": 0.1185,
+    "accepted_reps_info": [
+      {
+        "rep_idx": 1,
+        "rom": 81.9,
+        "peak_angle": 67.6,
+        "duration": 3.9
+      },
+      {
+        "rep_idx": 2,
+        "rom": 74.8,
+        "peak_angle": 75.2,
+        "duration": 4.1
+      },
+      {
+        "rep_idx": 3,
+        "rom": 66.8,
+        "peak_angle": 83.2,
+        "duration": 2.2
+      },
+      {
+        "rep_idx": 4,
+        "rom": 41.5,
+        "peak_angle": 89.3,
+        "duration": 4.06
+      },
+      {
+        "rep_idx": 5,
+        "rom": 38.3,
+        "peak_angle": 91.9,
+        "duration": 2.37
+      },
+      {
+        "rep_idx": 6,
+        "rom": 52.4,
+        "peak_angle": 88.5,
+        "duration": 4.5
+      }
+    ]
+  },
+  {
+    "folder": "Correct",
+    "video": "20260910_150602.mp4",
+    "resolution": "3840x2160",
+    "fps": 60.02556569711377,
+    "effective_fps": 30.012782848556885,
+    "total_frames": 1487,
+    "duration_sec": 24.77,
+    "total_sampled_frames": 742,
+    "low_vis_pct": 0.0,
+    "reps_detected": 10,
+    "reps_accepted": 8,
+    "reps_rejected": 2,
+    "rejection_reasons": [
+      "HIGH_DEBOUNCE_OVERLAP",
+      "HIGH_DEBOUNCE_OVERLAP"
+    ],
+    "ref_shoulder_width": 0.119,
+    "accepted_reps_info": [
+      {
+        "rep_idx": 1,
+        "rom": 79.7,
+        "peak_angle": 66.7,
+        "duration": 2.17
+      },
+      {
+        "rep_idx": 2,
+        "rom": 73.4,
+        "peak_angle": 72.9,
+        "duration": 2.9
+      },
+      {
+        "rep_idx": 3,
+        "rom": 77.4,
+        "peak_angle": 70.2,
+        "duration": 2.53
+      },
+      {
+        "rep_idx": 4,
+        "rom": 74.7,
+        "peak_angle": 73.0,
+        "duration": 2.47
+      },
+      {
+        "rep_idx": 5,
+        "rom": 66.0,
+        "peak_angle": 83.0,
+        "duration": 2.27
+      },
+      {
+        "rep_idx": 6,
+        "rom": 55.1,
+        "peak_angle": 94.0,
+        "duration": 2.37
+      },
+      {
+        "rep_idx": 7,
+        "rom": 44.3,
+        "peak_angle": 88.1,
+        "duration": 4.73
+      },
+      {
+        "rep_idx": 8,
+        "rom": 43.1,
+        "peak_angle": 93.4,
+        "duration": 4.63
+      }
+    ]
+  },
+  {
+    "folder": "Incorrect",
+    "video": "20260910_144115.mp4",
+    "resolution": "3840x2160",
+    "fps": 59.968833605240796,
+    "effective_fps": 29.984416802620398,
+    "total_frames": 2114,
+    "duration_sec": 35.25,
+    "total_sampled_frames": 1057,
+    "low_vis_pct": 0.0,
+    "reps_detected": 16,
+    "reps_accepted": 7,
+    "reps_rejected": 9,
+    "rejection_reasons": [
+      "INSUFFICIENT_ROM",
+      "HIGH_DEBOUNCE_OVERLAP",
+      "HIGH_DEBOUNCE_OVERLAP",
+      "HIGH_DEBOUNCE_OVERLAP",
+      "INSUFFICIENT_ROM",
+      "INSUFFICIENT_ROM",
+      "HIGH_DEBOUNCE_OVERLAP",
+      "HIGH_DEBOUNCE_OVERLAP",
+      "HIGH_DEBOUNCE_OVERLAP"
+    ],
+    "ref_shoulder_width": 0.1557,
+    "accepted_reps_info": [
+      {
+        "rep_idx": 1,
+        "rom": 22.6,
+        "peak_angle": 111.2,
+        "duration": 2.97
+      },
+      {
+        "rep_idx": 2,
+        "rom": 44.4,
+        "peak_angle": 89.3,
+        "duration": 1.83
+      },
+      {
+        "rep_idx": 3,
+        "rom": 31.6,
+        "peak_angle": 100.3,
+        "duration": 4.5
+      },
+      {
+        "rep_idx": 4,
+        "rom": 31.3,
+        "peak_angle": 102.0,
+        "duration": 4.14
+      },
+      {
+        "rep_idx": 5,
+        "rom": 33.8,
+        "peak_angle": 99.2,
+        "duration": 4.34
+      },
+      {
+        "rep_idx": 6,
+        "rom": 24.9,
+        "peak_angle": 104.4,
+        "duration": 4.94
+      },
+      {
+        "rep_idx": 7,
+        "rom": 27.6,
+        "peak_angle": 106.5,
+        "duration": 1.87
+      }
+    ]
+  },
+  {
+    "folder": "Incorrect",
+    "video": "20260910_144154.mp4",
+    "resolution": "3840x2160",
+    "fps": 60.025573861598154,
+    "effective_fps": 30.012786930799077,
+    "total_frames": 2549,
+    "duration_sec": 42.47,
+    "total_sampled_frames": 1273,
+    "low_vis_pct": 0.0,
+    "reps_detected": 15,
+    "reps_accepted": 11,
+    "reps_rejected": 4,
+    "rejection_reasons": [
+      "INSUFFICIENT_ROM",
+      "HIGH_DEBOUNCE_OVERLAP",
+      "HIGH_DEBOUNCE_OVERLAP",
+      "HIGH_DEBOUNCE_OVERLAP"
+    ],
+    "ref_shoulder_width": 0.1542,
+    "accepted_reps_info": [
+      {
+        "rep_idx": 1,
+        "rom": 38.5,
+        "peak_angle": 100.4,
+        "duration": 3.8
+      },
+      {
+        "rep_idx": 2,
+        "rom": 65.8,
+        "peak_angle": 73.0,
+        "duration": 2.67
+      },
+      {
+        "rep_idx": 3,
+        "rom": 26.4,
+        "peak_angle": 104.7,
+        "duration": 2.5
+      },
+      {
+        "rep_idx": 4,
+        "rom": 68.4,
+        "peak_angle": 60.3,
+        "duration": 2.4
+      },
+      {
+        "rep_idx": 5,
+        "rom": 24.4,
+        "peak_angle": 105.0,
+        "duration": 2.5
+      },
+      {
+        "rep_idx": 6,
+        "rom": 73.1,
+        "peak_angle": 58.0,
+        "duration": 2.47
+      },
+      {
+        "rep_idx": 7,
+        "rom": 25.5,
+        "peak_angle": 105.5,
+        "duration": 2.3
+      },
+      {
+        "rep_idx": 8,
+        "rom": 65.9,
+        "peak_angle": 66.7,
+        "duration": 4.6
+      },
+      {
+        "rep_idx": 9,
+        "rom": 72.2,
+        "peak_angle": 60.4,
+        "duration": 4.7
+      },
+      {
+        "rep_idx": 10,
+        "rom": 50.9,
+        "peak_angle": 80.3,
+        "duration": 4.43
+      },
+      {
+        "rep_idx": 11,
+        "rom": 45.3,
+        "peak_angle": 80.9,
+        "duration": 1.9
+      }
+    ]
+  },
+  {
+    "folder": "Incorrect",
+    "video": "20260910_150357.mp4",
+    "resolution": "3840x2160",
+    "fps": 60.02557269248603,
+    "effective_fps": 30.012786346243015,
+    "total_frames": 2136,
+    "duration_sec": 35.58,
+    "total_sampled_frames": 1066,
+    "low_vis_pct": 0.0,
+    "reps_detected": 26,
+    "reps_accepted": 12,
+    "reps_rejected": 14,
+    "rejection_reasons": [
+      "HIGH_DEBOUNCE_OVERLAP",
+      "HIGH_DEBOUNCE_OVERLAP",
+      "HIGH_DEBOUNCE_OVERLAP",
+      "HIGH_DEBOUNCE_OVERLAP",
+      "HIGH_DEBOUNCE_OVERLAP",
+      "HIGH_DEBOUNCE_OVERLAP",
+      "INSUFFICIENT_ROM",
+      "HIGH_DEBOUNCE_OVERLAP",
+      "HIGH_DEBOUNCE_OVERLAP",
+      "HIGH_DEBOUNCE_OVERLAP",
+      "HIGH_DEBOUNCE_OVERLAP",
+      "HIGH_DEBOUNCE_OVERLAP",
+      "HIGH_DEBOUNCE_OVERLAP",
+      "HIGH_DEBOUNCE_OVERLAP"
+    ],
+    "ref_shoulder_width": 0.1151,
+    "accepted_reps_info": [
+      {
+        "rep_idx": 1,
+        "rom": 53.3,
+        "peak_angle": 92.7,
+        "duration": 2.33
+      },
+      {
+        "rep_idx": 2,
+        "rom": 48.1,
+        "peak_angle": 98.0,
+        "duration": 3.3
+      },
+      {
+        "rep_idx": 3,
+        "rom": 61.0,
+        "peak_angle": 81.7,
+        "duration": 3.37
+      },
+      {
+        "rep_idx": 4,
+        "rom": 40.9,
+        "peak_angle": 101.8,
+        "duration": 3.4
+      },
+      {
+        "rep_idx": 5,
+        "rom": 20.2,
+        "peak_angle": 124.5,
+        "duration": 2.93
+      },
+      {
+        "rep_idx": 6,
+        "rom": 49.0,
+        "peak_angle": 95.7,
+        "duration": 2.67
+      },
+      {
+        "rep_idx": 7,
+        "rom": 86.2,
+        "peak_angle": 62.3,
+        "duration": 5.0
+      },
+      {
+        "rep_idx": 8,
+        "rom": 50.0,
+        "peak_angle": 98.5,
+        "duration": 2.3
+      },
+      {
+        "rep_idx": 9,
+        "rom": 40.8,
+        "peak_angle": 106.4,
+        "duration": 2.27
+      },
+      {
+        "rep_idx": 10,
+        "rom": 42.1,
+        "peak_angle": 104.3,
+        "duration": 2.57
+      },
+      {
+        "rep_idx": 11,
+        "rom": 43.7,
+        "peak_angle": 104.0,
+        "duration": 2.37
+      },
+      {
+        "rep_idx": 12,
+        "rom": 43.3,
+        "peak_angle": 105.3,
+        "duration": 2.33
+      }
+    ]
+  },
+  {
+    "folder": "Incorrect",
+    "video": "20260910_150438.mp4",
+    "resolution": "3840x2160",
+    "fps": 60.02555802608314,
+    "effective_fps": 30.01277901304157,
+    "total_frames": 1453,
+    "duration_sec": 24.21,
+    "total_sampled_frames": 725,
+    "low_vis_pct": 0.0,
+    "reps_detected": 10,
+    "reps_accepted": 8,
+    "reps_rejected": 2,
+    "rejection_reasons": [
+      "HIGH_DEBOUNCE_OVERLAP",
+      "HIGH_DEBOUNCE_OVERLAP"
+    ],
+    "ref_shoulder_width": 0.1121,
+    "accepted_reps_info": [
+      {
+        "rep_idx": 1,
+        "rom": 49.8,
+        "peak_angle": 100.4,
+        "duration": 1.6
+      },
+      {
+        "rep_idx": 2,
+        "rom": 74.1,
+        "peak_angle": 76.1,
+        "duration": 2.4
+      },
+      {
+        "rep_idx": 3,
+        "rom": 65.8,
+        "peak_angle": 78.8,
+        "duration": 2.5
+      },
+      {
+        "rep_idx": 4,
+        "rom": 56.0,
+        "peak_angle": 79.7,
+        "duration": 2.97
+      },
+      {
+        "rep_idx": 5,
+        "rom": 54.7,
+        "peak_angle": 85.0,
+        "duration": 4.2
+      },
+      {
+        "rep_idx": 6,
+        "rom": 31.0,
+        "peak_angle": 108.6,
+        "duration": 2.2
+      },
+      {
+        "rep_idx": 7,
+        "rom": 25.9,
+        "peak_angle": 109.4,
+        "duration": 4.36
+      },
+      {
+        "rep_idx": 8,
+        "rom": 34.2,
+        "peak_angle": 109.1,
+        "duration": 2.57
+      }
+    ]
+  }
+]

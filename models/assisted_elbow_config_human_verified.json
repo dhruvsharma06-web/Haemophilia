@@ -1,0 +1,158 @@
+{
+  "exercise": "Assisted Elbow Flexion",
+  "model_variant": "assisted_elbow_lstm_human_verified",
+  "model_architecture": {
+    "model_type": "ExerciseLSTM",
+    "input_size": 8,
+    "hidden_size": 64,
+    "num_layers": 2,
+    "num_classes": 2,
+    "dropout": 0.3,
+    "sequence_length": 128
+  },
+  "feature_specification": {
+    "feature_names": [
+      "active_elbow_angle",
+      "assisting_elbow_angle",
+      "active_elbow_velocity",
+      "assisting_elbow_velocity",
+      "torso_tilt",
+      "torso_rotation",
+      "active_elbow_flare",
+      "assisting_elbow_flare"
+    ],
+    "num_features": 8,
+    "canonical_semantics": "Feature 0 is active arm angle, Feature 1 is assisting arm angle; Feature 6 is active elbow flare, Feature 7 is assisting elbow flare; ensures arm-invariance across left/right/both exercises."
+  },
+  "normalization_constants": {
+    "angle_divisor": 180.0,
+    "velocity_divisor": 8.0,
+    "tilt_divisor": 3.0,
+    "clip_velocity": 1.5,
+    "clip_flare": 1.5,
+    "clip_rotation": 1.5
+  },
+  "repetition_detection_thresholds": {
+    "start_extend_threshold": 120.0,
+    "flexion_threshold": 110.0,
+    "min_rom": 20.0,
+    "min_duration_sec": 0.8,
+    "max_duration_sec": 8.0,
+    "debounce_sec": 0.3,
+    "max_lookback_sec": 3.5,
+    "max_lookforward_sec": 3.5,
+    "prominence_ratio": 0.5,
+    "min_visibility": 0.35,
+    "fps": 30.0
+  },
+  "dataset_metadata": {
+    "total_human_verified_samples": 150,
+    "class_counts": {
+      "correct": 91,
+      "incorrect": 59,
+      "excluded_ambiguous": 3
+    },
+    "clean_dataset_file": "data/clean_elbow_train.csv",
+    "excluded_videos": [
+      "20260825_121230.mp4",
+      "20260825_135917.mp4",
+      "VID20260825125415.mp4",
+      "VID20260825125816.mp4"
+    ]
+  },
+  "training_environment": {
+    "os": "Windows",
+    "python_version": "3.10.11",
+    "framework": "PyTorch",
+    "device": "CUDA / GPU"
+  },
+  "training_metadata": {
+    "random_seed": 42,
+    "epochs": 50,
+    "batch_size": 8,
+    "learning_rate": 0.001,
+    "train_subjects": [
+      "person1",
+      "person2"
+    ],
+    "internal_val_videos": [
+      "20260825_135545",
+      "20260825_135701"
+    ],
+    "held_out_final_test_subject": "person3",
+    "best_epoch": 48,
+    "best_val_loss": 1.1089,
+    "best_val_acc": 56.0,
+    "best_val_f1": 47.62,
+    "best_train_loss": 0.4872,
+    "best_train_acc": 65.56,
+    "best_train_f1": 65.45,
+    "train_counts": {
+      "total": 90,
+      "correct": 57,
+      "incorrect": 33
+    },
+    "val_counts": {
+      "total": 25,
+      "correct": 14,
+      "incorrect": 11
+    }
+  },
+  "evaluation_results": {
+    "person3_untouched_final_test": {
+      "samples": 35,
+      "class_distribution": {
+        "correct": 20,
+        "incorrect": 15
+      },
+      "accuracy": 62.86,
+      "balanced_accuracy": 65.83,
+      "macro_f1": 62.37,
+      "precision_incorrect": 54.17,
+      "recall_incorrect": 86.67,
+      "recall_correct": 45.00,
+      "confusion_matrix": [
+        [9, 11],
+        [2, 13]
+      ]
+    },
+    "true_loso_cross_validation_benchmark": {
+      "human_verified_lstm": {
+        "aggregate_accuracy": 61.33,
+        "balanced_accuracy": 58.30,
+        "macro_f1": 58.37,
+        "correct_recall": 72.53,
+        "incorrect_recall": 44.07,
+        "confusion_matrix": [
+          [66, 25],
+          [33, 26]
+        ]
+      },
+      "deterministic_biomechanical_rules": {
+        "aggregate_accuracy": 78.67,
+        "balanced_accuracy": 79.14,
+        "macro_f1": 78.20,
+        "correct_recall": 76.92,
+        "incorrect_recall": 81.36,
+        "confusion_matrix": [
+          [70, 21],
+          [11, 48]
+        ]
+      },
+      "logistic_regression": {
+        "aggregate_accuracy": 64.67,
+        "balanced_accuracy": 65.81,
+        "macro_f1": 64.40,
+        "correct_recall": 60.44,
+        "incorrect_recall": 71.19
+      },
+      "random_forest": {
+        "aggregate_accuracy": 58.00,
+        "balanced_accuracy": 62.40,
+        "macro_f1": 57.77,
+        "correct_recall": 41.76,
+        "incorrect_recall": 83.05
+      }
+    }
+  }
+}

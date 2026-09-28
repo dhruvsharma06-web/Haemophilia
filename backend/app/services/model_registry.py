@@ -13,6 +13,91 @@ class ModelRegistry:
         self._shoulder_rotation_model = None
         self._shoulder_rotation_device = None
 
+        self._assisted_elbow_model_experimental = None
+        self._assisted_elbow_device_experimental = None
+
+        self._assisted_elbow_model_human_verified = None
+        self._assisted_elbow_device_human_verified = None
+
+    def get_assisted_elbow_flexion_experimental(self):
+        """Return the shared experimental assisted elbow flexion LSTM model."""
+        if self._assisted_elbow_model_experimental is None:
+            model_path = (
+                Path(__file__).resolve().parents[3]
+                / "models"
+                / "assisted_elbow_lstm.pth"
+            )
+
+            if not model_path.exists():
+                raise FileNotFoundError(
+                    f"Assisted elbow flexion experimental model not found: {model_path}"
+                )
+
+            from src.exercises.assisted_elbow_flexion import (
+                load_model as load_elbow_model,
+            )
+
+            (
+                self._assisted_elbow_model_experimental,
+                self._assisted_elbow_device_experimental,
+            ) = load_elbow_model(model_path)
+
+        return (
+            self._assisted_elbow_model_experimental,
+            self._assisted_elbow_device_experimental,
+        )
+
+    def get_assisted_elbow_flexion_human_verified(self):
+        """Return the shared human-verified assisted elbow flexion LSTM model."""
+        if self._assisted_elbow_model_human_verified is None:
+            model_path = (
+                Path(__file__).resolve().parents[3]
+                / "models"
+                / "assisted_elbow_lstm_human_verified.pth"
+            )
+
+            if not model_path.exists():
+                raise FileNotFoundError(
+                    f"Assisted elbow flexion human-verified model not found: {model_path}"
+                )
+
+            from src.exercises.assisted_elbow_flexion import (
+                load_model as load_elbow_model,
+            )
+
+            (
+                self._assisted_elbow_model_human_verified,
+                self._assisted_elbow_device_human_verified,
+            ) = load_elbow_model(model_path)
+
+        return (
+            self._assisted_elbow_model_human_verified,
+            self._assisted_elbow_device_human_verified,
+        )
+
+    def get_assisted_elbow_flexion(self, variant: str = "human_verified"):
+        """Return the assisted elbow flexion LSTM model for the requested variant.
+        
+        Options:
+        - 'human_verified' (default, authoritative trained weights)
+        - 'experimental' (earlier research checkpoint)
+        """
+        if variant == "experimental":
+            return self.get_assisted_elbow_flexion_experimental()
+        return self.get_assisted_elbow_flexion_human_verified()
+
+    def get_model(self, model_name: str):
+        """Return model and device by explicit registry name."""
+        registry_map = {
+            "assisted_elbow_lstm_human_verified": self.get_assisted_elbow_flexion_human_verified,
+            "assisted_elbow_lstm_experimental": self.get_assisted_elbow_flexion_experimental,
+            "assisted_shoulder_flexion": self.get_assisted_flexion,
+            "shoulder_rotation": self.get_shoulder_rotation,
+        }
+        if model_name in registry_map:
+            return registry_map[model_name]()
+        raise KeyError(f"Model '{model_name}' not recognized in ModelRegistry. Valid options: {list(registry_map.keys())}")
+
     def get_assisted_flexion(self):
         """Return the shared assisted shoulder flexion LSTM model."""
         if self._assisted_flexion_model is None:
