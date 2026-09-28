@@ -12,6 +12,7 @@ demo_videos/
 
 # Model checkpoints
 models/*.pth
+!models/assisted_elbow_*.pth
 
 # Python / IDE
 .vscode/
