@@ -89,15 +89,23 @@ service cloud.firestore {
 
     match /exerciseAssignments/{patientId} {
       // Patient, assigned doctor, and admin can read.
-      allow read: if isSelf(patientId) || isAssignedDoctor(patientId) || isAdmin();
+      // Doctor can also query assignments where doctorId == request.auth.uid.
+      allow read: if isSelf(patientId)
+        || isAssignedDoctor(patientId)
+        || (signedIn() && resource.data.doctorId == request.auth.uid)
+        || isAdmin();
 
       // Doctor or admin can assign exercises.
-      allow create: if isAssignedDoctor(patientId) || isAdmin();
+      allow create: if isAssignedDoctor(patientId)
+        || (isDoctor() && request.resource.data.doctorId == request.auth.uid)
+        || isAdmin();
 
       // Doctor or admin can update assignment.
       // Patient can update status, session progress, and completion/discard timestamps.
       // Patient cannot reset status to assigned, create assignments, or modify doctor-assigned exercises.
-      allow update: if isAssignedDoctor(patientId) || isAdmin()
+      allow update: if isAssignedDoctor(patientId)
+        || (isDoctor() && resource.data.doctorId == request.auth.uid)
+        || isAdmin()
         || (isSelf(patientId)
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
               'status',

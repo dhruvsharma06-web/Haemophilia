@@ -1,19 +1,97 @@
-"""Temporal features for elbow repetitions, including range of motion."""
-
-from typing import Dict, Sequence, Tuple
-
 import numpy as np
 
-
-INPUT_SIZE = 6
+INPUT_SIZE = 8
 SHOULDER = 12
 ELBOW = 14
 WRIST = 16
-VELOCITY_WINDOW = 5
 
 
-def elbow_angle(landmarks: Dict[str, float]) -> float:
-    """Compute a camera-robust joint angle from relative 3D vectors."""
+def resample(seq, target_len=128):
+    idx = np.linspace(0, len(seq) - 1, target_len).astype(int)
+    return seq[idx]
+
+
+def build_features(rows, fps=30.0, angle_series=None):
+    if angle_series is None:
+        angle_series = np.array([elbow_angle(row) for row in rows], dtype=np.float32)
+    else:
+        angle_series = np.array(angle_series, dtype=np.float32)
+
+    if len(angle_series) < 5:
+        return np.zeros((128, INPUT_SIZE), dtype=np.float32), angle_series
+
+    # -------------------------
+    # 🔥 RAW SIGNAL
+    # -------------------------
+    raw_angle = angle_series.copy()
+
+    # -------------------------
+    # 🔥 NORMALIZED SHAPE
+    # -------------------------
+    min_a = np.min(angle_series)
+    max_a = np.max(angle_series)
+    norm_angle = (angle_series - min_a) / (max_a - min_a + 1e-6)
+
+    # -------------------------
+    # 🔥 DERIVATIVES
+    # -------------------------
+    vel = np.diff(raw_angle, prepend=raw_angle[0])
+    acc = np.diff(vel, prepend=vel[0])
+
+    # -------------------------
+    # 🔥 SHAPE FEATURES (VERY IMPORTANT)
+    # -------------------------
+    peak = np.max(raw_angle)
+    valley = np.min(raw_angle)
+
+    range_motion = peak - valley
+    duration = len(raw_angle) / max(fps, 1.0)
+
+    # 🔥 symmetry (correct reps are smoother)
+    half = len(raw_angle) // 2
+    first = raw_angle[:half]
+    second = raw_angle[-half:][::-1]
+
+    if len(first) == len(second) and len(first) > 0:
+        symmetry = np.mean(np.abs(first - second))
+    else:
+        symmetry = 0.0
+
+    # -------------------------
+    # 🔥 RESAMPLE
+    # -------------------------
+    raw_angle = resample(raw_angle)
+    norm_angle = resample(norm_angle)
+    vel = resample(vel)
+    acc = resample(acc)
+
+    # -------------------------
+    # 🔥 GLOBAL FEATURES (broadcast)
+    # -------------------------
+    range_norm = np.full(128, range_motion / 100)
+    duration_norm = np.full(128, duration / 5)
+    symmetry_norm = np.full(128, symmetry / 50)
+    peak_norm = np.full(128, peak / 180)
+
+    # -------------------------
+    # 🔥 FINAL FEATURES (8 STRONG SIGNALS)
+    # -------------------------
+    features = np.column_stack([
+        raw_angle / 180,     # 🔥 absolute info
+        norm_angle,          # shape
+        vel / 50,            # motion speed
+        acc / 50,            # smoothness
+        range_norm,          # full ROM
+        duration_norm,       # control
+        symmetry_norm,       # smooth rep
+        peak_norm            # extension quality
+    ])
+
+    return features.astype(np.float32), angle_series
+
+
+def elbow_angle(landmarks) -> float:
+    """Compute joint angle from relative 3D vectors."""
     shoulder = _point(landmarks, SHOULDER)
     elbow = _point(landmarks, ELBOW)
     wrist = _point(landmarks, WRIST)
@@ -26,44 +104,7 @@ def elbow_angle(landmarks: Dict[str, float]) -> float:
     return float(np.degrees(np.arccos(cosine)))
 
 
-def build_features(
-    landmark_rows: Sequence[Dict[str, float]],
-    fps: float = 30.0,
-    angle_series: np.ndarray | None = None,
-) -> Tuple[np.ndarray, np.ndarray]:
-    """Build the fixed six-feature contract for a frame sequence."""
-    if not landmark_rows:
-        return np.empty((0, INPUT_SIZE), dtype=np.float32), np.empty(0, dtype=np.float32)
-    angles = np.asarray(
-        angle_series if angle_series is not None else [elbow_angle(row) for row in landmark_rows],
-        dtype=np.float32,
-    )
-    angles = smooth_angles(angles, window=5)
-    velocity = np.zeros_like(angles)
-    if len(angles) > 1:
-        velocity[1:] = angles[1:] - angles[:-1]
-    velocity = np.clip(velocity / 50.0, -1.0, 1.0)
-    smoothness = np.clip(np.abs(np.diff(angles, prepend=angles[0])) / 50.0, 0.0, 1.0)
-    normalized_angle = angles / 180.0
-    radians = np.radians(angles)
-    rom = (np.max(angles) - np.min(angles)) / 180.0
-    rom_feature = np.full_like(angles, rom)
-    features = np.stack(
-        (
-            normalized_angle,
-            velocity,
-            smoothness,
-            np.sin(radians),
-            np.cos(radians),
-            rom_feature,
-        ),
-        axis=1,
-    )
-    return features.astype(np.float32), angles
-
-
 def smooth_angles(angles: np.ndarray, window: int = 5) -> np.ndarray:
-    """Apply a centered moving average without changing sequence length."""
     angles = np.asarray(angles, dtype=np.float32)
     if len(angles) < 2 or window <= 1:
         return angles
@@ -76,7 +117,6 @@ def smooth_angles(angles: np.ndarray, window: int = 5) -> np.ndarray:
 
 
 def filter_angle_outliers(angles: np.ndarray, max_jump: float = 30.0) -> np.ndarray:
-    """Replace isolated angle spikes with the local median."""
     angles = np.asarray(angles, dtype=np.float32).copy()
     if len(angles) < 3:
         return angles
@@ -86,8 +126,10 @@ def filter_angle_outliers(angles: np.ndarray, max_jump: float = 30.0) -> np.ndar
     return angles
 
 
-def _point(row: Dict[str, float], index: int) -> np.ndarray:
-    return np.asarray(
-        [row.get(f"landmark_{index}_{axis}", 0.0) for axis in ("x", "y", "z")],
-        dtype=np.float32,
-    )
+def _point(row, index: int) -> np.ndarray:
+    if isinstance(row, dict):
+        return np.asarray(
+            [row.get(f"landmark_{index}_{axis}", 0.0) for axis in ("x", "y", "z")],
+            dtype=np.float32,
+        )
+    return np.zeros(3, dtype=np.float32)

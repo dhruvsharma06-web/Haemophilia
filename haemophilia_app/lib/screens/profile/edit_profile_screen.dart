@@ -69,7 +69,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
       final updated = await AuthService().updateProfile(
         uid: widget.user.uid,
-        name: _nameController.text.trim(),
+        name: formatFullName(_nameController.text),
         age: ageVal,
         gender: _selectedGender,
         phoneNumber: phoneText.isNotEmpty ? phoneText : null,

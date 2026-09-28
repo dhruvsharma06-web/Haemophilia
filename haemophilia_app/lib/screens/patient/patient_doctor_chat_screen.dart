@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../models/user_model.dart';
 import '../../services/clinical_data_service.dart';
 import '../../services/notification_service.dart';
+import 'patient_history.dart';
 
 class PatientDoctorChatScreen extends StatefulWidget {
   final UserModel patient;
@@ -230,6 +231,17 @@ class _PatientDoctorChatScreenState extends State<PatientDoctorChatScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            if (d['sessionContext'] != null)
+                              _SessionReferenceCard(
+                                sessionContext: Map<String, dynamic>.from(
+                                    d['sessionContext'] as Map),
+                                onTap: () => _openSessionFromContext(
+                                  context,
+                                  widget.patient.uid,
+                                  Map<String, dynamic>.from(
+                                      d['sessionContext'] as Map),
+                                ),
+                              ),
                             Text(
                               d['text']?.toString() ?? '',
                               style: const TextStyle(
@@ -291,4 +303,174 @@ class _PatientDoctorChatScreenState extends State<PatientDoctorChatScreen> {
       ),
     );
   }
+}
+
+class _SessionReferenceCard extends StatelessWidget {
+  final Map<String, dynamic> sessionContext;
+  final VoidCallback? onTap;
+
+  const _SessionReferenceCard({
+    required this.sessionContext,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final exercise = sessionContext['sessionName']?.toString() ??
+        sessionContext['exercise']?.toString() ??
+        'Physiotherapy Session';
+    final score = (sessionContext['score'] as num?)?.toDouble() ?? 0.0;
+    final reps = (sessionContext['reps'] as num?)?.toInt() ?? 0;
+    final correctReps = (sessionContext['correctReps'] as num?)?.toInt() ?? 0;
+    final dateStr = sessionContext['date']?.toString();
+    DateTime? dt;
+    if (dateStr != null) {
+      dt = DateTime.tryParse(dateStr)?.toLocal();
+    }
+
+    final scoreColor = score >= 80
+        ? const Color(0xFF2E7D32)
+        : (score >= 50 ? const Color(0xFFE65100) : const Color(0xFFC62828));
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFCBD5E1)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(
+                  Icons.fitness_center_rounded,
+                  size: 15,
+                  color: Color(0xFF1E293B),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    exercise,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF1E293B),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: scoreColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    '${score.toStringAsFixed(0)}/100',
+                    style: TextStyle(
+                      color: scoreColor,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 5),
+            Row(
+              children: [
+                Text(
+                  '$correctReps/$reps correct reps',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF64748B),
+                  ),
+                ),
+                if (dt != null) ...[
+                  const Text(' • ',
+                      style: TextStyle(color: Color(0xFF94A3B8))),
+                  Text(
+                    '${dt.day}/${dt.month}/${dt.year}',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF64748B),
+                    ),
+                  ),
+                ],
+                const Spacer(),
+                const Text(
+                  'View Session ›',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF2563EB),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+void _openSessionFromContext(
+  BuildContext context,
+  String patientId,
+  Map<String, dynamic> sessionContext,
+) {
+  final sessionId = sessionContext['sessionId']?.toString() ?? '';
+  FirebaseFirestore.instance
+      .collection('users')
+      .doc(patientId)
+      .collection('assessments')
+      .where('sessionId', isEqualTo: sessionId)
+      .get()
+      .then((snap) {
+    if (!context.mounted) return;
+    if (snap.docs.isNotEmpty) {
+      final sessions = groupAssessmentSessions(snap.docs);
+      if (sessions.isNotEmpty) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => SessionDetails(session: sessions.first),
+          ),
+        );
+        return;
+      }
+    }
+
+    final dateStr = sessionContext['date']?.toString();
+    final dt = dateStr != null
+        ? DateTime.tryParse(dateStr) ?? DateTime.now()
+        : DateTime.now();
+    final score = (sessionContext['score'] as num?)?.toDouble() ?? 0.0;
+    final fallbackSession = AssessmentSession(
+      id: sessionId,
+      exercise: sessionContext['exercise']?.toString() ?? '',
+      sessionName: sessionContext['sessionName']?.toString() ?? 'Session',
+      date: dt,
+      repsData: [
+        {'score': score, 'form': 'Correct', 'repNumber': 1}
+      ],
+    );
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SessionDetails(session: fallbackSession),
+      ),
+    );
+  }).catchError((e) {
+    debugPrint('Could not load session details: $e');
+  });
 }

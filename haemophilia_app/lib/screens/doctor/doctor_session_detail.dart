@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/user_model.dart';
 import '../patient/patient_history.dart';
 import '../../utils/exercise_utils.dart';
+import 'doctor_messages.dart';
 
 class DoctorSessionDetail extends StatelessWidget {
   final String patientId;
@@ -84,7 +85,7 @@ class DoctorSessionDetail extends StatelessWidget {
           if (isWorkInProgressExercise(session.exercise)) ...[
             const SizedBox(height: 4),
             Text(
-              '${getExerciseDisplayName(session.exercise)} • Work in progress exercise',
+              '${getExerciseDisplayName(session.exercise)} • In progress',
               style: TextStyle(
                 color: Colors.amber.shade900,
                 fontSize: 12,
@@ -135,7 +136,26 @@ class DoctorSessionDetail extends StatelessWidget {
             ],
           ),
 
-          const SizedBox(height: 26),
+          const SizedBox(height: 18),
+
+          FilledButton.icon(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => DoctorMessages(
+                    patientId: patientId,
+                    patient: patient,
+                    referencedSession: session,
+                  ),
+                ),
+              );
+            },
+            icon: const Icon(Icons.forum_outlined),
+            label: const Text('Message Patient About This Session'),
+          ),
+
+          const SizedBox(height: 24),
 
           const Text(
             'Rep-by-rep review',
@@ -290,7 +310,7 @@ class _RepReview extends StatelessWidget {
                           child: Image.network(
                             url,
                             errorBuilder:
-                                (_, __, ___) {
+                                (_, error, stackTrace) {
                               return const Padding(
                                 padding:
                                     EdgeInsets.all(30),
@@ -310,7 +330,7 @@ class _RepReview extends StatelessWidget {
                     width: double.infinity,
                     fit: BoxFit.cover,
                     errorBuilder:
-                        (_, __, ___) {
+                        (_, error, stackTrace) {
                       return Container(
                         height: 120,
                         color:

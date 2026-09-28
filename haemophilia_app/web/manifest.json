@@ -1,6 +1,6 @@
 {
-    "name": "haemophilia_app",
-    "short_name": "haemophilia_app",
+    "name": "HaemoPhysio",
+    "short_name": "HaemoPhysio",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

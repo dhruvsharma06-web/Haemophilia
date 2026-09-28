@@ -1,3 +1,18 @@
+/// Formats a raw full name to 'First Middle Last' normal capitalization.
+/// Examples:
+///   'dhruv sharma' -> 'Dhruv Sharma'
+///   'ARVIND KUMAR' -> 'Arvind Kumar'
+///   'rahul amit patil' -> 'Rahul Amit Patil'
+String formatFullName(String input) {
+  final trimmed = input.trim();
+  if (trimmed.isEmpty) return '';
+  return trimmed
+      .split(RegExp(r'\s+'))
+      .where((part) => part.isNotEmpty)
+      .map((part) => '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}')
+      .join(' ');
+}
+
 class UserModel {
   final String uid;
   final String name;
@@ -9,9 +24,9 @@ class UserModel {
   final String? phoneNumber;
   final String? photoUrl;
 
-  const UserModel({
+  UserModel({
     required this.uid,
-    required this.name,
+    required String name,
     required this.email,
     required this.role,
     this.doctorId,
@@ -19,12 +34,12 @@ class UserModel {
     this.gender,
     this.phoneNumber,
     this.photoUrl,
-  });
+  }) : name = formatFullName(name);
 
   factory UserModel.fromMap(String uid, Map<String, dynamic> data) {
     return UserModel(
       uid: uid,
-      name: data['name'] as String? ?? '',
+      name: formatFullName(data['name'] as String? ?? ''),
       email: data['email'] as String? ?? '',
       role: data['role'] as String? ?? 'patient',
       doctorId: data['doctorId']?.toString(),

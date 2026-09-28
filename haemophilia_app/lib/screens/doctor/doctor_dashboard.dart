@@ -4,51 +4,64 @@ import 'package:flutter/material.dart';
 import '../../models/user_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/clinical_data_service.dart';
-import '../auth/login_screen.dart';
 import '../patient/patient_history.dart';
 import '../profile/edit_profile_screen.dart';
 import 'doctor_patient_detail.dart';
+import '../../utils/exercise_utils.dart';
 
-class DoctorDashboard extends StatelessWidget {
+class DoctorDashboard extends StatefulWidget {
   final UserModel user;
 
   const DoctorDashboard({super.key, required this.user});
 
-  Future<void> _logout(BuildContext context) async {
-    await AuthService().logout();
-    if (!context.mounted) return;
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
-      (_) => false,
-    );
+  @override
+  State<DoctorDashboard> createState() => _DoctorDashboardState();
+}
+
+class _DoctorDashboardState extends State<DoctorDashboard> {
+  bool _isLoggingOut = false;
+
+  Future<void> _logout() async {
+    if (_isLoggingOut) return;
+    setState(() => _isLoggingOut = true);
+
+    try {
+      await AuthService().logout();
+    } catch (e) {
+      debugPrint('Logout error: $e');
+    }
+
+    if (!mounted) return;
+
+    Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
   @override
   Widget build(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
+    final currentUser = widget.user;
 
-    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .snapshots(),
-      builder: (context, userSnap) {
-        final userData = userSnap.data?.data();
-        final currentUser = userData != null
-            ? UserModel.fromMap(user.uid, userData)
-            : user;
-
-        return Scaffold(
+    return Scaffold(
           appBar: AppBar(
+            elevation: 0,
+            titleSpacing: 16,
             title: Row(
               children: [
-                _BrandMark(
-                    color: primary, icon: Icons.medical_services_outlined),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.asset(
+                    'assets/icon/haemophysio_logo.png',
+                    width: 32,
+                    height: 32,
+                    fit: BoxFit.contain,
+                  ),
+                ),
                 const SizedBox(width: 10),
-                const Text(
-                  'Clinician Portal',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+                const Flexible(
+                  child: Text(
+                    'HaemoPhysio',
+                    style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
             ),
@@ -67,8 +80,14 @@ class DoctorDashboard extends StatelessWidget {
               ),
               IconButton(
                 tooltip: 'Log out',
-                onPressed: () => _logout(context),
-                icon: const Icon(Icons.logout_rounded),
+                onPressed: _isLoggingOut ? null : _logout,
+                icon: _isLoggingOut
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.logout_rounded),
               ),
               const SizedBox(width: 8),
             ],
@@ -97,26 +116,35 @@ class DoctorDashboard extends StatelessWidget {
                           'Review patient progress, movement quality and clinical feedback.',
                     ),
                     const SizedBox(height: 24),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _Metric(
-                            'Patients',
-                            '${patients.length}',
-                            Icons.people_outline,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _Metric(
-                            'Assigned',
-                            '${patients.length}',
-                            Icons.assignment_ind_outlined,
-                          ),
-                        ),
-                      ],
+                    StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                      stream: FirebaseFirestore.instance
+                          .collection('exerciseAssignments')
+                          .where('doctorId', isEqualTo: currentUser.uid)
+                          .snapshots(),
+                      builder: (context, assignSnap) {
+                        final assignDocs = assignSnap.data?.docs ?? [];
+
+                        final uniquePatientIds = <String>{};
+                        for (final p in patients) {
+                          if (p.id.isNotEmpty) uniquePatientIds.add(p.id);
+                        }
+                        for (final a in assignDocs) {
+                          final pid = a.data()['patientId']?.toString() ?? a.id;
+                          if (pid.isNotEmpty) uniquePatientIds.add(pid);
+                        }
+
+                        return _Metric(
+                          'Assigned Patients',
+                          '${uniquePatientIds.length}',
+                          Icons.people_outline,
+                        );
+                      },
                     ),
-                    const SizedBox(height: 28),
+                    const SizedBox(height: 24),
+                    _LiveAssessmentSection(
+                      doctorId: currentUser.uid,
+                      patients: patients,
+                    ),
                     const Text(
                       'Your patients',
                       style:
@@ -128,23 +156,34 @@ class DoctorDashboard extends StatelessWidget {
                       style: TextStyle(color: Colors.grey.shade600),
                     ),
                     const SizedBox(height: 14),
-                    if (patients.isEmpty)
-                      const _EmptyCard()
-                    else
-                      ...patients.map(
-                        (doc) => Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: _PatientCard(doc: doc),
-                        ),
-                      ),
+                    () {
+                      final uniquePatientDocs = <String, QueryDocumentSnapshot<Map<String, dynamic>>>{};
+                      for (final doc in patients) {
+                        uniquePatientDocs[doc.id] = doc;
+                      }
+                      final patientList = uniquePatientDocs.values.toList();
+
+                      if (patientList.isEmpty) {
+                        return const _EmptyCard();
+                      }
+
+                      return Column(
+                        children: patientList
+                            .map(
+                              (doc) => Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: _PatientCard(doc: doc),
+                              ),
+                            )
+                            .toList(),
+                      );
+                    }(),
                   ],
                 );
               },
             ),
           ),
         );
-      },
-    );
   }
 }
 
@@ -203,8 +242,8 @@ class _PatientCard extends StatelessWidget {
                         radius: 25,
                         backgroundColor: primary.withValues(alpha: .10),
                         child: Text(
-                          data['name']?.toString().isNotEmpty == true
-                              ? data['name'].toString()[0].toUpperCase()
+                          patient.name.isNotEmpty
+                              ? patient.name[0].toUpperCase()
                               : 'P',
                           style: TextStyle(
                             color: primary,
@@ -222,7 +261,9 @@ class _PatientCard extends StatelessWidget {
                               children: [
                                 Expanded(
                                   child: Text(
-                                    data['name']?.toString() ?? 'Patient',
+                                    patient.name.isNotEmpty
+                                        ? patient.name
+                                        : 'Patient',
                                     style: const TextStyle(
                                       fontWeight: FontWeight.w800,
                                       fontSize: 16,
@@ -320,26 +361,6 @@ class _PatientCard extends StatelessWidget {
           },
         );
       },
-    );
-  }
-}
-
-class _BrandMark extends StatelessWidget {
-  final Color color;
-  final IconData icon;
-
-  const _BrandMark({required this.color, required this.icon});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 38,
-      height: 38,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: .10),
-        borderRadius: BorderRadius.circular(11),
-      ),
-      child: Icon(icon, color: color, size: 22),
     );
   }
 }
@@ -488,6 +509,774 @@ class _ErrorState extends StatelessWidget {
           textAlign: TextAlign.center,
         ),
       ),
+    );
+  }
+}
+
+class _LiveAssessmentSection extends StatelessWidget {
+  final String doctorId;
+  final List<QueryDocumentSnapshot<Map<String, dynamic>>> patients;
+
+  const _LiveAssessmentSection({
+    required this.doctorId,
+    required this.patients,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final patientMap = {for (var p in patients) p.id: p};
+
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: ClinicalDataService().watchActiveDoctorSessions(doctorId),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const SizedBox.shrink();
+        }
+
+        final docs = snapshot.data!.docs;
+        final now = DateTime.now();
+
+        // 1. Active sessions (exclude stale sessions where no update happened in the last 20 minutes)
+        final activeSessions = docs.where((d) {
+          final data = d.data();
+          final status = data['status']?.toString().toLowerCase();
+          if (status != 'active' && status != 'in_progress') return false;
+
+          final lastUpdated = data['lastUpdatedAt'] ?? data['startedAt'];
+          if (lastUpdated is Timestamp) {
+            final diff = now.difference(lastUpdated.toDate().toLocal());
+            if (diff.inMinutes > 20) return false;
+          }
+          return true;
+        }).toList();
+
+        // 2. Paused sessions (within last 24 hours)
+        final pausedSessions = docs.where((d) {
+          final data = d.data();
+          final status = data['status']?.toString().toLowerCase();
+          if (status != 'paused') return false;
+
+          final pausedAt = data['pausedAt'] ?? data['lastUpdatedAt'] ?? data['updatedAt'];
+          if (pausedAt is Timestamp) {
+            final diff = now.difference(pausedAt.toDate().toLocal());
+            if (diff.inHours > 24) return false;
+          }
+          return true;
+        }).toList();
+
+        // 3. Completed sessions in the last 30 minutes
+        final recentlyCompleted = docs.where((d) {
+          final data = d.data();
+          final status = data['status']?.toString().toLowerCase();
+          if (status != 'completed') return false;
+          final completedAt =
+              data['completedAt'] ?? data['endedAt'] ?? data['lastUpdatedAt'];
+          if (completedAt is Timestamp) {
+            final diff = now.difference(completedAt.toDate().toLocal());
+            return diff.inMinutes <= 30;
+          }
+          return false;
+        }).toList();
+
+        if (activeSessions.isEmpty && pausedSessions.isEmpty && recentlyCompleted.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (activeSessions.isNotEmpty) ...[
+              const Row(
+                children: [
+                  _PulsingLiveDot(),
+                  SizedBox(width: 8),
+                  Text(
+                    'Active Live Assessments',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFFD32F2F),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              ...activeSessions.map((sessionDoc) {
+                final data = sessionDoc.data();
+                final patientId = data['patientId']?.toString() ?? '';
+                final patientDoc = patientMap[patientId];
+                final patientName = formatFullName(
+                    data['patientName']?.toString().isNotEmpty == true
+                        ? data['patientName'].toString()
+                        : (patientDoc?.data()['name']?.toString() ?? 'Patient'));
+                final patientUser = patientDoc != null
+                    ? UserModel.fromMap(patientDoc.id, patientDoc.data())
+                    : UserModel(
+                        uid: patientId,
+                        name: patientName,
+                        email: '',
+                        role: 'patient');
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _LiveSessionCard(
+                    sessionData: data,
+                    patientName: patientName,
+                    patient: patientUser,
+                  ),
+                );
+              }),
+            ],
+            if (pausedSessions.isNotEmpty) ...[
+              if (activeSessions.isNotEmpty) const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(Icons.pause_circle_outline_rounded,
+                      color: Color(0xFFF57F17), size: 18),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Paused Assessments (${pausedSessions.length})',
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFFF57F17),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              ...pausedSessions.map((sessionDoc) {
+                final data = sessionDoc.data();
+                final patientId = data['patientId']?.toString() ?? '';
+                final patientDoc = patientMap[patientId];
+                final patientName = formatFullName(
+                    data['patientName']?.toString().isNotEmpty == true
+                        ? data['patientName'].toString()
+                        : (patientDoc?.data()['name']?.toString() ?? 'Patient'));
+                final patientUser = patientDoc != null
+                    ? UserModel.fromMap(patientDoc.id, patientDoc.data())
+                    : UserModel(
+                        uid: patientId,
+                        name: patientName,
+                        email: '',
+                        role: 'patient');
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _PausedSessionCard(
+                    sessionData: data,
+                    patientName: patientName,
+                    patient: patientUser,
+                  ),
+                );
+              }),
+            ],
+            if (recentlyCompleted.isNotEmpty) ...[
+              if (activeSessions.isNotEmpty || pausedSessions.isNotEmpty)
+                const SizedBox(height: 8),
+              const Row(
+                children: [
+                  Icon(Icons.check_circle_rounded,
+                      color: Color(0xFF2E7D32), size: 18),
+                  SizedBox(width: 8),
+                  Text(
+                    'Recently Completed Assessments',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF2E7D32),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              ...recentlyCompleted.map((sessionDoc) {
+                final data = sessionDoc.data();
+                final patientId = data['patientId']?.toString() ?? '';
+                final patientDoc = patientMap[patientId];
+                final patientName = formatFullName(
+                    data['patientName']?.toString().isNotEmpty == true
+                        ? data['patientName'].toString()
+                        : (patientDoc?.data()['name']?.toString() ?? 'Patient'));
+                final patientUser = patientDoc != null
+                    ? UserModel.fromMap(patientDoc.id, patientDoc.data())
+                    : UserModel(
+                        uid: patientId,
+                        name: patientName,
+                        email: '',
+                        role: 'patient');
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _RecentlyCompletedSessionCard(
+                    sessionData: data,
+                    patientName: patientName,
+                    patient: patientUser,
+                  ),
+                );
+              }),
+            ],
+            const SizedBox(height: 14),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _LiveSessionCard extends StatelessWidget {
+  final Map<String, dynamic> sessionData;
+  final String patientName;
+  final UserModel patient;
+
+  const _LiveSessionCard({
+    required this.sessionData,
+    required this.patientName,
+    required this.patient,
+  });
+
+  String _formatTime(dynamic ts) {
+    if (ts is Timestamp) {
+      final dt = ts.toDate().toLocal();
+      final h = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
+      final m = dt.minute.toString().padLeft(2, '0');
+      final ampm = dt.hour >= 12 ? 'PM' : 'AM';
+      final diff = DateTime.now().difference(dt);
+      final ago = diff.inMinutes < 1 ? 'just now' : '${diff.inMinutes}m ago';
+      return '$h:$m $ampm ($ago)';
+    }
+    return 'Active';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final repCount = (sessionData['currentRepCount'] as num?)?.toInt() ?? 0;
+    final score = (sessionData['currentScore'] as num?)?.toDouble() ?? 0.0;
+    final form = sessionData['currentForm']?.toString() ?? 'Assessing...';
+    final rawExercise = sessionData['currentExercise']?.toString() ??
+        sessionData['exercise']?.toString() ??
+        sessionData['sessionName']?.toString() ??
+        '';
+    final exercise = rawExercise.isNotEmpty
+        ? getExerciseDisplayName(rawExercise)
+        : 'Physiotherapy Assessment';
+    final startedAt = sessionData['lastUpdatedAt'] ?? sessionData['startedAt'];
+
+    final Color scoreColor = score >= 80
+        ? const Color(0xFF2E7D32)
+        : (score >= 50 ? const Color(0xFFE65100) : const Color(0xFFC62828));
+
+    final Color formColor = form.toLowerCase().contains('incorrect') ||
+            form.toLowerCase().contains('slow') ||
+            form.toLowerCase().contains('fast') ||
+            form.toLowerCase().contains('incomplete')
+        ? const Color(0xFFE65100)
+        : const Color(0xFF1565C0);
+
+    return Card(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: Color(0xFFFFCDD2), width: 1.5),
+      ),
+      color: const Color(0xFFFFF9F9),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFEBEE),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFEF9A9A)),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _PulsingLiveDot(size: 8),
+                      SizedBox(width: 5),
+                      Text(
+                        'LIVE ASSESSMENT',
+                        style: TextStyle(
+                          color: Color(0xFFD32F2F),
+                          fontWeight: FontWeight.w800,
+                          fontSize: 10,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  _formatTime(startedAt),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        patientName,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        exercise,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade700,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                OutlinedButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => DoctorPatientDetail(
+                          patientId: patient.uid,
+                          patient: patient,
+                        ),
+                      ),
+                    );
+                  },
+                  style: OutlinedButton.styleFrom(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    minimumSize: Size.zero,
+                  ),
+                  child:
+                      const Text('View Patient', style: TextStyle(fontSize: 12)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                _LiveChip(
+                  icon: Icons.repeat_rounded,
+                  label: '$repCount reps',
+                  color: const Color(0xFF1565C0),
+                ),
+                _LiveChip(
+                  icon: Icons.speed_rounded,
+                  label: '${score.toStringAsFixed(0)}/100',
+                  color: scoreColor,
+                ),
+                _LiveChip(
+                  icon: Icons.accessibility_new_rounded,
+                  label: form,
+                  color: formColor,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PausedSessionCard extends StatelessWidget {
+  final Map<String, dynamic> sessionData;
+  final String patientName;
+  final UserModel patient;
+
+  const _PausedSessionCard({
+    required this.sessionData,
+    required this.patientName,
+    required this.patient,
+  });
+
+  String _formatTime(dynamic ts) {
+    if (ts is Timestamp) {
+      final dt = ts.toDate().toLocal();
+      final h = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
+      final m = dt.minute.toString().padLeft(2, '0');
+      final ampm = dt.hour >= 12 ? 'PM' : 'AM';
+      final diff = DateTime.now().difference(dt);
+      final ago = diff.inMinutes < 1
+          ? 'just now'
+          : (diff.inMinutes < 60
+              ? '${diff.inMinutes}m ago'
+              : '${diff.inHours}h ago');
+      return '$h:$m $ampm ($ago)';
+    }
+    return 'Paused';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final repCount = (sessionData['currentRepCount'] as num?)?.toInt() ??
+        (sessionData['totalReps'] as num?)?.toInt() ??
+        (sessionData['completedCorrectReps'] as num?)?.toInt() ??
+        0;
+    final score = (sessionData['currentScore'] as num?)?.toDouble() ?? 0.0;
+    final form = sessionData['currentForm']?.toString() ?? 'Paused';
+    final progressPct =
+        (sessionData['progressPercentage'] as num?)?.toInt() ?? 0;
+    final rawExercise = sessionData['currentExercise']?.toString() ??
+        sessionData['exercise']?.toString() ??
+        sessionData['sessionName']?.toString() ??
+        '';
+    final exercise = rawExercise.isNotEmpty
+        ? getExerciseDisplayName(rawExercise)
+        : 'Physiotherapy Assessment';
+    final pausedAt = sessionData['pausedAt'] ??
+        sessionData['lastUpdatedAt'] ??
+        sessionData['updatedAt'];
+
+    final Color scoreColor = score >= 80
+        ? const Color(0xFF2E7D32)
+        : (score >= 50 ? const Color(0xFFE65100) : const Color(0xFFC62828));
+
+    return Card(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: Color(0xFFFFE082), width: 1.5),
+      ),
+      color: const Color(0xFFFFFDF5),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF8E1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFFFD54F)),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.pause_circle_outline_rounded,
+                          size: 13, color: Color(0xFFF57F17)),
+                      SizedBox(width: 4),
+                      Text(
+                        'PAUSED',
+                        style: TextStyle(
+                          color: Color(0xFFF57F17),
+                          fontWeight: FontWeight.w800,
+                          fontSize: 11,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  _formatTime(pausedAt),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        patientName,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        exercise,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade700,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                OutlinedButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => DoctorPatientDetail(
+                          patientId: patient.uid,
+                          patient: patient,
+                        ),
+                      ),
+                    );
+                  },
+                  style: OutlinedButton.styleFrom(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    minimumSize: Size.zero,
+                  ),
+                  child:
+                      const Text('View Patient', style: TextStyle(fontSize: 12)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                if (progressPct > 0)
+                  _LiveChip(
+                    icon: Icons.pie_chart_outline_rounded,
+                    label: '$progressPct% complete',
+                    color: const Color(0xFFF57F17),
+                  ),
+                _LiveChip(
+                  icon: Icons.repeat_rounded,
+                  label: '$repCount reps',
+                  color: const Color(0xFF1565C0),
+                ),
+                if (score > 0)
+                  _LiveChip(
+                    icon: Icons.speed_rounded,
+                    label: '${score.toStringAsFixed(0)}/100',
+                    color: scoreColor,
+                  ),
+                _LiveChip(
+                  icon: Icons.accessibility_new_rounded,
+                  label: form,
+                  color: const Color(0xFF616161),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RecentlyCompletedSessionCard extends StatelessWidget {
+  final Map<String, dynamic> sessionData;
+  final String patientName;
+  final UserModel patient;
+
+  const _RecentlyCompletedSessionCard({
+    required this.sessionData,
+    required this.patientName,
+    required this.patient,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final finalReps = (sessionData['finalRepCount'] ??
+            sessionData['currentRepCount'] as num?)
+        ?.toInt() ??
+        0;
+    final finalScore = (sessionData['finalScore'] ??
+            sessionData['averageScore'] ??
+            sessionData['currentScore'] as num?)
+        ?.toDouble() ??
+        0.0;
+    final rawExercise = sessionData['currentExercise']?.toString() ??
+        sessionData['exercise']?.toString() ??
+        sessionData['sessionName']?.toString() ??
+        '';
+    final exercise = rawExercise.isNotEmpty
+        ? getExerciseDisplayName(rawExercise)
+        : 'Physiotherapy Assessment';
+
+    return Card(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: Color(0xFFA5D6A7), width: 1.2),
+      ),
+      color: const Color(0xFFF1F8E9),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: const BoxDecoration(
+                color: Color(0xFFE8F5E9),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.check_circle_rounded,
+                color: Color(0xFF2E7D32),
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '$patientName completed $exercise',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Score: ${finalScore.toStringAsFixed(0)}/100 • $finalReps reps',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => DoctorPatientDetail(
+                      patientId: patient.uid,
+                      patient: patient,
+                    ),
+                  ),
+                );
+              },
+              child: const Text('Review', style: TextStyle(fontSize: 12)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LiveChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  const _LiveChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PulsingLiveDot extends StatefulWidget {
+  final double size;
+
+  const _PulsingLiveDot({
+    this.size = 10,
+  });
+
+  @override
+  State<_PulsingLiveDot> createState() => _PulsingLiveDotState();
+}
+
+class _PulsingLiveDotState extends State<_PulsingLiveDot>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    )..repeat(reverse: true);
+    _animation = Tween<double>(begin: 0.6, end: 1.2).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        return Transform.scale(
+          scale: _animation.value,
+          child: Container(
+            width: widget.size,
+            height: widget.size,
+            decoration: BoxDecoration(
+              color: const Color(0xFFD32F2F),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFD32F2F).withValues(alpha: 0.4),
+                  blurRadius: 4 * _animation.value,
+                  spreadRadius: 1,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

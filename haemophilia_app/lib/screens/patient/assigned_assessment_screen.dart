@@ -45,26 +45,7 @@ class _AssignedAssessmentScreenState
   }
 
   String _normalizeExercise(dynamic value) {
-    final normalized = (value?.toString() ?? '').trim().toLowerCase();
-
-    switch (normalized) {
-      case 'assisted shoulder flexion':
-      case 'assisted_shoulder_flexion':
-        return 'assisted_shoulder_flexion';
-
-      case 'elbow flexion':
-      case 'elbow flexion & extension':
-      case 'elbow flexion and extension':
-      case 'elbow_flexion':
-        return 'elbow_flexion';
-
-      case 'shoulder rotation':
-      case 'shoulder_rotation':
-        return 'shoulder_rotation';
-
-      default:
-        return normalized.replaceAll('&', 'and').replaceAll(' ', '_');
-    }
+    return normalizeExerciseId(value?.toString());
   }
 
   String _displayName(String exercise) {
@@ -72,19 +53,7 @@ class _AssignedAssessmentScreenState
   }
 
   IconData _exerciseIcon(String exercise) {
-    switch (exercise) {
-      case 'assisted_shoulder_flexion':
-        return Icons.accessibility_new_rounded;
-
-      case 'elbow_flexion':
-        return Icons.fitness_center_rounded;
-
-      case 'shoulder_rotation':
-        return Icons.rotate_right_rounded;
-
-      default:
-        return Icons.fitness_center_rounded;
-    }
+    return getExerciseIcon(exercise);
   }
 
   Future<void> _loadAssignment() async {
@@ -142,10 +111,10 @@ class _AssignedAssessmentScreenState
       }
 
       final isPaused = status == 'paused' || status == 'in_progress';
-      final savedSessionId = data['sessionId']?.toString();
-      final savedExerciseIndex = _toInt(data['currentExerciseIndex']);
-      final savedCorrectReps = _toInt(data['completedCorrectReps']);
-      final savedTotalReps = _toInt(data['totalCompletedReps']);
+      final savedSessionId = isPaused ? data['sessionId']?.toString() : null;
+      final savedExerciseIndex = isPaused ? _toInt(data['currentExerciseIndex']) : 0;
+      final savedCorrectReps = isPaused ? _toInt(data['completedCorrectReps']) : 0;
+      final savedTotalReps = isPaused ? _toInt(data['totalCompletedReps']) : 0;
       List<Map<String, dynamic>>? savedProg;
       final rawProg = data['exerciseProgress'];
       if (rawProg is List) {
@@ -299,11 +268,15 @@ class _AssignedAssessmentScreenState
     if (_exercises.isEmpty) return;
 
     final user = FirebaseAuth.instance.currentUser;
-    final sessionId = (_savedSessionId != null && _savedSessionId!.isNotEmpty)
+    // VERY IMPORTANT: Only reuse _savedSessionId if session is genuinely paused/in_progress.
+    // Starting a new assignment MUST ALWAYS generate a fresh unique sessionId.
+    final sessionId = (_isPaused && _savedSessionId != null && _savedSessionId!.isNotEmpty)
         ? _savedSessionId!
         : (user != null
             ? '${user.uid}_${DateTime.now().millisecondsSinceEpoch}'
             : DateTime.now().microsecondsSinceEpoch.toString());
+
+    debugPrint('AssignedAssessment: launching session $sessionId (isPaused: $_isPaused, sessionName: $_sessionName)');
 
     // If starting a fresh assignment, mark as in_progress in Firestore
     if (!_isPaused && user != null) {
@@ -328,6 +301,17 @@ class _AssignedAssessmentScreenState
         : 0;
     final exerciseToStart = _exercises[initialIndex]['exercise'].toString();
 
+    int currentExCorrect = 0;
+    int currentExTotal = 0;
+    if (_isPaused && _savedExerciseProgress != null && initialIndex < _savedExerciseProgress!.length) {
+      final exProg = _savedExerciseProgress![initialIndex];
+      currentExCorrect = _toInt(exProg['completedCorrectReps']);
+      currentExTotal = _toInt(exProg['completedTotalReps']);
+    } else if (_isPaused) {
+      currentExCorrect = _savedCorrectReps;
+      currentExTotal = _savedTotalReps;
+    }
+
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
@@ -338,8 +322,9 @@ class _AssignedAssessmentScreenState
           sessionName: _sessionName,
           sessionId: sessionId,
           initialExerciseIndex: initialIndex,
-          initialCorrectReps: _isPaused ? _savedCorrectReps : 0,
-          initialTotalReps: _isPaused ? _savedTotalReps : 0,
+          initialCorrectReps: currentExCorrect,
+          initialTotalReps: currentExTotal,
+          initialRepSequence: _isPaused ? _savedTotalReps : 0,
           initialExerciseProgress: _isPaused ? _savedExerciseProgress : null,
         ),
       ),
@@ -664,7 +649,7 @@ class _AssignedAssessmentScreenState
                                   if (isWip) ...[
                                     const SizedBox(height: 3),
                                     Text(
-                                      'Work-in-progress exercise — undergoing clinical validation',
+                                      'Work in progress',
                                       style: TextStyle(
                                         color: Colors.amber.shade900,
                                         fontSize: 11,

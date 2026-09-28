@@ -29,8 +29,13 @@ class NotificationService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   GlobalKey<NavigatorState>? _navigatorKey;
+  bool _initialized = false;
   StreamSubscription<String>? _tokenRefreshSub;
+  StreamSubscription<RemoteMessage>? _onMessageSub;
+  StreamSubscription<RemoteMessage>? _onMessageOpenedAppSub;
   String? _lastToken;
+  String? _lastSavedToken;
+  String? _lastSavedUid;
 
   /// Sets the navigator key used for notification-based navigation.
   void setNavigatorKey(GlobalKey<NavigatorState> key) {
@@ -42,6 +47,12 @@ class NotificationService {
     if (navKey != null) {
       _navigatorKey = navKey;
     }
+
+    if (_initialized) {
+      debugPrint('NotificationService already initialized. Skipping duplicate listeners.');
+      return;
+    }
+    _initialized = true;
 
     try {
       // 1. Request permission for notifications (Android 13+ and iOS)
@@ -76,13 +87,16 @@ class NotificationService {
       });
 
       // 5. Handle foreground messages
-      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      _onMessageSub?.cancel();
+      _onMessageSub = FirebaseMessaging.onMessage.listen((RemoteMessage message) {
         debugPrint('FCM Foreground message: ${message.notification?.title}');
         _showInAppNotification(message);
       });
 
       // 6. Handle notification click when app is in background
-      FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      _onMessageOpenedAppSub?.cancel();
+      _onMessageOpenedAppSub =
+          FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
         debugPrint('FCM Message opened from background: ${message.data}');
         handleNotificationTap(message.data);
       });
@@ -106,8 +120,15 @@ class NotificationService {
     if (user == null) return;
 
     try {
-      final token = await _messaging.getToken();
+      final token = await _messaging.getToken().timeout(
+            const Duration(seconds: 3),
+            onTimeout: () => null,
+          );
       if (token != null && token.isNotEmpty) {
+        if (_lastSavedToken == token && _lastSavedUid == user.uid) {
+          // Token is already synced for this user session; do not write redundantly
+          return;
+        }
         _lastToken = token;
         await _saveTokenToFirestore(token);
       }
@@ -120,12 +141,18 @@ class NotificationService {
     final user = _auth.currentUser;
     if (user == null) return;
 
+    if (_lastSavedToken == token && _lastSavedUid == user.uid) {
+      return;
+    }
+
     try {
       await _firestore.collection('users').doc(user.uid).set({
         'fcmToken': token,
         'fcmTokens': FieldValue.arrayUnion([token]),
         'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      }, SetOptions(merge: true)).timeout(const Duration(seconds: 3));
+      _lastSavedToken = token;
+      _lastSavedUid = user.uid;
       debugPrint('FCM Token saved to users/${user.uid}');
     } catch (e) {
       debugPrint('Error saving FCM token to Firestore: $e');
@@ -135,14 +162,22 @@ class NotificationService {
   /// Removes the device token on logout so this device stops receiving the user's notifications.
   Future<void> clearTokenOnLogout(String uid) async {
     try {
-      final token = _lastToken ?? await _messaging.getToken();
+      final token = _lastToken ??
+          await _messaging.getToken().timeout(
+                const Duration(seconds: 2),
+                onTimeout: () => null,
+              );
       if (token != null && token.isNotEmpty) {
         await _firestore.collection('users').doc(uid).update({
           'fcmTokens': FieldValue.arrayRemove([token]),
-        });
+        }).timeout(const Duration(seconds: 2));
       }
     } catch (e) {
-      debugPrint('Error clearing FCM token on logout: $e');
+      debugPrint('Error clearing FCM token on logout (non-fatal): $e');
+    } finally {
+      _lastToken = null;
+      _lastSavedToken = null;
+      _lastSavedUid = null;
     }
   }
 
@@ -312,7 +347,7 @@ class NotificationService {
     // 2. Dispatch to backend notification endpoint (FastAPI) for FCM push delivery
     try {
       const backendUrl =
-          'https://idol-handling-emperor-belkin.trycloudflare.com/v1/notifications/send';
+          'https://furniture-float-franchise-trained.trycloudflare.com/v1/notifications/send';
 
       final response = await http
           .post(

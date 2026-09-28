@@ -1,26 +1,28 @@
-"""LSTM classifier for elbow exercise form."""
-
 import torch
-from torch import nn
+import torch.nn as nn
 
 
 class ElbowLSTM(nn.Module):
-    def __init__(self, input_size: int = 6, hidden_size: int = 64, num_layers: int = 2):
+    def __init__(self, input_size=8, hidden_size=128, num_layers=2):
         super().__init__()
+
         self.lstm = nn.LSTM(
-            input_size=input_size,
-            hidden_size=hidden_size,
+            input_size,
+            hidden_size,
             num_layers=num_layers,
-            dropout=0.3,
             batch_first=True,
-        )
-        self.classifier = nn.Sequential(
-            nn.Linear(hidden_size, 32),
-            nn.ReLU(),
-            nn.Dropout(0.3),
-            nn.Linear(32, 2),
+            dropout=0.3
         )
 
-    def forward(self, features: torch.Tensor) -> torch.Tensor:
-        output, _ = self.lstm(features)
-        return self.classifier(output[:, -1, :])
+        self.fc = nn.Sequential(
+            nn.Linear(hidden_size, 64),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+            nn.Linear(64, 1)
+        )
+
+    def forward(self, x):
+        out, _ = self.lstm(x)
+        out = out[:, -1, :]
+        out = self.fc(out)
+        return out

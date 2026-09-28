@@ -90,7 +90,7 @@ class _AssignedAssessmentScreenState
       _currentExercise,
     );
 
-    return 'wss://than-varieties-aims-computation.trycloudflare.com'
+    return 'wss://furniture-float-franchise-trained.trycloudflare.com'
         '/v1/assessments/live'
         '?exercise=$exercise';
   }

@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../models/user_model.dart';
 import '../../services/auth_service.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -28,12 +29,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> _register() async {
-    final name = _nameController.text.trim();
+    final name = formatFullName(_nameController.text);
     final email = _emailController.text.trim();
     final password = _passwordController.text;
 
     if (name.isEmpty || email.isEmpty || password.isEmpty) {
       _showError('Please fill in all fields.');
+      return;
+    }
+
+    if (name.length < 2) {
+      _showError('Please enter your full name.');
       return;
     }
 
@@ -63,8 +69,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       Navigator.pop(context);
     } on FirebaseAuthException catch (e) {
       _showError(_firebaseError(e));
-    } catch (_) {
-      _showError('Registration failed. Please try again.');
+    } catch (e) {
+      _showError(e.toString().replaceFirst('Exception: ', ''));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -99,12 +105,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     final compact = MediaQuery.sizeOf(context).width < 600;
-    final primary = Theme.of(context).colorScheme.primary;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          'Create account',
+          'HaemoPhysio Registration',
           style: TextStyle(fontWeight: FontWeight.w700),
         ),
       ),
@@ -121,17 +126,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Container(
-                        width: 58,
-                        height: 58,
-                        decoration: BoxDecoration(
-                          color: primary.withValues(alpha: .10),
-                          borderRadius: BorderRadius.circular(17),
-                        ),
-                        child: Icon(
-                          Icons.person_add_alt_1_rounded,
-                          color: primary,
-                          size: 30,
+                      Center(
+                        child: Image.asset(
+                          'assets/icon/haemophysio_logo.png',
+                          height: 60,
+                          fit: BoxFit.contain,
                         ),
                       ),
                       const SizedBox(height: 18),
@@ -144,7 +143,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                       const SizedBox(height: 5),
                       Text(
-                        'Your account will be created as a patient account.',
+                        'Register your HaemoPhysio patient profile.',
                         style: TextStyle(
                           color: Colors.grey.shade600,
                           fontSize: 13,
@@ -156,7 +155,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         textCapitalization: TextCapitalization.words,
                         textInputAction: TextInputAction.next,
                         decoration: const InputDecoration(
-                          labelText: 'Full name',
+                          labelText: 'Full Name',
+                          hintText: 'First Middle Last (e.g. Rahul Amit Patil)',
                           prefixIcon: Icon(Icons.person_outline),
                         ),
                       ),

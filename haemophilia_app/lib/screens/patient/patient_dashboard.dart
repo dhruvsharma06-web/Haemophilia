@@ -4,13 +4,14 @@ import 'package:flutter/material.dart';
 import '../../models/user_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/assessment_history_service.dart';
-import '../auth/login_screen.dart';
 import '../profile/edit_profile_screen.dart';
 import 'patient_history.dart';
 import 'patient_messages.dart';
 import 'assigned_assessment_screen.dart';
 import '../../utils/exercise_utils.dart';
 import '../../widgets/session_analytics_chart.dart';
+import '../assessment/live_assessment_screen.dart';
+import '../../widgets/exercise_demo/exercise_demo_dialog.dart';
 
 class PatientDashboard extends StatefulWidget {
   final UserModel user;
@@ -24,29 +25,134 @@ class PatientDashboard extends StatefulWidget {
 class _PatientDashboardState extends State<PatientDashboard> {
   final AuthService _authService = AuthService();
 
+  bool _isLoggingOut = false;
+
   Future<void> _logout() async {
-    await _authService.logout();
+    if (_isLoggingOut) return;
+    setState(() => _isLoggingOut = true);
+
+    try {
+      await _authService.logout();
+    } catch (e) {
+      debugPrint('Logout error: $e');
+    }
 
     if (!mounted) return;
 
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
-      (route) => false,
-    );
+    Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
   // Temporary first-exercise entry point.
   // This will later load the doctor's assigned exercise
   // and target correct reps from Firestore.
-void _startAssignedAssessment() {
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (_) => const AssignedAssessmentScreen(),
-    ),
-  );
-}
+  void _startAssignedAssessment() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const AssignedAssessmentScreen(),
+      ),
+    );
+  }
+
+  void _resumeAssessment(Map<String, dynamic> data) {
+    final sessionId = data['sessionId']?.toString() ?? '';
+    final rawExercises = data['exercises'] ?? data['exerciseProgress'];
+    final List<Map<String, dynamic>>? assignedExercises =
+        (rawExercises is List && rawExercises.isNotEmpty)
+            ? rawExercises
+                .whereType<Map>()
+                .map((e) => Map<String, dynamic>.from(e))
+                .toList()
+            : null;
+
+    final rawExercise = data['currentExercise']?.toString() ??
+        data['exercise']?.toString() ??
+        (assignedExercises != null && assignedExercises.isNotEmpty
+            ? assignedExercises.first['exercise']?.toString()
+            : null) ??
+        'assisted_shoulder_flexion';
+
+    final exerciseName = normalizeExerciseId(rawExercise);
+    final currentIndex =
+        (data['currentExerciseIndex'] as num?)?.toInt() ?? 0;
+    final sessionTotalCorrect = (data['totalCorrectReps'] as num?)?.toInt() ??
+        (data['completedCorrectReps'] as num?)?.toInt() ??
+        0;
+    final sessionTotalReps = (data['totalReps'] as num?)?.toInt() ??
+        (data['totalCompletedReps'] as num?)?.toInt() ??
+        (data['currentRepCount'] as num?)?.toInt() ??
+        0;
+
+    int currentExCorrect = 0;
+    int currentExTotal = 0;
+
+    if (assignedExercises != null &&
+        currentIndex >= 0 &&
+        currentIndex < assignedExercises.length) {
+      final currentEx = assignedExercises[currentIndex];
+      currentExCorrect = (currentEx['completedCorrectReps'] as num?)?.toInt() ?? 0;
+      currentExTotal = (currentEx['completedTotalReps'] as num?)?.toInt() ?? 0;
+    } else {
+      currentExCorrect = sessionTotalCorrect;
+      currentExTotal = sessionTotalReps;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => LiveAssessmentScreen(
+          exerciseName: exerciseName,
+          assignedExercises: assignedExercises,
+          assignedDoctorId: data['doctorId']?.toString(),
+          sessionName: data['sessionName']?.toString(),
+          sessionId: sessionId.isNotEmpty ? sessionId : null,
+          initialExerciseIndex: currentIndex,
+          initialCorrectReps: currentExCorrect,
+          initialTotalReps: currentExTotal,
+          initialRepSequence: sessionTotalReps,
+          initialExerciseProgress: assignedExercises,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _discardAssessment(String sessionId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        icon: const Icon(
+          Icons.delete_outline_rounded,
+          color: Colors.redAccent,
+          size: 44,
+        ),
+        title: const Text('Discard Session?'),
+        content: const Text(
+          'Are you sure you want to discard your progress? This session cannot be resumed once discarded.',
+          textAlign: TextAlign.center,
+        ),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Discard'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await AssessmentHistoryService().abandonSession(
+        sessionId,
+        widget.user.uid,
+      );
+    }
+  }
 
   String _getFirstName(String fullName) {
     final name = fullName.trim();
@@ -58,83 +164,73 @@ void _startAssignedAssessment() {
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
     final compact = width < 600;
+    final currentUser = widget.user;
+    final firstName = _getFirstName(currentUser.name);
 
-    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance
-          .collection('users')
-          .doc(widget.user.uid)
-          .snapshots(),
-      builder: (context, userSnap) {
-        final userData = userSnap.data?.data();
-        final currentUser = userData != null
-            ? UserModel.fromMap(widget.user.uid, userData)
-            : widget.user;
-        final firstName = _getFirstName(currentUser.name);
-
-        return Scaffold(
-          appBar: AppBar(
-            toolbarHeight: compact ? 68 : 76,
-            titleSpacing: compact ? 20 : 28,
-            title: Row(
-              children: [
-                Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary
-                        .withValues(alpha: .10),
-                    borderRadius: BorderRadius.circular(11),
-                  ),
-                  child: Icon(
-                    Icons.health_and_safety_outlined,
-                    color: Theme.of(context).colorScheme.primary,
-                    size: 23,
-                  ),
-                ),
-                const SizedBox(width: 11),
-                const Text(
-                  'Haemophilia',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -.3,
-                  ),
-                ),
-              ],
+    return Scaffold(
+      appBar: AppBar(
+        toolbarHeight: compact ? 68 : 76,
+        titleSpacing: compact ? 20 : 28,
+        title: Row(
+          children: [
+            Image.asset(
+              'assets/icon/haemophysio_logo.png',
+              width: 38,
+              height: 38,
+              fit: BoxFit.contain,
             ),
-            actions: [
-              PopupMenuButton<String>(
-                tooltip: 'Account',
-                offset: const Offset(0, 52),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                icon: CircleAvatar(
-                  radius: 18,
-                  backgroundColor: Theme.of(context).colorScheme.primary
-                      .withValues(alpha: .10),
-                  child: Text(
-                    currentUser.name.isNotEmpty
-                        ? currentUser.name[0].toUpperCase()
-                        : 'P',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.primary,
-                      fontWeight: FontWeight.w800,
+            const SizedBox(width: 11),
+            const Text(
+              'HaemoPhysio',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -.3,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          PopupMenuButton<String>(
+            enabled: !_isLoggingOut,
+            tooltip: 'Account',
+            offset: const Offset(0, 52),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+            icon: _isLoggingOut
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : CircleAvatar(
+                    radius: 18,
+                    backgroundColor: Theme.of(context).colorScheme.primary
+                        .withValues(alpha: .10),
+                    child: Text(
+                      currentUser.name.isNotEmpty
+                          ? currentUser.name[0].toUpperCase()
+                          : 'P',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
-                ),
-                onSelected: (value) {
-                  if (value == 'edit_profile') {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => EditProfileScreen(user: currentUser),
-                      ),
-                    );
-                  } else if (value == 'logout') {
-                    _logout();
-                  }
-                },
+            onSelected: (value) {
+              if (_isLoggingOut) return;
+              if (value == 'edit_profile') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => EditProfileScreen(user: currentUser),
+                  ),
+                );
+              } else if (value == 'logout') {
+                _logout();
+              }
+            },
                 itemBuilder: (_) => [
                   PopupMenuItem(
                     value: 'edit_profile',
@@ -179,67 +275,121 @@ void _startAssignedAssessment() {
                   const SizedBox(height: 24),
 
                   // --------------------------------------------------
-                  // NEXT ASSESSMENT (ASSIGNMENT-DRIVEN)
+                  // NEXT ASSESSMENT / RESUME ASSESSMENT
                   // --------------------------------------------------
-                  StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-                    stream: FirebaseFirestore.instance
-                        .collection('exerciseAssignments')
-                        .doc(widget.user.uid)
-                        .snapshots(),
-                    builder: (context, assignmentSnapshot) {
-                      final assignmentData = assignmentSnapshot.data?.data();
-                      final status = assignmentData?['status']
-                          ?.toString()
-                          .trim()
-                          .toLowerCase();
-                      final rawExercises = assignmentData?['exercises'];
-                      final bool hasExercises =
-                          rawExercises is List && rawExercises.isNotEmpty;
-                      final bool isPaused =
-                          status == 'paused' || status == 'in_progress';
-                      final bool hasActiveAssignment =
-                          assignmentSnapshot.hasData &&
-                          assignmentSnapshot.data!.exists &&
-                          (status == 'assigned' || isPaused) &&
-                          hasExercises;
+                  StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                    stream: AssessmentHistoryService()
+                        .watchUnfinishedSessions(widget.user.uid),
+                    builder: (context, unfinishedSnap) {
+                      final allDocs = unfinishedSnap.data?.docs ?? [];
+                      // STRICT FILTER: Only 'active', 'paused', or 'in_progress' are eligible for Resume.
+                      // 'completed', 'abandoned', or 'discarded' sessions MUST NEVER appear here!
+                      final unfinishedDocs = allDocs.where((doc) {
+                        final s = doc.data()['status']?.toString().trim().toLowerCase() ?? '';
+                        return s == 'active' || s == 'paused' || s == 'in_progress';
+                      }).toList();
 
-                      if (!hasActiveAssignment) {
-                        final isCompleted = status == 'completed';
-                        return _NoSessionAssignedCard(
-                          compact: compact,
-                          isCompleted: isCompleted,
-                        );
-                      }
+                      // Sort to pick the latest unfinished session
+                      unfinishedDocs.sort((a, b) {
+                        final aTime = a.data()['lastUpdatedAt'] ??
+                            a.data()['updatedAt'] ??
+                            a.data()['startedAt'];
+                        final bTime = b.data()['lastUpdatedAt'] ??
+                            b.data()['updatedAt'] ??
+                            b.data()['startedAt'];
+                        final aMillis = aTime is Timestamp
+                            ? aTime.millisecondsSinceEpoch
+                            : 0;
+                        final bMillis = bTime is Timestamp
+                            ? bTime.millisecondsSinceEpoch
+                            : 0;
+                        return bMillis.compareTo(aMillis);
+                      });
 
-                      final sessionName =
-                          assignmentData?['sessionName']?.toString().trim() ??
-                              'Physiotherapy Session';
-                      final exerciseCount = rawExercises.length;
+                      if (unfinishedDocs.isNotEmpty) {
+                        final sessionDoc = unfinishedDocs.first;
+                        final sessionData = sessionDoc.data();
+                        final sessionId = sessionData['sessionId']?.toString() ??
+                            sessionDoc.id;
+                        final sessionName = sessionData['sessionName']
+                                ?.toString()
+                                .trim() ??
+                            'Physiotherapy Session';
+                        final rawEx = sessionData['currentExercise']?.toString() ??
+                            sessionData['exercise']?.toString() ??
+                            '';
+                        final currentExName = rawEx.isNotEmpty
+                            ? getExerciseDisplayName(rawEx)
+                            : 'Assessment';
+                        final repCount = (sessionData['currentRepCount'] as num?)?.toInt() ??
+                            (sessionData['totalReps'] as num?)?.toInt() ??
+                            (sessionData['totalCompletedReps'] as num?)?.toInt() ??
+                            0;
+                        final rawExercises = sessionData['exercises'];
+                        final int exCount =
+                            rawExercises is List ? rawExercises.length : 1;
+                        final int exIndex =
+                            (sessionData['currentExerciseIndex'] as num?)?.toInt() ?? 0;
 
-                      if (isPaused) {
-                        final currentExerciseIndex =
-                            (assignmentData?['currentExerciseIndex'] as num?)?.toInt() ?? 0;
-                        final completedCorrectReps =
-                            (assignmentData?['completedCorrectReps'] as num?)?.toInt() ?? 0;
-                        final currentExerciseName =
-                            assignmentData?['currentExercise']?.toString() ?? '';
+                        debugPrint('Dashboard selected active session: $sessionId ($sessionName, status: ${sessionData['status']})');
 
-                        return _PausedSessionCard(
+                        return _ResumeAssessmentCard(
                           compact: compact,
                           sessionName: sessionName,
-                          exerciseCount: exerciseCount,
-                          currentExerciseIndex: currentExerciseIndex,
-                          completedCorrectReps: completedCorrectReps,
-                          currentExerciseName: currentExerciseName,
-                          onPressed: _startAssignedAssessment,
+                          exerciseName: currentExName,
+                          repsCompleted: repCount,
+                          exerciseCount: exCount,
+                          currentExerciseIndex: exIndex,
+                          onResume: () => _resumeAssessment(sessionData),
+                          onDiscard: () => _discardAssessment(sessionId),
                         );
                       }
 
-                      return _ActiveSessionCard(
-                        compact: compact,
-                        sessionName: sessionName,
-                        exerciseCount: exerciseCount,
-                        onPressed: _startAssignedAssessment,
+                      return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                        stream: FirebaseFirestore.instance
+                            .collection('exerciseAssignments')
+                            .doc(widget.user.uid)
+                            .snapshots(),
+                        builder: (context, assignmentSnapshot) {
+                          final assignmentData = assignmentSnapshot.data?.data();
+                          final status = assignmentData?['status']
+                              ?.toString()
+                              .trim()
+                              .toLowerCase();
+                          final rawExercises = assignmentData?['exercises'];
+                          final bool hasExercises =
+                              rawExercises is List && rawExercises.isNotEmpty;
+                          final bool isPaused =
+                              status == 'paused' || status == 'in_progress';
+                          final bool hasActiveAssignment =
+                              assignmentSnapshot.hasData &&
+                              assignmentSnapshot.data!.exists &&
+                              (status == 'assigned' || isPaused) &&
+                              hasExercises;
+
+                          if (!hasActiveAssignment) {
+                            final isCompleted = status == 'completed';
+                            debugPrint('Dashboard: no pending assignment (status: $status, isCompleted: $isCompleted)');
+                            return _NoSessionAssignedCard(
+                              compact: compact,
+                              isCompleted: isCompleted,
+                            );
+                          }
+
+                          final sessionName =
+                              assignmentData?['sessionName']?.toString().trim() ??
+                                  'Physiotherapy Session';
+                          final exerciseCount = rawExercises.length;
+
+                          debugPrint('Dashboard selected pending assignment: $sessionName (status: $status, exercises: $exerciseCount)');
+
+                          return _ActiveSessionCard(
+                            compact: compact,
+                            sessionName: sessionName,
+                            exerciseCount: exerciseCount,
+                            onPressed: _startAssignedAssessment,
+                          );
+                        },
                       );
                     },
                   ),
@@ -250,7 +400,8 @@ void _startAssignedAssessment() {
                   // PROGRESS
                   // --------------------------------------------------
                   StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                    stream: AssessmentHistoryService().watchAssessments(),
+                    stream: AssessmentHistoryService()
+                        .watchAssessments(widget.user.uid),
                     builder: (context, snapshot) {
                       if (snapshot.hasError) {
                         return _AssessmentDataErrorCard(
@@ -448,7 +599,9 @@ void _startAssignedAssessment() {
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (_) => const PatientHistory(),
+                                        builder: (_) => PatientHistory(
+                                          userId: widget.user.uid,
+                                        ),
                                       ),
                                     );
                                   },
@@ -532,7 +685,14 @@ void _startAssignedAssessment() {
                     ),
                   ),
 
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 24),
+
+                  // --------------------------------------------------
+                  // EXERCISE LIBRARY & DEMONSTRATIONS
+                  // --------------------------------------------------
+                  _ExerciseLibrarySection(compact: compact),
+
+                  const SizedBox(height: 24),
 
                   _AccountCard(user: currentUser),
                 ],
@@ -542,40 +702,36 @@ void _startAssignedAssessment() {
         ),
       ),
     );
-      },
-    );
   }
 }
 
 // ================================================================
-// PAUSED SESSION CARD (ASSESSMENT IN PROGRESS)
+// RESUME ASSESSMENT CARD (UNFINISHED SESSIONS)
 // ================================================================
 
-class _PausedSessionCard extends StatelessWidget {
+class _ResumeAssessmentCard extends StatelessWidget {
   final bool compact;
   final String sessionName;
+  final String exerciseName;
+  final int repsCompleted;
   final int exerciseCount;
   final int currentExerciseIndex;
-  final int completedCorrectReps;
-  final String currentExerciseName;
-  final VoidCallback onPressed;
+  final VoidCallback onResume;
+  final VoidCallback onDiscard;
 
-  const _PausedSessionCard({
+  const _ResumeAssessmentCard({
     required this.compact,
     required this.sessionName,
+    required this.exerciseName,
+    required this.repsCompleted,
     required this.exerciseCount,
     required this.currentExerciseIndex,
-    required this.completedCorrectReps,
-    required this.currentExerciseName,
-    required this.onPressed,
+    required this.onResume,
+    required this.onDiscard,
   });
 
   @override
   Widget build(BuildContext context) {
-    final displayExName = currentExerciseName.isNotEmpty
-        ? getExerciseDisplayName(currentExerciseName)
-        : 'Exercise ${currentExerciseIndex + 1}';
-
     return Card(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(24),
@@ -642,7 +798,9 @@ class _PausedSessionCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        'Paused at $displayExName (Exercise ${currentExerciseIndex + 1} of $exerciseCount) • $completedCorrectReps correct reps completed',
+                        exerciseCount > 1
+                            ? 'Paused at $exerciseName (${currentExerciseIndex + 1} of $exerciseCount) • $repsCompleted reps completed'
+                            : '$exerciseName • $repsCompleted reps completed',
                         style: TextStyle(
                           color: Colors.grey.shade700,
                           fontSize: 12.5,
@@ -664,11 +822,12 @@ class _PausedSessionCard extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.history_rounded, color: Colors.amber.shade900, size: 22),
+                  Icon(Icons.history_rounded,
+                      color: Colors.amber.shade900, size: 22),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Ready to continue: $sessionName',
+                      'Ready to continue: $exerciseName ($repsCompleted reps completed)',
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
@@ -680,21 +839,48 @@ class _PausedSessionCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 14),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: FilledButton.icon(
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.amber.shade800,
-                  foregroundColor: Colors.white,
+            Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: SizedBox(
+                    height: 50,
+                    child: FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.amber.shade800,
+                        foregroundColor: Colors.white,
+                      ),
+                      onPressed: onResume,
+                      icon: const Icon(Icons.play_arrow_rounded),
+                      label: const Text(
+                        'Resume Assessment',
+                        style: TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ),
                 ),
-                onPressed: onPressed,
-                icon: const Icon(Icons.play_arrow_rounded),
-                label: const Text(
-                  'Continue Session',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                const SizedBox(width: 10),
+                Expanded(
+                  flex: 2,
+                  child: SizedBox(
+                    height: 50,
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.redAccent,
+                        side: const BorderSide(color: Colors.redAccent),
+                      ),
+                      onPressed: onDiscard,
+                      icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                      label: const Text(
+                        'Discard',
+                        style: TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
           ],
         ),
@@ -702,6 +888,8 @@ class _PausedSessionCard extends StatelessWidget {
     );
   }
 }
+
+
 
 // ================================================================
 // ACTIVE SESSION CARD
@@ -1304,21 +1492,22 @@ class _SessionSummaryCard extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                              fontSize: 12.5,
+                              fontSize: 12,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
                         ],
                       ),
                     ),
+                    const SizedBox(width: 8),
                     Container(
                       width: 1,
                       height: 26,
                       color: Colors.grey.shade300,
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 8),
                     Expanded(
-                      flex: 2,
+                      flex: 3,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -1337,7 +1526,7 @@ class _SessionSummaryCard extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: 12.5,
+                              fontSize: 12,
                               fontWeight: FontWeight.w700,
                               color: isGood
                                   ? Colors.green.shade700
@@ -1347,34 +1536,40 @@ class _SessionSummaryCard extends StatelessWidget {
                         ],
                       ),
                     ),
+                    const SizedBox(width: 8),
                     Container(
                       width: 1,
                       height: 26,
                       color: Colors.grey.shade300,
                     ),
-                    const SizedBox(width: 10),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          'AVG SCORE',
-                          style: TextStyle(
-                            color: Colors.grey.shade500,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.5,
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 2,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            'AVG SCORE',
+                            style: TextStyle(
+                              color: Colors.grey.shade500,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.5,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${session.averageScore.toStringAsFixed(0)}/100',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w800,
-                            color: primary,
+                          const SizedBox(height: 2),
+                          Text(
+                            '${session.averageScore.toStringAsFixed(0)}/100',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w800,
+                              color: primary,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -1523,7 +1718,7 @@ class _EmptyAssessmentsCard extends StatelessWidget {
               const SizedBox(height: 12),
 
               const Text(
-                'No assessments yet',
+                'No assessment sessions yet',
                 style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
               ),
 
@@ -1648,3 +1843,196 @@ class _AccountCard extends StatelessWidget {
     );
   }
 }
+
+// ================================================================
+// EXERCISE LIBRARY & DEMONSTRATIONS SECTION
+// ================================================================
+
+class _ExerciseLibrarySection extends StatelessWidget {
+  final bool compact;
+
+  const _ExerciseLibrarySection({required this.compact});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _SectionTitle(
+          title: 'Exercise library & guides',
+          subtitle: 'Step-by-step technique guides and interactive demonstrations',
+        ),
+        const SizedBox(height: 14),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isWide = constraints.maxWidth >= 640;
+            return GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: isWide ? 2 : 1,
+                mainAxisExtent: isWide ? 180 : 172,
+                crossAxisSpacing: 14,
+                mainAxisSpacing: 14,
+              ),
+              itemCount: kAllExercises.length,
+              itemBuilder: (context, index) {
+                final ex = kAllExercises[index];
+                return _ExerciseLibraryCard(
+                  exercise: ex,
+                  compact: compact,
+                );
+              },
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _ExerciseLibraryCard extends StatelessWidget {
+  final ExerciseMetadata exercise;
+  final bool compact;
+
+  const _ExerciseLibraryCard({
+    required this.exercise,
+    required this.compact,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final primary = theme.colorScheme.primary;
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(
+          color: theme.dividerColor.withValues(alpha: 0.15),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(15),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: primary.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    exercise.icon,
+                    color: primary,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        exercise.displayName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      if (exercise.isWorkInProgress)
+                        buildWipBadge(compact: true)
+                      else
+                        Text(
+                          'Clinically Validated',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.green.shade700,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Expanded(
+              child: Text(
+                exercise.description,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade600,
+                  height: 1.35,
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    onPressed: () {
+                      showExerciseDemoDialog(
+                        context,
+                        exerciseName: exercise.id,
+                      );
+                    },
+                    icon: const Icon(Icons.play_circle_outline_rounded, size: 16),
+                    label: const Text(
+                      'Tutorial',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => LiveAssessmentScreen(
+                            exerciseName: exercise.displayName,
+                          ),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.videocam_outlined, size: 16),
+                    label: const Text(
+                      'Practice',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+

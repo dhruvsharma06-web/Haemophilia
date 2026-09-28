@@ -1,8 +1,7 @@
-import 'dart:typed_data';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class AssessmentHistoryService {
@@ -16,16 +15,93 @@ class AssessmentHistoryService {
     return _firestore.collection('users').doc(uid).collection('assessments');
   }
 
-  Stream<QuerySnapshot<Map<String, dynamic>>> watchAssessments() {
-    final uid = _auth.currentUser?.uid;
-    if (uid == null) {
+  Stream<QuerySnapshot<Map<String, dynamic>>> watchAssessments([
+    String? uid,
+    int limit = 50,
+  ]) {
+    final targetUid = uid ?? _auth.currentUser?.uid;
+    if (targetUid == null) {
       return Stream<QuerySnapshot<Map<String, dynamic>>>.empty();
     }
 
-    return _collection(uid)
+    return _collection(targetUid)
         .orderBy('createdAt', descending: true)
-        .limit(100)
+        .limit(limit)
         .snapshots();
+  }
+
+  /// Streams unfinished (active or paused) assessment sessions for a patient.
+  Stream<QuerySnapshot<Map<String, dynamic>>> watchUnfinishedSessions(
+    String patientId,
+  ) {
+    return _firestore
+        .collection('assessmentSessions')
+        .where('patientId', isEqualTo: patientId)
+        .snapshots();
+  }
+
+  /// Explicitly marks a session as abandoned so it does not linger in active/paused state.
+  /// Historical completed sessions and completed assignments are NEVER modified.
+  Future<void> abandonSession(String sessionId, [String? patientId]) async {
+    final now = FieldValue.serverTimestamp();
+    try {
+      final sessionDoc = await _firestore
+          .collection('assessmentSessions')
+          .doc(sessionId)
+          .get();
+      final sessionData = sessionDoc.data();
+      // Historical completed sessions must NEVER be marked abandoned or deleted!
+      if (sessionData?['status'] == 'completed') {
+        debugPrint('AssessmentHistoryService: Will NOT abandon completed session $sessionId');
+        return;
+      }
+
+      await _firestore
+          .collection('assessmentSessions')
+          .doc(sessionId)
+          .set({
+        'status': 'abandoned',
+        'abandonedAt': now,
+        'lastUpdatedAt': now,
+        'updatedAt': now,
+      }, SetOptions(merge: true));
+
+      debugPrint('AssessmentHistoryService: Session $sessionId marked as abandoned');
+
+      if (patientId != null && patientId.isNotEmpty) {
+        final assignDoc = await _firestore
+            .collection('exerciseAssignments')
+            .doc(patientId)
+            .get();
+        final assignData = assignDoc.data();
+        final assignSessionId = assignData?['sessionId']?.toString();
+        final assignStatus = assignData?['status']?.toString().toLowerCase();
+
+        // Historical completed assignments must NEVER be marked abandoned!
+        if (assignStatus == 'completed') {
+          return;
+        }
+
+        // Only abandon the assignment if it corresponds to this abandoned session,
+        // or is currently paused/in_progress. Never overwrite a newly assigned session!
+        if (assignSessionId == sessionId ||
+            assignStatus == 'paused' ||
+            assignStatus == 'in_progress') {
+          await _firestore
+              .collection('exerciseAssignments')
+              .doc(patientId)
+              .set({
+            'status': 'discarded',
+            'discardedAt': now,
+            'lastUpdatedAt': now,
+            'updatedAt': now,
+          }, SetOptions(merge: true));
+          debugPrint('AssessmentHistoryService: Assignment for $patientId marked as discarded');
+        }
+      }
+    } catch (e) {
+      debugPrint('Error abandoning session $sessionId: $e');
+    }
   }
 
   Future<void> saveCompletedRep({
@@ -61,7 +137,7 @@ class AssessmentHistoryService {
           url: frameUrl,
         );
       } catch (e) {
-        print('Error frame upload failed: $e');
+        debugPrint('Error frame upload failed: $e');
       }
     }
 
@@ -79,7 +155,6 @@ class AssessmentHistoryService {
       'rangeOfMotion': _number(rep['range_of_motion'] ?? rep['rom']),
       'duration': _number(rep['duration']),
       'speed': rep['speed']?.toString() ?? 'Unknown',
-      'smoothness': _number(rep['smoothness_raw'] ?? rep['smoothness']),
       'confidence': _number(rep['confidence'] ?? rep['lstm_confidence']),
       'errorType': rep['error_type']?.toString() ?? rep['error']?.toString() ?? '',
       'feedback': rep['feedback']?.toString() ?? '',
@@ -90,7 +165,7 @@ class AssessmentHistoryService {
     };
 
     final document = await _collection(uid).add(data);
-    print(
+    debugPrint(
       'Assessment history saved: users/$uid/assessments/${document.id} '
       '(session: $sessionId)',
     );

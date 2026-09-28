@@ -10,6 +10,9 @@ from backend.app.services.model_registry import model_registry
 from src.exercises.assisted_shoulder_flexion import (
     AssistedShoulderFlexionAssessment,
 )
+from src.exercises.assisted_elbow_flexion import (
+    AssistedElbowFlexionAssessment,
+)
 from src.exercises.elbow_flexion_assessment import (
     ElbowFlexionAssessment,
 )
@@ -53,26 +56,49 @@ def _create_assessment(exercise: str):
         (exercise or "")
         .strip()
         .lower()
+        .replace("-", "_")
+        .replace(" ", "_")
     )
 
-    if exercise_normalized in {
-        "elbow_flexion",
-        "elbow flexion",
-        "elbow flexion & extension",
-        "elbow flexion and extension",
-    }:
-        return ElbowFlexionAssessment(
-            model=None,
-            device=None,
+    if (
+        "assisted_elbow" in exercise_normalized
+        or exercise_normalized in {
+            "assisted_elbow_flexion",
+            "assisted_elbow",
+        }
+    ):
+        model, device = model_registry.get_assisted_elbow_flexion()
+        return AssistedElbowFlexionAssessment(
+            model=model,
+            device=device,
             fps=20.0,
             data_dir="data",
             save_artifacts=True,
         )
 
-    if exercise_normalized in {
-        "shoulder_rotation",
-        "shoulder rotation",
-    }:
+    if (
+        "elbow" in exercise_normalized
+        or exercise_normalized in {
+            "elbow_flexion",
+            "elbow_flexion_extension",
+            "elbow_flexion_and_extension",
+        }
+    ):
+        model, device = model_registry.get_elbow_flexion_extension()
+        return ElbowFlexionAssessment(
+            model=model,
+            device=device,
+            fps=20.0,
+            data_dir="data",
+            save_artifacts=True,
+        )
+
+    if (
+        "rotation" in exercise_normalized
+        or exercise_normalized in {
+            "shoulder_rotation",
+        }
+    ):
         model, device = (
             model_registry.get_shoulder_rotation()
         )

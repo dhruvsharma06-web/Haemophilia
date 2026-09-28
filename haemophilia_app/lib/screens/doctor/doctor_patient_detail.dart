@@ -52,11 +52,9 @@ class DoctorPatientDetail extends StatelessWidget {
           final docs = snapshot.data?.docs ?? [];
           final sessions = groupAssessmentSessions(docs);
 
-          final reps = docs.length;
-          final correct = docs.where((doc) {
-            final form = doc.data()['form']?.toString().toLowerCase() ?? '';
-            return form.contains('correct') && !form.contains('incorrect');
-          }).length;
+          final totalRepsAll = sessions.fold<int>(0, (acc, s) => acc + s.reps);
+          final totalCorrectAll = sessions.fold<int>(0, (acc, s) => acc + s.correctReps);
+          final accuracyPct = totalRepsAll > 0 ? (totalCorrectAll / totalRepsAll * 100) : 0.0;
 
           final avg = sessions.isEmpty
               ? 0.0
@@ -131,6 +129,7 @@ OutlinedButton.icon(
                   int completedExCount = 0;
                   int totalCorrect = 0;
                   int totalTarget = 0;
+                  int totalAttempted = int.tryParse(data['totalCompletedReps']?.toString() ?? '0') ?? 0;
 
                   for (final ex in exercises) {
                     if (ex is Map) {
@@ -143,6 +142,10 @@ OutlinedButton.icon(
                       if (p is Map) {
                         if (p['status'] == 'completed') completedExCount++;
                         totalCorrect += int.tryParse(p['completedCorrectReps']?.toString() ?? '0') ?? 0;
+                        final exAttempted = int.tryParse(p['completedTotalReps']?.toString() ?? '0') ?? 0;
+                        if (exAttempted > 0 && totalAttempted == 0) {
+                          totalAttempted += exAttempted;
+                        }
                       }
                     }
                   } else {
@@ -150,6 +153,8 @@ OutlinedButton.icon(
                     final curIdx = int.tryParse(data['currentExerciseIndex']?.toString() ?? '0') ?? 0;
                     completedExCount = status == 'completed' ? totalExercises : curIdx;
                   }
+
+                  final currentExercise = data['currentExercise']?.toString() ?? '';
 
                   final lastUpdated = data['lastUpdatedAt'] ?? data['updatedAt'] ?? data['createdAt'];
                   DateTime? activityTime;
@@ -166,6 +171,10 @@ OutlinedButton.icon(
                       totalExercises: totalExercises,
                       correctReps: totalCorrect,
                       targetReps: totalTarget,
+                      totalAttemptedReps: totalAttempted,
+                      currentExercise: currentExercise,
+                      exercises: exercises,
+                      exerciseProgress: progressList,
                       lastActivity: activityTime,
                     ),
                   );
@@ -185,8 +194,10 @@ OutlinedButton.icon(
                   const SizedBox(width: 10),
                   Expanded(
                     child: _Stat(
-                      'Correct reps',
-                      reps == 0 ? '—' : '$correct/$reps',
+                      'Accuracy',
+                      totalRepsAll == 0
+                          ? '—'
+                          : '${accuracyPct.toStringAsFixed(0)}% ($totalCorrectAll/$totalRepsAll)',
                     ),
                   ),
                 ],
@@ -274,10 +285,20 @@ class _ProfileCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final primary = Theme.of(context).colorScheme.primary;
 
+    final details = <String>[];
+    if (patient.age != null) details.add('Age: ${patient.age}');
+    if (patient.gender != null && patient.gender!.isNotEmpty) {
+      details.add('Gender: ${patient.gender}');
+    }
+    if (patient.phoneNumber != null && patient.phoneNumber!.isNotEmpty) {
+      details.add('Phone: ${patient.phoneNumber}');
+    }
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(17),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             CircleAvatar(
               radius: 27,
@@ -299,7 +320,7 @@ class _ProfileCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    patient.name,
+                    patient.name.isNotEmpty ? patient.name : 'Patient',
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w800,
@@ -313,6 +334,17 @@ class _ProfileCard extends StatelessWidget {
                       fontSize: 12,
                     ),
                   ),
+                  if (details.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      details.join(' • '),
+                      style: TextStyle(
+                        color: Colors.grey.shade700,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -686,6 +718,10 @@ class _DoctorAssignmentStatusCard extends StatelessWidget {
   final int totalExercises;
   final int correctReps;
   final int targetReps;
+  final int totalAttemptedReps;
+  final String currentExercise;
+  final List<dynamic> exercises;
+  final List<dynamic> exerciseProgress;
   final DateTime? lastActivity;
 
   const _DoctorAssignmentStatusCard({
@@ -695,6 +731,10 @@ class _DoctorAssignmentStatusCard extends StatelessWidget {
     required this.totalExercises,
     required this.correctReps,
     required this.targetReps,
+    this.totalAttemptedReps = 0,
+    this.currentExercise = '',
+    this.exercises = const [],
+    this.exerciseProgress = const [],
     this.lastActivity,
   });
 
@@ -751,6 +791,15 @@ class _DoctorAssignmentStatusCard extends StatelessWidget {
         statusIcon = Icons.assignment_outlined;
         break;
     }
+
+    final double completionFraction = targetReps > 0
+        ? (correctReps / targetReps).clamp(0.0, 1.0)
+        : (totalExercises > 0 ? (completedExercises / totalExercises).clamp(0.0, 1.0) : 0.0);
+    final int completionPct = (completionFraction * 100).toInt();
+
+    final int accuracyPct = totalAttemptedReps > 0
+        ? ((correctReps / totalAttemptedReps) * 100).clamp(0, 100).toInt()
+        : (correctReps > 0 ? 100 : 0);
 
     return Card(
       elevation: 0,
@@ -817,6 +866,70 @@ class _DoctorAssignmentStatusCard extends StatelessWidget {
                 ),
               ],
             ),
+            if (currentExercise.isNotEmpty && status != 'completed') ...[
+              const SizedBox(height: 10),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      status == 'paused' ? Icons.pause_circle_outline : Icons.play_circle_outline,
+                      size: 16,
+                      color: Colors.blue.shade800,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Current: ${getExerciseDisplayName(currentExercise)}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.blue.shade900,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: LinearProgressIndicator(
+                value: completionFraction,
+                minHeight: 7,
+                backgroundColor: Colors.grey.shade200,
+                color: status == 'completed' ? Colors.green : Colors.blueAccent,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '$completionPct% Completed',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.grey.shade700,
+                  ),
+                ),
+                Text(
+                  '$completedExercises of $totalExercises exercises finished',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(12),
@@ -824,65 +937,169 @@ class _DoctorAssignmentStatusCard extends StatelessWidget {
                 color: Colors.grey.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Row(
+              child: Column(
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Exercises',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey.shade600,
-                            fontWeight: FontWeight.w600,
-                          ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Correct Reps',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey.shade600,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              targetReps > 0 ? '$correctReps / $targetReps' : '$correctReps',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '$completedExercises/$totalExercises completed',
-                          style: const TextStyle(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w700,
-                          ),
+                      ),
+                      Container(
+                        width: 1,
+                        height: 28,
+                        color: Colors.grey.withValues(alpha: 0.2),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Total Reps Attempted',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey.shade600,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '$totalAttemptedReps',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    width: 1,
-                    height: 28,
-                    color: Colors.grey.withValues(alpha: 0.2),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Correct Reps',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey.shade600,
-                            fontWeight: FontWeight.w600,
-                          ),
+                      ),
+                      Container(
+                        width: 1,
+                        height: 28,
+                        color: Colors.grey.withValues(alpha: 0.2),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Accuracy',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey.shade600,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              totalAttemptedReps > 0 ? '$accuracyPct%' : '—',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          targetReps > 0 ? '$correctReps/$targetReps reps' : '$correctReps reps',
-                          style: const TextStyle(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
+            if (exercises.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              const Text(
+                'ASSIGNED EXERCISES',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.grey,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 6),
+              ...exercises.asMap().entries.map((entry) {
+                final idx = entry.key;
+                final ex = entry.value;
+                if (ex is! Map) return const SizedBox.shrink();
+
+                final exName = ex['exercise']?.toString() ?? '';
+                final exTarget = int.tryParse(ex['targetCorrectReps']?.toString() ?? '0') ?? 0;
+
+                int exCorrect = 0;
+                String exStatus = 'pending';
+                if (idx < exerciseProgress.length && exerciseProgress[idx] is Map) {
+                  final prog = exerciseProgress[idx] as Map;
+                  exCorrect = int.tryParse(prog['completedCorrectReps']?.toString() ?? '0') ?? 0;
+                  exStatus = prog['status']?.toString().toLowerCase() ?? 'pending';
+                } else if (status == 'completed') {
+                  exCorrect = exTarget;
+                  exStatus = 'completed';
+                }
+
+                final isExCompleted = exStatus == 'completed';
+                final isExCurrent = (exName == currentExercise || exStatus == 'in_progress');
+
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 3.5),
+                  child: Row(
+                    children: [
+                      Icon(
+                        isExCompleted
+                            ? Icons.check_circle_rounded
+                            : (isExCurrent ? Icons.play_circle_filled_rounded : Icons.radio_button_unchecked),
+                        size: 15,
+                        color: isExCompleted
+                            ? Colors.green
+                            : (isExCurrent ? Colors.blueAccent : Colors.grey.shade400),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          getExerciseDisplayName(exName),
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: isExCurrent ? FontWeight.w700 : FontWeight.w500,
+                            color: isExCompleted ? Colors.grey.shade700 : Colors.black87,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '$exCorrect / $exTarget correct reps',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: isExCompleted ? Colors.green.shade800 : Colors.grey.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ],
             if (lastActivity != null) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               Row(
                 children: [
                   Icon(Icons.access_time_rounded, size: 13, color: Colors.grey.shade600),

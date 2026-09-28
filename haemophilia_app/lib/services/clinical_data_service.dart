@@ -111,6 +111,7 @@ class ClinicalDataService {
     required String senderRole,
     String? patientName,
     String? doctorName,
+    Map<String, dynamic>? sessionContext,
   }) async {
     final user = _auth.currentUser;
     if (user == null) throw StateError('You are not signed in.');
@@ -123,7 +124,7 @@ class ClinicalDataService {
     final now = Timestamp.now();
 
     // 1. Add message to the conversation's messages subcollection
-    await _conversationMessages(conversationId).add({
+    final messagePayload = <String, dynamic>{
       'conversationId': conversationId,
       'senderId': user.uid,
       'receiverId': receiverId,
@@ -135,7 +136,13 @@ class ClinicalDataService {
       'read': false,
       'readByPatient': isPatient,
       'readByDoctor': !isPatient,
-    });
+    };
+
+    if (sessionContext != null) {
+      messagePayload['sessionContext'] = sessionContext;
+    }
+
+    await _conversationMessages(conversationId).add(messagePayload);
 
     // 2. Upsert conversation parent document with latest preview and increment unread for receiver
     final convDoc = <String, dynamic>{
@@ -164,6 +171,16 @@ class ClinicalDataService {
       convDoc,
       SetOptions(merge: true),
     );
+  }
+
+  /// Streams active assessment sessions for this doctor's patients.
+  Stream<QuerySnapshot<Map<String, dynamic>>> watchActiveDoctorSessions(
+    String doctorId,
+  ) {
+    return _firestore
+        .collection('assessmentSessions')
+        .where('doctorId', isEqualTo: doctorId)
+        .snapshots();
   }
 
   /// Marks unread messages as read in a conversation for the viewing role.

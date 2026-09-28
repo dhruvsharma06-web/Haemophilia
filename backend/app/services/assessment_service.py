@@ -70,57 +70,52 @@ class AssessmentService:
         """
 
         # ---------------------------------------------------------
-        # Validate exercise
+        # Exercise processor dispatch
         # ---------------------------------------------------------
 
-        if exercise != "assisted_shoulder_flexion":
+        exercise_norm = (exercise or "").strip().lower().replace("-", "_").replace(" ", "_")
+
+        if "assisted_elbow" in exercise_norm or exercise_norm == "assisted_elbow_flexion":
+            from src.exercises.assisted_elbow_flexion import (
+                AssistedElbowFlexionAssessment,
+            )
+            model, device = model_registry.get_assisted_elbow_flexion()
+            assessment = AssistedElbowFlexionAssessment(
+                model=model,
+                device=device,
+                fps=fps,
+                data_dir="data",
+                save_artifacts=True,
+            )
+        elif "elbow" in exercise_norm or exercise_norm in {
+            "elbow_flexion",
+            "elbow_flexion_extension",
+            "elbow_flexion_and_extension",
+        }:
+            from src.exercises.elbow_flexion_assessment import (
+                ElbowFlexionAssessment,
+            )
+            model, device = model_registry.get_elbow_flexion_extension()
+            assessment = ElbowFlexionAssessment(
+                model=model,
+                device=device,
+                fps=fps,
+                data_dir="data",
+                save_artifacts=True,
+            )
+        elif "shoulder" in exercise_norm or exercise_norm == "assisted_shoulder_flexion":
+            model, device = model_registry.get_assisted_flexion()
+            assessment = AssistedShoulderFlexionAssessment(
+                model=model,
+                device=device,
+                fps=fps,
+                data_dir="data",
+                save_artifacts=True,
+            )
+        else:
             raise ValueError(
                 f"Unsupported exercise: {exercise}"
             )
-
-        # ---------------------------------------------------------
-        # Load model
-        # ---------------------------------------------------------
-
-        model, device = model_registry.get_assisted_flexion()
-
-        # ---------------------------------------------------------
-        # Create assessment ID
-        # ---------------------------------------------------------
-
-        assessment_id = str(uuid.uuid4())
-
-        # ---------------------------------------------------------
-        # Open video
-        # ---------------------------------------------------------
-
-        capture = cv2.VideoCapture(video_path)
-
-        if not capture.isOpened():
-            raise ValueError(
-                f"Could not open video: {video_path}"
-            )
-
-        # ---------------------------------------------------------
-        # Get FPS
-        # ---------------------------------------------------------
-
-        fps = capture.get(cv2.CAP_PROP_FPS)
-
-        if not fps or fps <= 0:
-            fps = 30.0
-
-        # ---------------------------------------------------------
-        # Create exercise assessment processor
-        # ---------------------------------------------------------
-
-        assessment = AssistedShoulderFlexionAssessment(
-            model=model,
-            device=device,
-            fps=fps,
-            data_dir="data",
-            save_artifacts=True,
-        )
 
         reps = []
 
@@ -320,9 +315,7 @@ class AssessmentService:
                     rep.get("duration")
                 ),
 
-                "smoothness": to_python_value(
-                    rep.get("smoothness")
-                ),
+                "smoothness": None,
             },
         }
 

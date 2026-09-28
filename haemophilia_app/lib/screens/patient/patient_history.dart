@@ -6,7 +6,9 @@ import '../../utils/exercise_utils.dart';
 import '../../widgets/session_analytics_chart.dart';
 
 class PatientHistory extends StatelessWidget {
-  const PatientHistory({super.key});
+  final String? userId;
+
+  const PatientHistory({super.key, this.userId});
 
   @override
   Widget build(BuildContext context) {
@@ -19,7 +21,7 @@ class PatientHistory extends StatelessWidget {
       ),
       body: SafeArea(
         child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-          stream: AssessmentHistoryService().watchAssessments(),
+          stream: AssessmentHistoryService().watchAssessments(userId),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting &&
                 !snapshot.hasData) {
@@ -322,11 +324,6 @@ class AssessmentSession {
 
   double get averageDuration => _average(repsData, ['duration']);
 
-  double get averageSmoothness {
-    final raw = _average(repsData, ['smoothness', 'smoothness_raw']);
-    return raw <= 1.0 && raw > 0 ? raw * 100.0 : raw;
-  }
-
   double get averageConfidence {
     final raw = _average(repsData, ['confidence', 'lstm_confidence']);
     return raw <= 1.0 && raw > 0 ? raw * 100.0 : raw;
@@ -403,7 +400,7 @@ List<AssessmentSession> groupAssessmentSessions(
 
     final sessionId = rawSessionId.isNotEmpty
         ? rawSessionId
-        : 'legacy_${exercise}_${date.year}_${date.month}_${date.day}_${date.hour}_${date.minute}';
+        : 'legacy_${exercise}_${date.year}_${date.month}_${date.day}';
 
     groups
         .putIfAbsent(
@@ -431,8 +428,8 @@ List<AssessmentSession> groupAssessmentSessions(
     final rawReps = entry.value;
 
     // Deduplicate reps within the session:
-    // Ensure uniqueness by __docId and positive repNumber.
-    final seenRepNumbers = <int>{};
+    // Ensure uniqueness by __docId and positive repNumber per exercise.
+    final seenRepKeys = <String>{};
     final seenDocIds = <String>{};
     final deduplicatedReps = <Map<String, dynamic>>[];
 
@@ -448,14 +445,18 @@ List<AssessmentSession> groupAssessmentSessions(
           ? rawNum.toInt()
           : int.tryParse(rawNum?.toString() ?? '');
       if (repNum != null && repNum > 0) {
-        if (seenRepNumbers.contains(repNum)) {
-          continue; // Skip duplicate repNumber within the same session
+        final repExercise = rep['exercise']?.toString() ?? '';
+        final repKey = '${repExercise}_$repNum';
+        if (seenRepKeys.contains(repKey)) {
+          continue; // Skip duplicate repNumber within the same exercise in this session
         }
-        seenRepNumbers.add(repNum);
+        seenRepKeys.add(repKey);
       }
 
       deduplicatedReps.add(rep);
     }
+
+    if (deduplicatedReps.isEmpty) continue;
 
     sessions.add(
       AssessmentSession(
@@ -711,21 +712,22 @@ class _SessionCard extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                              fontSize: 12.5,
+                              fontSize: 12,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
                         ],
                       ),
                     ),
+                    const SizedBox(width: 8),
                     Container(
                       width: 1,
                       height: 26,
                       color: Colors.grey.shade300,
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 8),
                     Expanded(
-                      flex: 2,
+                      flex: 3,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -744,7 +746,7 @@ class _SessionCard extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: 12.5,
+                              fontSize: 12,
                               fontWeight: FontWeight.w700,
                               color: isGood
                                   ? Colors.green.shade700
@@ -754,34 +756,40 @@ class _SessionCard extends StatelessWidget {
                         ],
                       ),
                     ),
+                    const SizedBox(width: 8),
                     Container(
                       width: 1,
                       height: 26,
                       color: Colors.grey.shade300,
                     ),
-                    const SizedBox(width: 10),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          'AVG SCORE',
-                          style: TextStyle(
-                            color: Colors.grey.shade500,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.5,
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 2,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            'AVG SCORE',
+                            style: TextStyle(
+                              color: Colors.grey.shade500,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.5,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${session.averageScore.toStringAsFixed(0)}/100',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w800,
-                            color: primary,
+                          const SizedBox(height: 2),
+                          Text(
+                            '${session.averageScore.toStringAsFixed(0)}/100',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w800,
+                              color: primary,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -836,8 +844,8 @@ class _SessionStatsGrid extends StatelessWidget {
                 value: '${session.averageDuration.toStringAsFixed(1)}s',
               ),
               _StatTile(
-                label: 'Movement Smoothness',
-                value: '${session.averageSmoothness.toStringAsFixed(0)}%',
+                label: 'AI Confidence',
+                value: '${session.averageConfidence.toStringAsFixed(0)}%',
               ),
             ];
 
@@ -1273,7 +1281,7 @@ class _HistoryEmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             const Text(
-              'No sessions yet',
+              'No assessment sessions yet',
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w800,

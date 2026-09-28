@@ -10,6 +10,11 @@ class AuthService {
   final FirebaseFirestore _firestore =
       FirebaseFirestore.instance;
 
+  /// Institutional email domain requirement (e.g. '@somaiya.edu').
+  /// Kept null to prevent breaking existing Firebase authentication.
+  /// Configure this constant once the exact Somaiya institutional domain is confirmed.
+  static const String? requiredEmailDomain = null;
+
   // ==========================================================
   // REGISTER PATIENT
   // ==========================================================
@@ -19,9 +24,18 @@ class AuthService {
     required String email,
     required String password,
   }) async {
+    final cleanEmail = email.trim();
+    if (requiredEmailDomain != null &&
+        !cleanEmail.toLowerCase().endsWith(requiredEmailDomain!)) {
+      throw Exception(
+        'Please register with your $requiredEmailDomain institutional email.',
+      );
+    }
+
+    final formattedName = formatFullName(name);
     final credential =
         await _auth.createUserWithEmailAndPassword(
-      email: email.trim(),
+      email: cleanEmail,
       password: password,
     );
 
@@ -33,8 +47,8 @@ class AuthService {
 
     final userModel = UserModel(
       uid: user.uid,
-      name: name.trim(),
-      email: email.trim(),
+      name: formattedName,
+      email: cleanEmail,
       role: 'patient',
     );
 
@@ -97,7 +111,13 @@ class AuthService {
   Future<void> logout() async {
     final uid = _auth.currentUser?.uid;
     if (uid != null) {
-      await NotificationService().clearTokenOnLogout(uid);
+      try {
+        await NotificationService()
+            .clearTokenOnLogout(uid)
+            .timeout(const Duration(seconds: 2));
+      } catch (e) {
+        // Non-fatal; clearing FCM token should never block Firebase sign-out
+      }
     }
     await _auth.signOut();
   }
@@ -119,7 +139,7 @@ class AuthService {
       throw StateError('Unauthorized to update this profile.');
     }
 
-    final trimmedName = name.trim();
+    final trimmedName = formatFullName(name);
     final updateData = <String, dynamic>{
       'name': trimmedName,
       'updatedAt': FieldValue.serverTimestamp(),
@@ -164,10 +184,25 @@ class AuthService {
   }
 
   // ==========================================================
-  // CURRENT USER
+  // CURRENT USER & AUTH STATE
   // ==========================================================
 
   User? get currentUser {
     return _auth.currentUser;
+  }
+
+  Stream<User?> get authStateChanges => _auth.authStateChanges();
+
+  Future<UserModel?> getCurrentUserModel() async {
+    final user = _auth.currentUser;
+    if (user == null) return null;
+
+    try {
+      final doc = await _firestore.collection('users').doc(user.uid).get();
+      if (!doc.exists || doc.data() == null) return null;
+      return UserModel.fromMap(user.uid, doc.data()!);
+    } catch (e) {
+      return null;
+    }
   }
 }

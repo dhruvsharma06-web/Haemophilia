@@ -41,18 +41,17 @@ class _AssignExercisesScreenState
   // ============================================================
 
   final Map<String, bool> _selected = {
-    'assisted_shoulder_flexion': true,
-    'elbow_flexion': false,
-    'shoulder_rotation': false,
+    kAssistedShoulderFlexion: true,
+    kShoulderRotation: false,
+    kAssistedElbowFlexion: false,
+    kElbowFlexionExtension: false,
   };
 
   final Map<String, TextEditingController> _repControllers = {
-    'assisted_shoulder_flexion':
-        TextEditingController(text: '10'),
-    'elbow_flexion':
-        TextEditingController(text: '10'),
-    'shoulder_rotation':
-        TextEditingController(text: '10'),
+    kAssistedShoulderFlexion: TextEditingController(text: '10'),
+    kShoulderRotation: TextEditingController(text: '10'),
+    kAssistedElbowFlexion: TextEditingController(text: '10'),
+    kElbowFlexionExtension: TextEditingController(text: '10'),
   };
 
   bool _saving = false;
@@ -81,19 +80,7 @@ class _AssignExercisesScreenState
   }
 
   IconData _exerciseIcon(String exercise) {
-    switch (exercise) {
-      case 'assisted_shoulder_flexion':
-        return Icons.accessibility_new_rounded;
-
-      case 'elbow_flexion':
-        return Icons.fitness_center_rounded;
-
-      case 'shoulder_rotation':
-        return Icons.rotate_right_rounded;
-
-      default:
-        return Icons.fitness_center_rounded;
-    }
+    return getExerciseIcon(exercise);
   }
 
   // ============================================================
@@ -130,9 +117,10 @@ class _AssignExercisesScreenState
         <Map<String, dynamic>>[];
 
     final exerciseOrder = [
-      'assisted_shoulder_flexion',
-      'elbow_flexion',
-      'shoulder_rotation',
+      kAssistedShoulderFlexion,
+      kShoulderRotation,
+      kAssistedElbowFlexion,
+      kElbowFlexionExtension,
     ];
 
     for (final exercise in exerciseOrder) {
@@ -208,19 +196,37 @@ class _AssignExercisesScreenState
     });
 
     try {
+      final initialExerciseProgress = selectedExercises.map((e) {
+        final exName = e['exercise']?.toString() ?? '';
+        return {
+          'exercise': exName,
+          'name': getExerciseDisplayName(exName),
+          'targetCorrectReps': int.tryParse(e['targetCorrectReps']?.toString() ?? '0') ?? 0,
+          'completedCorrectReps': 0,
+          'completedTotalReps': 0,
+          'status': 'pending',
+        };
+      }).toList();
+
       await _firestore
           .collection('exerciseAssignments')
           .doc(widget.patientId)
           .set({
         'patientId': widget.patientId,
         'doctorId': doctorId,
-
-        // NEW:
         'sessionName': sessionName,
-
         'exercises': selectedExercises,
         'status': 'assigned',
+        'currentExerciseIndex': 0,
+        'currentExercise': selectedExercises.isNotEmpty
+            ? selectedExercises.first['exercise']?.toString() ?? ''
+            : '',
+        'completedCorrectReps': 0,
+        'totalCompletedReps': 0,
+        'progressPercentage': 0.0,
+        'exerciseProgress': initialExerciseProgress,
         'createdAt': FieldValue.serverTimestamp(),
+        'lastUpdatedAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
@@ -348,7 +354,7 @@ class _AssignExercisesScreenState
                       if (isWorkInProgressExercise(exercise)) ...[
                         const SizedBox(height: 3),
                         Text(
-                          'Under active clinical validation',
+                          'Work in progress',
                           style: TextStyle(
                             color: Colors.amber.shade900,
                             fontSize: 11,
@@ -600,15 +606,19 @@ class _AssignExercisesScreenState
                   const SizedBox(height: 18),
 
                   _exerciseCard(
-                    'assisted_shoulder_flexion',
+                    kAssistedShoulderFlexion,
                   ),
 
                   _exerciseCard(
-                    'elbow_flexion',
+                    kShoulderRotation,
                   ),
 
                   _exerciseCard(
-                    'shoulder_rotation',
+                    kAssistedElbowFlexion,
+                  ),
+
+                  _exerciseCard(
+                    kElbowFlexionExtension,
                   ),
 
                   const SizedBox(height: 12),

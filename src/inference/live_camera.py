@@ -948,41 +948,57 @@ while cap.isOpened():
 
                 form = "Incorrect" if final_error is not None else "Correct"
 
-                # ----- score: useful but NEVER allowed to override form -----
-                if weaker_arm_max >= 165.0:
-                    rom_score = 95.0
-                elif weaker_arm_max >= 150.0:
-                    rom_score = 82.0 + (weaker_arm_max - 150.0) / 15.0 * 13.0
-                elif weaker_arm_max >= 140.0:
-                    rom_score = 68.0 + (weaker_arm_max - 140.0) / 10.0 * 14.0
+                # ----- PROTOTYPE SCORING ALGORITHM (NOT CLINICALLY VALIDATED) -----
+                # Weights: Form 45%, ROM 35%, Speed 20%
+                if weaker_arm_max >= 155.0:
+                    rom_score = 100.0
+                elif weaker_arm_max >= 145.0:
+                    rom_score = 90.0 + (weaker_arm_max - 145.0) / 10.0 * 10.0
+                elif weaker_arm_max >= 130.0:
+                    rom_score = 75.0 + (weaker_arm_max - 130.0) / 15.0 * 15.0
+                elif weaker_arm_max >= 100.0:
+                    rom_score = 50.0 + (weaker_arm_max - 100.0) / 30.0 * 25.0
                 else:
-                    rom_score = max(0.0, weaker_arm_max / 140.0 * 68.0)
+                    rom_score = max(0.0, weaker_arm_max / 100.0 * 50.0)
 
                 if 1.5 <= duration <= 2.7:
-                    speed_score = 92.0
-                elif 1.2 <= duration < 1.5 or 2.7 < duration <= 3.2:
-                    speed_score = 84.0
+                    speed_score = 100.0
+                elif (1.2 <= duration < 1.5) or (2.7 < duration <= 3.5):
+                    speed_score = 80.0
+                elif duration < 1.2:
+                    speed_score = max(25.0, 70.0 - (1.2 - duration) * 50.0)
                 else:
-                    speed_score = 72.0
+                    speed_score = max(25.0, 70.0 - (duration - 3.5) * 20.0)
 
-                smoothness_score = float(np.clip(72.0 + smoothness_raw * 20.0, 72.0, 92.0))
-
-                form_score = 95.0
-                form_score -= min(18.0, robust_relative_tilt * 1.5)
-                form_score -= min(18.0, peak_asymmetry * 0.7)
-                form_score = max(50.0, form_score)
-
-                score = (
-                    rom_score * 0.50 +
-                    speed_score * 0.15 +
-                    smoothness_score * 0.10 +
-                    form_score * 0.25
-                )
-                score = float(np.clip(score, 0.0, 100.0))
-
-                # Any form failure gets a clearly non-good score.
                 if final_error is not None:
-                    score = min(score, 59.0)
+                    form_score = max(
+                        0.0,
+                        45.0
+                        - robust_relative_tilt * 2.5
+                        - peak_asymmetry * 1.5,
+                    )
+                else:
+                    form_score = max(
+                        70.0,
+                        100.0
+                        - min(15.0, robust_relative_tilt * 1.2)
+                        - min(15.0, peak_asymmetry * 0.8),
+                    )
+
+                raw_score = (
+                    0.45 * form_score +
+                    0.35 * rom_score +
+                    0.20 * speed_score
+                )
+
+                if final_error is not None:
+                    score = min(raw_score, 55.0)
+                    if form_score < 20.0:
+                        score = min(score, 45.0)
+                else:
+                    score = raw_score
+
+                score = float(np.clip(score, 0.0, 100.0))
 
                 # ------------------------------------------------
                 # FEEDBACK
@@ -1002,7 +1018,7 @@ while cap.isOpened():
                     )
                 elif score >= 70.0:
                     feedback = (
-                        'Good repetition. Try to make the movement smoother and more controlled.'
+                        'Good repetition. Maintain steady pace and upright posture.'
                     )
                 else:
                     feedback = (
@@ -1019,7 +1035,6 @@ while cap.isOpened():
                         else 'Good' if duration <= 2.7
                         else 'Slow'
                     ),
-                    'smoothness': smoothness_raw * 100.0,
                     'score': round(score, 1),
                     'feedback': feedback,
                     'error_type': advanced_error_type,
@@ -1109,11 +1124,6 @@ while cap.isOpened():
                 print(
                     "Speed:",
                     last_result["speed"]
-                )
-                print(
-                    "Smoothness:",
-                    last_result["smoothness"],
-                    "%"
                 )
                 print(
                     "Score:",
@@ -1287,11 +1297,11 @@ while cap.isOpened():
 
     cv2.putText(
         display_frame,
-        f"SMOOTHNESS: {last_result['smoothness']:.1f}%",
+        f"FORM: {last_result['form']}",
         (30, 405),
         cv2.FONT_HERSHEY_SIMPLEX,
         0.65,
-        (255, 255, 255),
+        (0, 255, 0) if "correct" in str(last_result['form']).lower() and "incorrect" not in str(last_result['form']).lower() else (0, 0, 255),
         2
     )
 

@@ -4,60 +4,70 @@ import 'package:flutter/material.dart';
 import '../../models/user_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/clinical_data_service.dart';
-import '../auth/login_screen.dart';
 
-class AdminDashboard extends StatelessWidget {
+class AdminDashboard extends StatefulWidget {
   final UserModel user;
 
   const AdminDashboard({super.key, required this.user});
 
-  Future<void> _logout(BuildContext context) async {
-    await AuthService().logout();
-    if (!context.mounted) return;
+  @override
+  State<AdminDashboard> createState() => _AdminDashboardState();
+}
 
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
-      (_) => false,
-    );
+class _AdminDashboardState extends State<AdminDashboard> {
+  bool _isLoggingOut = false;
+
+  Future<void> _logout() async {
+    if (_isLoggingOut) return;
+    setState(() => _isLoggingOut = true);
+
+    try {
+      await AuthService().logout();
+    } catch (e) {
+      debugPrint('Logout error: $e');
+    }
+
+    if (!mounted) return;
+
+    Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
   @override
   Widget build(BuildContext context) {
+    final user = widget.user;
     final service = ClinicalDataService();
-    final primary = Theme.of(context).colorScheme.primary;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: primary.withValues(alpha: .10),
-                borderRadius: BorderRadius.circular(11),
-              ),
-              child: Icon(
-                Icons.admin_panel_settings_outlined,
-                color: primary,
-                size: 23,
-              ),
-            ),
-            const SizedBox(width: 10),
-            const Text(
-              'Admin Portal',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
+          appBar: AppBar(
+            title: Row(
+              children: [
+                Image.asset(
+                  'assets/icon/haemophysio_logo.png',
+                  width: 36,
+                  height: 36,
+                  fit: BoxFit.contain,
+                ),
+                const SizedBox(width: 10),
+                const Text(
+                  'HaemoPhysio Admin',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
           ],
         ),
         actions: [
           IconButton(
-            onPressed: () => _logout(context),
-            icon: const Icon(Icons.logout_rounded),
+            tooltip: 'Log out',
+            onPressed: _isLoggingOut ? null : _logout,
+            icon: _isLoggingOut
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.logout_rounded),
           ),
           const SizedBox(width: 8),
         ],
@@ -296,7 +306,7 @@ class _UserCard extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     DropdownButtonFormField<String>(
-                      value: role,
+                      initialValue: role,
                       decoration: const InputDecoration(labelText: 'Role'),
                       items: const ['patient', 'doctor', 'admin']
                           .map(
@@ -315,7 +325,7 @@ class _UserCard extends StatelessWidget {
                     const SizedBox(height: 14),
                     if (role == 'patient')
                       DropdownButtonFormField<String?>(
-                        value: doctors.any((d) => d.id == doctorId)
+                        initialValue: doctors.any((d) => d.id == doctorId)
                             ? doctorId
                             : null,
                         decoration: const InputDecoration(

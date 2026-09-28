@@ -1,11 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import '../../models/user_model.dart';
 import '../../services/auth_service.dart';
-import '../admin/admin_dashboard.dart';
-import '../doctor/doctor_dashboard.dart';
-import '../patient/patient_dashboard.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -46,32 +42,16 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _loading = true);
 
     try {
-      final UserModel user = await _authService.login(
+      await _authService.login(
         email: email,
         password: password,
       );
 
       if (!mounted) return;
 
-      final Widget destination;
-      switch (user.role.toLowerCase()) {
-        case 'doctor':
-          destination = DoctorDashboard(user: user);
-          break;
-        case 'admin':
-          destination = AdminDashboard(user: user);
-          break;
-        case 'patient':
-          destination = PatientDashboard(user: user);
-          break;
-        default:
-          throw Exception('Unknown user role.');
-      }
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => destination),
-      );
+      // Pop any stacked routes back to the root AuthGate,
+      // which reactively displays the appropriate dashboard.
+      Navigator.of(context).popUntil((route) => route.isFirst);
     } on FirebaseAuthException catch (e) {
       _showError(_firebaseAuthError(e));
     } catch (e) {
@@ -118,7 +98,6 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final compact = MediaQuery.sizeOf(context).width < 600;
-    final primary = Theme.of(context).colorScheme.primary;
 
     return Scaffold(
       body: SafeArea(
@@ -129,22 +108,14 @@ class _LoginScreenState extends State<LoginScreen> {
               constraints: const BoxConstraints(maxWidth: 430),
               child: Column(
                 children: [
-                  Container(
-                    width: 72,
-                    height: 72,
-                    decoration: BoxDecoration(
-                      color: primary.withValues(alpha: .10),
-                      borderRadius: BorderRadius.circular(22),
-                    ),
-                    child: Icon(
-                      Icons.health_and_safety_rounded,
-                      color: primary,
-                      size: 42,
-                    ),
+                  Image.asset(
+                    'assets/icon/haemophysio_logo.png',
+                    height: 76,
+                    fit: BoxFit.contain,
                   ),
                   const SizedBox(height: 18),
                   const Text(
-                    'Haemophilia',
+                    'HaemoPhysio',
                     style: TextStyle(
                       fontSize: 31,
                       fontWeight: FontWeight.w900,
@@ -153,7 +124,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 5),
                   Text(
-                    'AI Physiotherapy Assistant',
+                    'Physiotherapy Assistant',
                     style: TextStyle(
                       color: Colors.grey.shade600,
                       fontSize: 14,

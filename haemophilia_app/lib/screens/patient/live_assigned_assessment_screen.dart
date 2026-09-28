@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../assessment/live_assessment_screen.dart';
+import '../../utils/exercise_utils.dart';
 
 class AssignedAssessmentScreen extends StatefulWidget {
   const AssignedAssessmentScreen({
@@ -162,34 +163,7 @@ class _AssignedAssessmentScreenState
           continue;
         }
 
-        if (value.contains(
-              'assisted_shoulder_flexion',
-            ) ||
-            value.contains(
-              'assisted_shoulder',
-            )) {
-          exercise['exercise'] =
-              'assisted_shoulder_flexion';
-        } else if (value.contains(
-              'elbow_flexion',
-            ) ||
-            value.contains(
-              'elbow_flexion_extension',
-            ) ||
-            value.contains(
-              'elbow',
-            )) {
-          exercise['exercise'] =
-              'elbow_flexion';
-        } else if (value.contains(
-              'shoulder_rotation',
-            ) ||
-            value.contains(
-              'shoulder_rotation',
-            )) {
-          exercise['exercise'] =
-              'shoulder_rotation';
-        }
+        exercise['exercise'] = normalizeExerciseId(value);
       }
 
       // ----------------------------------------------------------
@@ -264,41 +238,13 @@ class _AssignedAssessmentScreenState
       return name;
     }
 
-    switch (
-        exercise['exercise']
-            ?.toString()) {
-      case 'assisted_shoulder_flexion':
-        return 'Assisted Shoulder Flexion';
-
-      case 'elbow_flexion':
-        return 'Elbow Flexion & Extension';
-
-      case 'shoulder_rotation':
-        return 'Shoulder Rotation';
-
-      default:
-        return 'Exercise';
-    }
+    return getExerciseDisplayName(exercise['exercise']?.toString());
   }
 
   IconData _exerciseIcon(
     Map<String, dynamic> exercise,
   ) {
-    switch (
-        exercise['exercise']
-            ?.toString()) {
-      case 'assisted_shoulder_flexion':
-        return Icons.accessibility_new_rounded;
-
-      case 'elbow_flexion':
-        return Icons.fitness_center_rounded;
-
-      case 'shoulder_rotation':
-        return Icons.rotate_right_rounded;
-
-      default:
-        return Icons.fitness_center_rounded;
-    }
+    return getExerciseIcon(exercise['exercise']?.toString());
   }
 
   // ============================================================

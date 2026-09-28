@@ -193,7 +193,7 @@ class _LiveAssessmentScreenState
   // ============================================================
 
   static const String websocketUrl =
-        'wss://displays-lotus-joined-polyester.trycloudflare.com/v1/assessments/live';
+      'wss://furniture-float-franchise-trained.trycloudflare.com/v1/assessments/live';
 
   static const Duration frameInterval =
       Duration(milliseconds: 50);
@@ -249,9 +249,8 @@ class _LiveAssessmentScreenState
 
   double _score = 0;
   double _rom = 0;
-  double _smoothness = 0;
-
   String _speed = 'Waiting';
+  DateTime _lastActiveSessionSync = DateTime.fromMillisecondsSinceEpoch(0);
 
   // Last completed rep returned by the backend.
   Map<String, dynamic>? _lastCompletedRep;
@@ -265,6 +264,8 @@ class _LiveAssessmentScreenState
   late final String _sessionId;
   bool _isExitingOrSaving = false;
   List<Map<String, dynamic>> _exerciseProgress = [];
+  String _resolvedDoctorId = '';
+  String _resolvedPatientName = '';
 
   // ============================================================
   // ASSIGNED ASSESSMENT
@@ -294,6 +295,8 @@ class _LiveAssessmentScreenState
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+
+    _resolvedDoctorId = widget.assignedDoctorId ?? '';
 
     final user = FirebaseAuth.instance.currentUser;
     _sessionId = (widget.sessionId != null && widget.sessionId!.isNotEmpty)
@@ -403,6 +406,7 @@ class _LiveAssessmentScreenState
     try {
       await _initializeCamera();
       await _connectWebSocket();
+      await _startActiveSessionInFirestore();
 
       if (mounted) {
         setState(() {
@@ -419,6 +423,157 @@ class _LiveAssessmentScreenState
       setState(() {
         _initializing = false;
         _connectionError = e.toString();
+      });
+    }
+  }
+
+  Future<void> _startActiveSessionInFirestore() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final patientId = user.uid;
+    _resolvedPatientName = user.displayName ?? '';
+
+    try {
+      if (_resolvedDoctorId.isEmpty) {
+        final assignDoc = await FirebaseFirestore.instance
+            .collection('exerciseAssignments')
+            .doc(patientId)
+            .get();
+        if (assignDoc.exists) {
+          _resolvedDoctorId =
+              assignDoc.data()?['doctorId']?.toString().trim() ?? '';
+        }
+      }
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(patientId)
+          .get();
+      final userData = userDoc.data();
+      if (userData != null) {
+        if (_resolvedDoctorId.isEmpty) {
+          _resolvedDoctorId =
+              userData['doctorId']?.toString().trim() ?? '';
+        }
+        if (_resolvedPatientName.isEmpty ||
+            _resolvedPatientName == 'Patient') {
+          _resolvedPatientName =
+              userData['name']?.toString().trim() ?? 'Patient';
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching patient/doctor info for active session: $e');
+    }
+
+    try {
+      final docRef = FirebaseFirestore.instance
+          .collection('assessmentSessions')
+          .doc(_sessionId);
+      final existingDoc = await docRef.get();
+      final bool alreadyExists =
+          existingDoc.exists && existingDoc.data()?['startedAt'] != null;
+
+      final sessionData = <String, dynamic>{
+        'sessionId': _sessionId,
+        'patientId': patientId,
+        'patientName': _resolvedPatientName.isNotEmpty
+            ? _resolvedPatientName
+            : 'Patient',
+        'doctorId': _resolvedDoctorId,
+        'exercise': _currentExerciseDisplayName(),
+        'sessionName': widget.sessionName ?? _currentExerciseDisplayName(),
+        'status': 'active',
+        'currentRepCount': math.max(_repCount, _currentTotalReps),
+        'currentScore': _score,
+        'currentForm': _form,
+        'lastUpdatedAt': FieldValue.serverTimestamp(),
+      };
+
+      if (!alreadyExists) {
+        sessionData['startedAt'] = FieldValue.serverTimestamp();
+      } else {
+        sessionData['resumedAt'] = FieldValue.serverTimestamp();
+      }
+
+      await docRef.set(sessionData, SetOptions(merge: true));
+
+      if (_assignedMode) {
+        await FirebaseFirestore.instance
+            .collection('exerciseAssignments')
+            .doc(patientId)
+            .set({
+          'status': 'in_progress',
+          'sessionId': _sessionId,
+          'lastUpdatedAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      }
+
+      debugPrint(
+          'Active session initialized in Firestore: $_sessionId (resumed: $alreadyExists, doctorId: $_resolvedDoctorId)');
+    } catch (e) {
+      debugPrint('Error initializing active session in Firestore: $e');
+    }
+  }
+
+  void _syncActiveSessionProgress({bool force = false}) {
+    final now = DateTime.now();
+    if (!force &&
+        now.difference(_lastActiveSessionSync).inMilliseconds < 1500) {
+      return;
+    }
+    _lastActiveSessionSync = now;
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final patientId = user.uid;
+
+    final totalCorrect = _assignedMode ? _totalCompletedCorrectReps : _currentCorrectReps;
+    final totalReps = _assignedMode ? _totalCompletedReps : math.max(_repCount, _currentTotalReps);
+    final target = _totalTargetCorrectReps;
+    final progressPct = target > 0 ? (totalCorrect / target).clamp(0.0, 1.0) * 100 : 0.0;
+
+    final syncData = <String, dynamic>{
+      'sessionId': _sessionId,
+      'patientId': patientId,
+      'exercise': _currentExerciseDisplayName(),
+      'status': 'active',
+      'currentRepCount': totalReps,
+      'totalReps': totalReps,
+      'totalCorrectReps': totalCorrect,
+      'currentScore': _score,
+      'currentForm': _form,
+      'lastUpdatedAt': FieldValue.serverTimestamp(),
+    };
+    if (_resolvedDoctorId.isNotEmpty) {
+      syncData['doctorId'] = _resolvedDoctorId;
+    }
+    if (_resolvedPatientName.isNotEmpty) {
+      syncData['patientName'] = _resolvedPatientName;
+    }
+
+    FirebaseFirestore.instance
+        .collection('assessmentSessions')
+        .doc(_sessionId)
+        .set(syncData, SetOptions(merge: true)).catchError((e) {
+      debugPrint('Error syncing active session progress: $e');
+    });
+
+    if (_assignedMode) {
+      FirebaseFirestore.instance
+          .collection('exerciseAssignments')
+          .doc(patientId)
+          .set({
+        'status': 'in_progress',
+        'sessionId': _sessionId,
+        'currentExerciseIndex': _currentAssignedIndex,
+        'currentExercise': _currentAssignedExercise(),
+        'completedCorrectReps': totalCorrect,
+        'totalCompletedReps': totalReps,
+        'progressPercentage': progressPct,
+        'exerciseProgress': _exerciseProgress,
+        'lastUpdatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true)).catchError((e) {
+        debugPrint('Error syncing assignment progress: $e');
       });
     }
   }
@@ -484,8 +639,18 @@ class _LiveAssessmentScreenState
     debugPrint('Connecting to WebSocket: $websocketUrl');
 
     try {
+      final currentEx =
+          _assignedMode ? _currentAssignedExercise() : widget.exerciseName;
+      final parsedUri = Uri.parse(websocketUrl);
+      final wsUri = parsedUri.replace(
+        queryParameters: {
+          ...parsedUri.queryParameters,
+          'exercise': currentEx,
+        },
+      );
+
       final channel = IOWebSocketChannel.connect(
-        Uri.parse(websocketUrl),
+        wsUri,
         connectTimeout: const Duration(seconds: 10),
       );
 
@@ -681,12 +846,8 @@ class _LiveAssessmentScreenState
         }
 
         final rep = Map<String, dynamic>.from(completedRep);
-        final backendRepNumber = _toInt(rep['rep_number'] ?? rep['session_record']?['rep_number']);
-        final normalizedRepNumber =
-            backendRepNumber > 0 ? backendRepNumber : ++_sessionRepSequence;
-        if (backendRepNumber > 0 && backendRepNumber > _sessionRepSequence) {
-          _sessionRepSequence = backendRepNumber;
-        }
+        _sessionRepSequence++;
+        final normalizedRepNumber = _sessionRepSequence;
         rep['rep_number'] = normalizedRepNumber;
 
         final repSignature =
@@ -714,7 +875,6 @@ class _LiveAssessmentScreenState
       _score = _toDouble(data['score']);
       _rom = _toDouble(data['range_of_motion']);
       _speed = data['speed']?.toString() ?? 'Waiting';
-      _smoothness = _toDouble(data['smoothness']);
       _errorType = data['error_type']?.toString() ?? '';
       _feedback = data['feedback']?.toString() ??
           'Keep following the exercise instructions.';
@@ -727,9 +887,10 @@ class _LiveAssessmentScreenState
           setState(() {
             _socketConnected = true;
             _connectionStatus = 'AI Live';
-            _repCount = math.max(newRepCount, _currentTotalReps);
+            _repCount = math.max(_currentTotalReps, math.max(newRepCount, _repCount));
           });
         }
+        _syncActiveSessionProgress(force: hasCompletedRep);
       }
     } catch (e) {
       debugPrint(
@@ -824,8 +985,6 @@ class _LiveAssessmentScreenState
 
       _score = 0;
       _rom = 0;
-      _smoothness = 0;
-
       _speed = 'Waiting';
       _errorType = '';
     });
@@ -874,13 +1033,22 @@ class _LiveAssessmentScreenState
     // 4. Mark session completed in Firestore
     if (patientId != null) {
       try {
+        final totalCorrect = _assignedMode ? _totalCompletedCorrectReps : _currentCorrectReps;
+        final totalReps = _assignedMode ? _totalCompletedReps : math.max(_repCount, _currentTotalReps);
+        final finalScoreVal = _score;
+
         // Update exerciseAssignments to completed so patient cannot re-start it
         await FirebaseFirestore.instance
             .collection('exerciseAssignments')
             .doc(patientId)
             .set({
           'status': 'completed',
+          'completedCorrectReps': totalCorrect,
+          'totalCompletedReps': totalReps,
+          'progressPercentage': 100.0,
+          'exerciseProgress': _exerciseProgress,
           'completedAt': FieldValue.serverTimestamp(),
+          'lastUpdatedAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
 
@@ -891,34 +1059,46 @@ class _LiveAssessmentScreenState
             .set({
           'sessionId': _sessionId,
           'patientId': patientId,
-          'doctorId': widget.assignedDoctorId ?? '',
+          'patientName': _resolvedPatientName.isNotEmpty
+              ? _resolvedPatientName
+              : 'Patient',
+          'doctorId': _resolvedDoctorId,
           'sessionName': sessionName,
           'status': 'completed',
+          'currentRepCount': totalReps,
+          'finalRepCount': totalReps,
+          'totalReps': totalReps,
+          'totalCorrectReps': totalCorrect,
+          'currentScore': finalScoreVal,
+          'finalScore': finalScoreVal,
+          'currentForm': _form,
+          'progressPercentage': 100.0,
           'completedAt': FieldValue.serverTimestamp(),
           'endedAt': FieldValue.serverTimestamp(),
+          'lastUpdatedAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
-          'exercises': _assignedExercises.map((e) => {
+          'exercises': _exerciseProgress.isNotEmpty ? _exerciseProgress : _assignedExercises.map((e) => {
             'exercise': e['exercise'],
             'name': _assignedExerciseDisplayName(e['exercise']?.toString() ?? ''),
             'targetCorrectReps': _toInt(e['targetCorrectReps']),
+            'completedCorrectReps': _toInt(e['targetCorrectReps']),
+            'completedTotalReps': _toInt(e['targetCorrectReps']),
             'status': 'completed',
           }).toList(),
         }, SetOptions(merge: true));
 
-        // Notify doctor if assignedDoctorId is present
-        if (widget.assignedDoctorId != null &&
-            widget.assignedDoctorId!.isNotEmpty) {
-          final patientDoc = await FirebaseFirestore.instance
-              .collection('users')
-              .doc(patientId)
-              .get();
-          final patientName =
-              patientDoc.data()?['name']?.toString() ?? 'Patient';
+        debugPrint('LiveAssessment: Session completed. sessionId=$_sessionId, finalRepCount=$totalReps, finalScore=$finalScoreVal');
+
+        // Notify doctor if _resolvedDoctorId is present
+        if (_resolvedDoctorId.isNotEmpty) {
+          final patientDisplayName = _resolvedPatientName.isNotEmpty
+              ? _resolvedPatientName
+              : 'Patient';
 
           await NotificationService().sendNotification(
-            targetUserId: widget.assignedDoctorId!,
+            targetUserId: _resolvedDoctorId,
             title: 'Session Completed',
-            body: '$patientName completed $sessionName.',
+            body: '$patientDisplayName completed $sessionName.',
             data: {
               'type': 'session_completed',
               'patientId': patientId,
@@ -1102,7 +1282,7 @@ class _LiveAssessmentScreenState
   Future<void> _processCameraImage(
     CameraImage cameraImage,
   ) async {
-    if (!_socketConnected || _channel == null) {
+    if (!mounted || _isExitingOrSaving || !_socketConnected || _channel == null) {
       return;
     }
 
@@ -1162,7 +1342,7 @@ class _LiveAssessmentScreenState
         return;
       }
 
-      if (!_socketConnected || _channel == null) {
+      if (!mounted || _isExitingOrSaving || !_socketConnected || _channel == null) {
         return;
       }
 
@@ -1224,7 +1404,7 @@ class _LiveAssessmentScreenState
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
-      if (!_completed && !_isExitingOrSaving && _assignedMode) {
+      if (!_completed && !_isExitingOrSaving) {
         unawaited(_autoPauseStateInBackground());
       }
     }
@@ -1237,42 +1417,61 @@ class _LiveAssessmentScreenState
 
     try {
       final progressPct = _progressPercentage;
-      final totalCorrect = _totalCompletedCorrectReps;
-      final totalReps = _totalCompletedReps;
+      final totalCorrect = _assignedMode ? _totalCompletedCorrectReps : _currentCorrectReps;
+      final totalReps = _assignedMode ? _totalCompletedReps : math.max(_repCount, _currentTotalReps);
+      final targetReps = _assignedMode ? _totalTargetCorrectReps : 0;
 
-      await FirebaseFirestore.instance
-          .collection('exerciseAssignments')
-          .doc(patientId)
-          .set({
-        'status': 'paused',
-        'sessionId': _sessionId,
-        'currentExerciseIndex': _currentAssignedIndex,
-        'currentExercise': _currentAssignedExercise(),
-        'completedCorrectReps': totalCorrect,
-        'totalCompletedReps': totalReps,
-        'progressPercentage': progressPct,
-        'exerciseProgress': _exerciseProgress,
-        'lastUpdatedAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      if (_assignedMode) {
+        await FirebaseFirestore.instance
+            .collection('exerciseAssignments')
+            .doc(patientId)
+            .set({
+          'status': 'paused',
+          'sessionId': _sessionId,
+          'currentExerciseIndex': _currentAssignedIndex,
+          'currentExercise': _currentAssignedExercise(),
+          'completedCorrectReps': totalCorrect,
+          'totalCompletedReps': totalReps,
+          'progressPercentage': progressPct,
+          'exerciseProgress': _exerciseProgress,
+          'lastUpdatedAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      }
 
       await FirebaseFirestore.instance
           .collection('assessmentSessions')
           .doc(_sessionId)
           .set({
         'sessionId': _sessionId,
-        'assignmentId': patientId,
+        'assignmentId': _assignedMode ? patientId : null,
         'patientId': patientId,
-        'doctorId': widget.assignedDoctorId ?? '',
-        'sessionName': widget.sessionName ?? 'Physiotherapy Session',
+        'patientName': _resolvedPatientName.isNotEmpty
+            ? _resolvedPatientName
+            : 'Patient',
+        'doctorId': _resolvedDoctorId,
+        'sessionName': widget.sessionName ?? _currentExerciseDisplayName(),
         'status': 'paused',
         'currentExerciseIndex': _currentAssignedIndex,
-        'currentExercise': _currentAssignedExercise(),
+        'currentExercise': _assignedMode ? _currentAssignedExercise() : widget.exerciseName,
+        'exercise': _assignedMode ? _assignedExerciseDisplayName(_currentAssignedExercise()) : _currentExerciseDisplayName(),
         'progressPercentage': progressPct,
-        'exercises': _exerciseProgress,
+        'exercises': _assignedMode ? _exerciseProgress : [
+          {
+            'exercise': widget.exerciseName,
+            'name': _currentExerciseDisplayName(),
+            'completedCorrectReps': _currentCorrectReps,
+            'completedTotalReps': totalReps,
+            'status': 'paused',
+          }
+        ],
         'totalCorrectReps': totalCorrect,
         'totalReps': totalReps,
-        'targetCorrectReps': _totalTargetCorrectReps,
+        'targetCorrectReps': targetReps,
+        'currentRepCount': totalReps,
+        'currentScore': _score,
+        'currentForm': _form,
+        'pausedAt': FieldValue.serverTimestamp(),
         'lastUpdatedAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
@@ -1306,9 +1505,9 @@ class _LiveAssessmentScreenState
 
     final user = FirebaseAuth.instance.currentUser;
     final patientId = user?.uid;
-    final sessionName = widget.sessionName ?? 'Physiotherapy Session';
+    final sessionName = widget.sessionName ?? _currentExerciseDisplayName();
 
-    if (_currentAssignedIndex < _exerciseProgress.length) {
+    if (_assignedMode && _currentAssignedIndex < _exerciseProgress.length) {
       _exerciseProgress[_currentAssignedIndex]['completedCorrectReps'] = _currentCorrectReps;
       _exerciseProgress[_currentAssignedIndex]['completedTotalReps'] = _currentTotalReps;
       if (_currentCorrectReps >= _currentAssignedTarget() && _currentAssignedTarget() > 0) {
@@ -1321,43 +1520,61 @@ class _LiveAssessmentScreenState
     if (patientId != null) {
       try {
         final progressPct = _progressPercentage;
-        final totalCorrect = _totalCompletedCorrectReps;
-        final totalReps = _totalCompletedReps;
-        final targetReps = _totalTargetCorrectReps;
+        final totalCorrect = _assignedMode ? _totalCompletedCorrectReps : _currentCorrectReps;
+        final totalReps = _assignedMode ? _totalCompletedReps : math.max(_repCount, _currentTotalReps);
+        final targetReps = _assignedMode ? _totalTargetCorrectReps : 0;
 
-        await FirebaseFirestore.instance
-            .collection('exerciseAssignments')
-            .doc(patientId)
-            .set({
-          'status': 'paused',
-          'sessionId': _sessionId,
-          'currentExerciseIndex': _currentAssignedIndex,
-          'currentExercise': _currentAssignedExercise(),
-          'completedCorrectReps': totalCorrect,
-          'totalCompletedReps': totalReps,
-          'progressPercentage': progressPct,
-          'exerciseProgress': _exerciseProgress,
-          'lastUpdatedAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
+        if (_assignedMode) {
+          await FirebaseFirestore.instance
+              .collection('exerciseAssignments')
+              .doc(patientId)
+              .set({
+            'status': 'paused',
+            'sessionId': _sessionId,
+            'currentExerciseIndex': _currentAssignedIndex,
+            'currentExercise': _currentAssignedExercise(),
+            'completedCorrectReps': totalCorrect,
+            'totalCompletedReps': totalReps,
+            'progressPercentage': progressPct,
+            'exerciseProgress': _exerciseProgress,
+            'lastUpdatedAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+        }
 
         await FirebaseFirestore.instance
             .collection('assessmentSessions')
             .doc(_sessionId)
             .set({
           'sessionId': _sessionId,
-          'assignmentId': patientId,
+          'assignmentId': _assignedMode ? patientId : null,
           'patientId': patientId,
-          'doctorId': widget.assignedDoctorId ?? '',
+          'patientName': _resolvedPatientName.isNotEmpty
+              ? _resolvedPatientName
+              : 'Patient',
+          'doctorId': _resolvedDoctorId,
           'sessionName': sessionName,
           'status': 'paused',
           'currentExerciseIndex': _currentAssignedIndex,
-          'currentExercise': _currentAssignedExercise(),
+          'currentExercise': _assignedMode ? _currentAssignedExercise() : widget.exerciseName,
+          'exercise': _assignedMode ? _assignedExerciseDisplayName(_currentAssignedExercise()) : _currentExerciseDisplayName(),
           'progressPercentage': progressPct,
-          'exercises': _exerciseProgress,
+          'exercises': _assignedMode ? _exerciseProgress : [
+            {
+              'exercise': widget.exerciseName,
+              'name': _currentExerciseDisplayName(),
+              'completedCorrectReps': _currentCorrectReps,
+              'completedTotalReps': totalReps,
+              'status': 'paused',
+            }
+          ],
           'totalCorrectReps': totalCorrect,
           'totalReps': totalReps,
           'targetCorrectReps': targetReps,
+          'currentRepCount': totalReps,
+          'currentScore': _score,
+          'currentForm': _form,
+          'pausedAt': FieldValue.serverTimestamp(),
           'lastUpdatedAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
@@ -1431,36 +1648,102 @@ class _LiveAssessmentScreenState
 
     final user = FirebaseAuth.instance.currentUser;
     final patientId = user?.uid;
-    final sessionName = widget.sessionName ?? 'Physiotherapy Session';
+    final sessionName = widget.sessionName ?? _currentExerciseDisplayName();
 
     if (patientId != null) {
       try {
-        await FirebaseFirestore.instance
-            .collection('exerciseAssignments')
-            .doc(patientId)
-            .set({
-          'status': 'discarded',
-          'discardedAt': FieldValue.serverTimestamp(),
-          'lastUpdatedAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
+        if (_assignedMode) {
+          // Reset ONLY the current unfinished exercise in _exerciseProgress
+          if (_currentAssignedIndex < _exerciseProgress.length) {
+            final currentEx = _exerciseProgress[_currentAssignedIndex];
+            if (currentEx['status'] != 'completed') {
+              currentEx['status'] = 'pending';
+              currentEx['completedCorrectReps'] = 0;
+              currentEx['completedTotalReps'] = 0;
+            }
+          }
 
-        await FirebaseFirestore.instance
-            .collection('assessmentSessions')
-            .doc(_sessionId)
-            .set({
-          'sessionId': _sessionId,
-          'assignmentId': patientId,
-          'patientId': patientId,
-          'doctorId': widget.assignedDoctorId ?? '',
-          'sessionName': sessionName,
-          'status': 'discarded',
-          'discardedAt': FieldValue.serverTimestamp(),
-          'lastUpdatedAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
+          // Count how many exercises are actually completed
+          int completedExercisesCount = 0;
+          int accumulatedCorrectReps = 0;
+          int accumulatedTotalReps = 0;
+          for (final ex in _exerciseProgress) {
+            if (ex['status'] == 'completed') {
+              completedExercisesCount++;
+              accumulatedCorrectReps += _toInt(ex['completedCorrectReps']);
+              accumulatedTotalReps += _toInt(ex['completedTotalReps']);
+            }
+          }
 
-        debugPrint('Session $_sessionId marked as discarded.');
+          final bool hasCompletedAny = completedExercisesCount > 0;
+          final target = _totalTargetCorrectReps;
+          final progressPct = target > 0
+              ? (accumulatedCorrectReps / target).clamp(0.0, 1.0) * 100
+              : 0.0;
+
+          await FirebaseFirestore.instance
+              .collection('exerciseAssignments')
+              .doc(patientId)
+              .set({
+            'status': 'paused',
+            'currentExerciseIndex': hasCompletedAny ? _currentAssignedIndex : 0,
+            'currentExercise': hasCompletedAny
+                ? _currentAssignedExercise()
+                : (_assignedExercises.isNotEmpty ? _assignedExercises.first['exercise'] : ''),
+            'completedCorrectReps': accumulatedCorrectReps,
+            'totalCompletedReps': accumulatedTotalReps,
+            'progressPercentage': progressPct,
+            'exerciseProgress': _exerciseProgress,
+            'discardedAt': FieldValue.serverTimestamp(),
+            'lastUpdatedAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+
+          if (hasCompletedAny) {
+            await FirebaseFirestore.instance
+                .collection('assessmentSessions')
+                .doc(_sessionId)
+                .set({
+              'sessionName': sessionName,
+              'status': 'paused',
+              'currentExerciseIndex': _currentAssignedIndex,
+              'currentExercise': _currentAssignedExercise(),
+              'totalCorrectReps': accumulatedCorrectReps,
+              'totalReps': accumulatedTotalReps,
+              'currentRepCount': accumulatedTotalReps,
+              'progressPercentage': progressPct,
+              'exercises': _exerciseProgress,
+              'lastUpdatedAt': FieldValue.serverTimestamp(),
+              'updatedAt': FieldValue.serverTimestamp(),
+            }, SetOptions(merge: true));
+          } else {
+            await FirebaseFirestore.instance
+                .collection('assessmentSessions')
+                .doc(_sessionId)
+                .set({
+              'sessionName': sessionName,
+              'status': 'abandoned',
+              'abandonedAt': FieldValue.serverTimestamp(),
+              'lastUpdatedAt': FieldValue.serverTimestamp(),
+              'updatedAt': FieldValue.serverTimestamp(),
+            }, SetOptions(merge: true));
+          }
+        } else {
+          await FirebaseFirestore.instance
+              .collection('assessmentSessions')
+              .doc(_sessionId)
+              .set({
+            'sessionId': _sessionId,
+            'sessionName': sessionName,
+            'patientId': patientId,
+            'status': 'abandoned',
+            'abandonedAt': FieldValue.serverTimestamp(),
+            'lastUpdatedAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+        }
+
+        debugPrint('Session $_sessionId unfinished progress discarded.');
       } catch (e) {
         debugPrint('Error marking session as discarded: $e');
       }
@@ -1473,11 +1756,6 @@ class _LiveAssessmentScreenState
 
   Future<void> _handleExitAttempt() async {
     if (_completed || _isExitingOrSaving) return;
-
-    if (!_assignedMode) {
-      await _endAssessment();
-      return;
-    }
 
     await showModalBottomSheet<void>(
       context: context,
@@ -1585,30 +1863,7 @@ class _LiveAssessmentScreenState
     );
   }
 
-  Future<void> _endAssessment() async {
-    try {
-      if (_controller != null &&
-          _controller!.value.isStreamingImages) {
-        await _controller!.stopImageStream();
-      }
-    } catch (_) {}
 
-    _streaming = false;
-
-    await _socketSubscription?.cancel();
-    _socketSubscription = null;
-
-    try {
-      await _channel?.sink.close();
-    } catch (_) {}
-
-    _channel = null;
-    _socketConnected = false;
-
-    if (mounted) {
-      Navigator.pop(context);
-    }
-  }
 
   // ============================================================
   // HELPERS
@@ -1660,6 +1915,16 @@ class _LiveAssessmentScreenState
         return 'ARMS NOT SYMMETRIC';
       case 'BODY_TILT':
         return 'BODY TILT DETECTED';
+      case 'ELBOW_FLARE_DETECTED':
+      case 'ELBOW_FLARE':
+        return 'ELBOW FLARE DETECTED';
+      case 'TORSO_ROTATION_DETECTED':
+      case 'TORSO_ROTATION':
+        return 'TORSO ROTATION DETECTED';
+      case 'INSUFFICIENT_FLEXION':
+        return 'INSUFFICIENT ELBOW FLEXION';
+      case 'INSUFFICIENT_ROM':
+        return 'LIMITED RANGE OF MOTION';
       case 'GENERAL_FORM_ERROR':
         return 'GENERAL FORM ERROR';
       default:
@@ -1668,7 +1933,7 @@ class _LiveAssessmentScreenState
   }
 
   static const String errorFrameBaseUrl =
-      'https://displays-lotus-joined-polyester.trycloudflare.com/v1/assets/error-frames/';
+      'https://furniture-float-franchise-trained.trycloudflare.com/v1/assets/error-frames/';
 
   String? _errorFrameUrl(Map<String, dynamic> rep) {
     // Support all versions of the backend payload so the image keeps working
@@ -2057,8 +2322,8 @@ class _LiveAssessmentScreenState
                 '${confidence.toStringAsFixed(0)}%',
               ),
               _completedMetric(
-                'SMOOTH',
-                '${(_completedDouble(rep, 'smoothness_raw').clamp(0.0, 1.0) * 100).toStringAsFixed(0)}%',
+                'SPEED',
+                rep['speed']?.toString() ?? 'Good',
               ),
             ],
           ),
@@ -2526,17 +2791,13 @@ class _LiveAssessmentScreenState
 
           const SizedBox(height: 6),
 
-          // Streamlined stats strip: SCORE, ROM, SPEED, SMOOTH, FORM
+          // Streamlined stats strip: SCORE, ROM, SPEED, FORM
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _compactStat('SCORE', _score.toStringAsFixed(0)),
               _compactStat('ROM', '${_rom.toStringAsFixed(1)}°'),
               _compactStat('SPEED', _speed),
-              _compactStat(
-                'SMOOTH',
-                '${(_smoothness.clamp(0.0, 1.0) * 100).toStringAsFixed(0)}%',
-              ),
               _compactStat(
                 'FORM',
                 _form,
@@ -2741,13 +3002,25 @@ class _LiveAssessmentScreenState
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
 
+    _isExitingOrSaving = true;
+    _streaming = false;
+    _socketConnected = false;
+
     _landmarksNotifier.dispose();
     _formNotifier.dispose();
 
     _socketSubscription?.cancel();
+    _socketSubscription = null;
 
     try {
       _channel?.sink.close();
+      _channel = null;
+    } catch (_) {}
+
+    try {
+      if (_controller != null && _controller!.value.isStreamingImages) {
+        _controller!.stopImageStream();
+      }
     } catch (_) {}
 
     _controller?.dispose();

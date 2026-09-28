@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../utils/exercise_utils.dart';
 import 'shoulder_flexion_painter.dart';
+import 'shoulder_rotation_painter.dart';
 import 'elbow_flexion_painter.dart';
+import 'assisted_elbow_flexion_painter.dart';
 
 /// Represents a single movement phase of an exercise demonstration.
 class ExercisePhase {
@@ -64,36 +66,33 @@ class ExerciseDemoConfig {
 class ExerciseDemoRegistry {
   static ExerciseDemoConfig get(String? exerciseIdOrName) {
     final raw = exerciseIdOrName ?? '';
-    final normalized = raw
-        .trim()
-        .toLowerCase()
-        .replaceAll(' ', '_')
-        .replaceAll('-', '_');
+    final canonical = normalizeExerciseId(raw);
 
-    // 1. Production Ready: Assisted Shoulder Flexion with Bar
-    if (normalized == 'assisted_shoulder_flexion' ||
-        normalized == 'assisted_shoulder_flexion_with_bar' ||
-        normalized.startsWith('assisted_shoulder_flexion') ||
-        normalized.contains('shoulder_flexion')) {
-      return _assistedShoulderFlexionConfig;
+    switch (canonical) {
+      case kAssistedShoulderFlexion:
+        return _assistedShoulderFlexionConfig;
+
+      case kShoulderRotation:
+        return _shoulderRotationConfig;
+
+      case kAssistedElbowFlexion:
+        return _assistedElbowFlexionConfig;
+
+      case kElbowFlexionExtension:
+        return _elbowFlexionConfig;
+
+      default:
+        return _createWipFallbackConfig(raw);
     }
-
-    // 2. Work in Progress: Elbow Flexion & Extension
-    if (normalized.contains('elbow')) {
-      return _elbowFlexionConfig;
-    }
-
-    // 3. Fallback for WIP or unknown exercises
-    return _createWipFallbackConfig(raw);
   }
 
   // ============================================================
-  // ASSISTED SHOULDER FLEXION WITH BAR (PRIORITY 1)
+  // 1. ASSISTED SHOULDER FLEXION WITH BAR (VALIDATED / PRIMARY)
   // ============================================================
 
   static final ExerciseDemoConfig _assistedShoulderFlexionConfig =
       ExerciseDemoConfig(
-    exerciseId: 'assisted_shoulder_flexion',
+    exerciseId: kAssistedShoulderFlexion,
     displayName: 'Assisted Shoulder Flexion with Bar',
     isWorkInProgress: false,
     phases: const [
@@ -149,13 +148,134 @@ class ExerciseDemoRegistry {
   );
 
   // ============================================================
-  // ELBOW FLEXION & EXTENSION (WIP)
+  // 2. SHOULDER ROTATION (WORK IN PROGRESS)
+  // ============================================================
+
+  static final ExerciseDemoConfig _shoulderRotationConfig = ExerciseDemoConfig(
+    exerciseId: kShoulderRotation,
+    displayName: 'Shoulder Rotation',
+    isWorkInProgress: true,
+    phases: const [
+      ExercisePhase(
+        phaseNumber: 1,
+        title: 'Starting Position',
+        description:
+            'Stand upright facing forward with elbows bent at 90° tucked closely against your torso, forearms pointing straight forward.',
+        startProgress: 0.0,
+        endProgress: 0.20,
+      ),
+      ExercisePhase(
+        phaseNumber: 2,
+        title: 'Outward Rotation',
+        description:
+            'Slowly rotate both forearms outward away from the midline while keeping elbows pinned firmly against your sides.',
+        startProgress: 0.20,
+        endProgress: 0.50,
+      ),
+      ExercisePhase(
+        phaseNumber: 3,
+        title: 'Peak External Rotation',
+        description:
+            'Hold momentarily at your comfortable, pain-free outward rotation limit without twisting your torso.',
+        startProgress: 0.50,
+        endProgress: 0.60,
+      ),
+      ExercisePhase(
+        phaseNumber: 4,
+        title: 'Inward Return',
+        description:
+            'Smoothly rotate forearms back toward the center with steady, controlled motion.',
+        startProgress: 0.60,
+        endProgress: 0.95,
+      ),
+      ExercisePhase(
+        phaseNumber: 5,
+        title: 'Return to Start',
+        description:
+            'Pause momentarily in the neutral starting position before beginning the next repetition.',
+        startProgress: 0.95,
+        endProgress: 1.0,
+      ),
+    ],
+    keyTips: const [
+      'Keep elbows firmly pinned against your ribs throughout the entire movement.',
+      'Maintain an upright posture without leaning or twisting your chest.',
+      'Work strictly within your comfortable, pain-free range of motion.',
+      'Follow your clinician’s guidance on repetition targets and pacing.',
+    ],
+    painterBuilder: (progress, {bool isDark = true}) =>
+        ShoulderRotationPainter(progress: progress, isDark: isDark),
+  );
+
+  // ============================================================
+  // 3. ASSISTED ELBOW FLEXION (CLINICALLY VALIDATED)
+  // ============================================================
+
+  static final ExerciseDemoConfig _assistedElbowFlexionConfig =
+      ExerciseDemoConfig(
+    exerciseId: kAssistedElbowFlexion,
+    displayName: 'Assisted Elbow Flexion',
+    isWorkInProgress: false,
+    phases: const [
+      ExercisePhase(
+        phaseNumber: 1,
+        title: 'Starting Position',
+        description:
+            'Keep active arm relaxed at your side with the opposite hand gently supporting under the wrist or forearm.',
+        startProgress: 0.0,
+        endProgress: 0.20,
+      ),
+      ExercisePhase(
+        phaseNumber: 2,
+        title: 'Assisted Bending',
+        description:
+            'Use your supporting hand to guide and gently assist bending the recovering elbow upward.',
+        startProgress: 0.20,
+        endProgress: 0.50,
+      ),
+      ExercisePhase(
+        phaseNumber: 3,
+        title: 'Peak Flexion',
+        description:
+            'Pause briefly at the top position where the hand approaches shoulder height without strain.',
+        startProgress: 0.50,
+        endProgress: 0.60,
+      ),
+      ExercisePhase(
+        phaseNumber: 4,
+        title: 'Controlled Lowering',
+        description:
+            'Carefully lower the forearm back down with the supporting hand guiding the descent smoothly.',
+        startProgress: 0.60,
+        endProgress: 0.95,
+      ),
+      ExercisePhase(
+        phaseNumber: 5,
+        title: 'Return to Start',
+        description:
+            'Fully relax at the starting extension before beginning the next repetition.',
+        startProgress: 0.95,
+        endProgress: 1.0,
+      ),
+    ],
+    keyTips: const [
+      'Use your opposite hand to take weight off the recovering joint.',
+      'Keep the upper arm still and avoid swinging your elbow forward.',
+      'Move slowly and stop immediately if sharp discomfort occurs.',
+      'Follow your clinician’s guidance on repetition targets and pacing.',
+    ],
+    painterBuilder: (progress, {bool isDark = true}) =>
+        AssistedElbowFlexionPainter(progress: progress, isDark: isDark),
+  );
+
+  // ============================================================
+  // 4. ELBOW FLEXION & EXTENSION (CLINICALLY VALIDATED)
   // ============================================================
 
   static final ExerciseDemoConfig _elbowFlexionConfig = ExerciseDemoConfig(
-    exerciseId: 'elbow_flexion',
+    exerciseId: kElbowFlexionExtension,
     displayName: 'Elbow Flexion & Extension',
-    isWorkInProgress: true,
+    isWorkInProgress: false,
     phases: const [
       ExercisePhase(
         phaseNumber: 1,
@@ -201,6 +321,7 @@ class ExerciseDemoRegistry {
       'Keep upper arm locked beside your torso.',
       'Perform movement smoothly without swinging.',
       'Work within comfortable pain-free range.',
+      'Follow your clinician’s guidance on repetition targets and pacing.',
     ],
     painterBuilder: (progress, {bool isDark = true}) =>
         ElbowFlexionPainter(progress: progress, isDark: isDark),
@@ -245,10 +366,10 @@ class ExerciseDemoRegistry {
       keyTips: const [
         'Move with smooth, steady speed.',
         'Follow your doctor’s personalized range instructions.',
-        'Clinical validation is currently in progress.',
+        'Follow your clinician’s guidance on repetition targets and pacing.',
       ],
       painterBuilder: (progress, {bool isDark = true}) =>
-          ShoulderFlexionPainter(progress: progress, isDark: isDark),
+          ShoulderRotationPainter(progress: progress, isDark: isDark),
     );
   }
 }
