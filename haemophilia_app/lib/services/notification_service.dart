@@ -347,7 +347,7 @@ class NotificationService {
     // 2. Dispatch to backend notification endpoint (FastAPI) for FCM push delivery
     try {
       const backendUrl =
-          'https://furniture-float-franchise-trained.trycloudflare.com/v1/notifications/send';
+          'https://lessons-family-councils-obvious.trycloudflare.com/v1/notifications/send';
 
       final response = await http
           .post(

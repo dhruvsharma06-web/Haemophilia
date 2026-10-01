@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../utils/app_localizations.dart';
 import '../../utils/exercise_utils.dart';
 import 'exercise_demo.dart';
 import 'exercise_demo_model.dart';
@@ -58,7 +59,7 @@ Future<void> showExerciseDemoDialog(
                             children: [
                               Flexible(
                                 child: Text(
-                                  config.displayName,
+                                  tr(config.displayName),
                                   style: const TextStyle(
                                     fontSize: 16.5,
                                     fontWeight: FontWeight.w800,
@@ -73,7 +74,7 @@ Future<void> showExerciseDemoDialog(
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'How to perform this exercise',
+                            tr('How to perform this exercise'),
                             style: TextStyle(
                               fontSize: 12.5,
                               color: Colors.grey.shade600,
@@ -86,7 +87,7 @@ Future<void> showExerciseDemoDialog(
                     IconButton(
                       icon: const Icon(Icons.close_rounded),
                       onPressed: () => Navigator.of(dialogContext).pop(),
-                      tooltip: 'Close',
+                      tooltip: tr('Close'),
                     ),
                   ],
                 ),
@@ -136,9 +137,9 @@ Future<void> showExerciseDemoDialog(
                                   color: Color(0xFF0284C7),
                                 ),
                                 const SizedBox(width: 8),
-                                const Text(
-                                  'Key Guidance for Safe Performance',
-                                  style: TextStyle(
+                                 Text(
+                                  tr('Key Guidance for Safe Performance'),
+                                  style: const TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w800,
                                     color: Color(0xFF0284C7),
@@ -169,7 +170,7 @@ Future<void> showExerciseDemoDialog(
                                     ),
                                     Expanded(
                                       child: Text(
-                                        tip,
+                                        tr(tip),
                                         style: TextStyle(
                                           fontSize: 12,
                                           height: 1.35,
@@ -206,9 +207,9 @@ Future<void> showExerciseDemoDialog(
                         borderRadius: BorderRadius.circular(14),
                       ),
                     ),
-                    child: const Text(
-                      'Got it, Continue',
-                      style: TextStyle(
+                    child: Text(
+                      tr('Got it, Continue'),
+                      style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
                       ),

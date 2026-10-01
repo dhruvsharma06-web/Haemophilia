@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 
 class ApiService {
   static const String baseUrl =
-      'https://furniture-float-franchise-trained.trycloudflare.com';
+      'https://lessons-family-councils-obvious.trycloudflare.com';
 
   Future<Map<String, dynamic>> assessVideo({
     required Uint8List videoBytes,
@@ -45,6 +45,28 @@ class ApiService {
       throw Exception('Invalid response from assessment server.');
     }
 
+    return decoded;
+  }
+
+  Future<Map<String, dynamic>> predictHealthScreening(
+    Map<String, dynamic> features,
+  ) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/v1/chatbot/predict'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(features),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Screening failed (${response.statusCode}): ${response.body}',
+      );
+    }
+
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map<String, dynamic>) {
+      throw Exception('Invalid response from screening service.');
+    }
     return decoded;
   }
 }

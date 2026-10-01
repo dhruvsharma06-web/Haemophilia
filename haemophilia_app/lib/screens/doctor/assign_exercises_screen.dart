@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/user_model.dart';
 import '../../services/notification_service.dart';
+import '../../utils/app_localizations.dart';
 import '../../utils/exercise_utils.dart';
 
 class AssignExercisesScreen extends StatefulWidget {
@@ -76,7 +77,7 @@ class _AssignExercisesScreenState
   // ============================================================
 
   String _exerciseTitle(String exercise) {
-    return getExerciseDisplayName(exercise);
+    return tr(getExerciseDisplayName(exercise));
   }
 
   IconData _exerciseIcon(String exercise) {
@@ -354,7 +355,7 @@ class _AssignExercisesScreenState
                       if (isWorkInProgressExercise(exercise)) ...[
                         const SizedBox(height: 3),
                         Text(
-                          'Work in progress',
+                          tr('Work in progress'),
                           style: TextStyle(
                             color: Colors.amber.shade900,
                             fontSize: 11,
@@ -385,15 +386,15 @@ class _AssignExercisesScreenState
                 keyboardType:
                     TextInputType.number,
                 decoration:
-                    const InputDecoration(
+                    InputDecoration(
                   labelText:
-                      'Target correct reps',
+                      tr('Target correct reps'),
                   hintText: 'Example: 10',
-                  prefixIcon: Icon(
+                  prefixIcon: const Icon(
                     Icons.repeat_rounded,
                   ),
                   border:
-                      OutlineInputBorder(),
+                      const OutlineInputBorder(),
                 ),
               ),
 
@@ -403,8 +404,7 @@ class _AssignExercisesScreenState
                 alignment:
                     Alignment.centerLeft,
                 child: Text(
-                  'Only correct repetitions will '
-                  'count toward this target.',
+                  tr('Only correct repetitions will count toward this target.'),
                   style: TextStyle(
                     fontSize: 11,
                     color:
@@ -425,14 +425,19 @@ class _AssignExercisesScreenState
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Assign Exercises',
-          style: TextStyle(
+        title: Text(
+          tr('Assign Exercises'),
+          style: const TextStyle(
             fontWeight: FontWeight.w800,
           ),
         ),
+        actions: const [
+          LanguageToggleButton(),
+          SizedBox(width: 8),
+        ],
       ),
 
       body: SafeArea(
@@ -489,9 +494,9 @@ class _AssignExercisesScreenState
                                   CrossAxisAlignment
                                       .start,
                               children: [
-                                const Text(
-                                  'Assign exercises for',
-                                  style: TextStyle(
+                                Text(
+                                  tr('Assign exercises for'),
+                                  style: const TextStyle(
                                     fontSize: 12,
                                     color:
                                         Colors.grey,
@@ -504,7 +509,7 @@ class _AssignExercisesScreenState
                                   widget.patient
                                           .name
                                           .isEmpty
-                                      ? 'Patient'
+                                      ? tr('Patient')
                                       : widget.patient
                                           .name,
                                   style:
@@ -529,9 +534,9 @@ class _AssignExercisesScreenState
                   // SESSION NAME
                   // ==================================================
 
-                  const Text(
-                    'Session details',
-                    style: TextStyle(
+                  Text(
+                    tr('Session details'),
+                    style: const TextStyle(
                       fontSize: 21,
                       fontWeight:
                           FontWeight.w800,
@@ -541,8 +546,7 @@ class _AssignExercisesScreenState
                   const SizedBox(height: 5),
 
                   Text(
-                    'Give this physiotherapy session '
-                    'a name before assigning exercises.',
+                    tr('Give this physiotherapy session a name before assigning exercises.'),
                     style: TextStyle(
                       color:
                           Colors.grey.shade600,
@@ -560,7 +564,7 @@ class _AssignExercisesScreenState
                     decoration:
                         InputDecoration(
                       labelText:
-                          'Session Name',
+                          tr('Session Name'),
                       hintText:
                           'e.g. Morning Upper Body Rehab',
                       prefixIcon: const Icon(
@@ -582,9 +586,9 @@ class _AssignExercisesScreenState
                   // EXERCISE PLAN
                   // ==================================================
 
-                  const Text(
-                    'Exercise plan',
-                    style: TextStyle(
+                  Text(
+                    tr('Exercise plan'),
+                    style: const TextStyle(
                       fontSize: 21,
                       fontWeight:
                           FontWeight.w800,
@@ -594,8 +598,7 @@ class _AssignExercisesScreenState
                   const SizedBox(height: 5),
 
                   Text(
-                    'Select the exercises and set '
-                    'the number of correct repetitions required.',
+                    tr('Select the exercises and set the number of correct repetitions required.'),
                     style: TextStyle(
                       color:
                           Colors.grey.shade600,
@@ -651,8 +654,8 @@ class _AssignExercisesScreenState
                             ),
                       label: Text(
                         _saving
-                            ? 'Saving...'
-                            : 'Save Assignment',
+                            ? tr('Saving...')
+                            : tr('Save Assignment'),
                       ),
                     ),
                   ),

@@ -12,7 +12,20 @@
           "package_name": "com.example.haemophilia_app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "540980899385-fplqmrsr232ee84ik2jla36acsvk4nj0.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.haemophilia_app",
+            "certificate_hash": "9ea46c52cb0d41981e6685d17d1c1e7573f08d90"
+          }
+        },
+        {
+          "client_id": "540980899385-4q3s4omamv4gtv2h8ioe9jl19q68t8tj.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCzy8O2Pb7Jqk8qBHVDOUGufOjLlPI5zUE"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "540980899385-4q3s4omamv4gtv2h8ioe9jl19q68t8tj.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "540980899385-0o4ap9annvjskudlli4748qn005ft93s.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.haemophiliaApp"
+              }
+            }
+          ]
         }
       }
     }

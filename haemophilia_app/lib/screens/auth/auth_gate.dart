@@ -8,6 +8,7 @@ import '../../services/notification_service.dart';
 import '../admin/admin_dashboard.dart';
 import '../doctor/doctor_dashboard.dart';
 import '../patient/patient_dashboard.dart';
+import 'doctor_pending_approval_screen.dart';
 import 'login_screen.dart';
 
 /// Gate widget that determines whether the user is authenticated and routes
@@ -48,7 +49,7 @@ class _AuthGateState extends State<AuthGate> {
                   ),
                   const SizedBox(height: 16),
                   const Text(
-                    'HaemoPhysio',
+                    'Somaiya HaemoPhysio',
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.w800,
@@ -90,7 +91,7 @@ class _AuthGateState extends State<AuthGate> {
                       ),
                       const SizedBox(height: 16),
                       const Text(
-                        'HaemoPhysio',
+                        'Somaiya HaemoPhysio',
                         style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.w800,
@@ -160,7 +161,12 @@ class _AuthGateState extends State<AuthGate> {
 
             switch (userModel.role.toLowerCase()) {
               case 'doctor':
+                if (!userModel.isApproved) {
+                  return DoctorPendingApprovalScreen(user: userModel);
+                }
                 return DoctorDashboard(user: userModel);
+              case 'pending_doctor':
+                return DoctorPendingApprovalScreen(user: userModel);
               case 'admin':
                 return AdminDashboard(user: userModel);
               case 'patient':

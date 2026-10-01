@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../../services/assessment_history_service.dart';
+import '../../utils/app_localizations.dart';
 import '../../utils/exercise_utils.dart';
 import '../../widgets/session_analytics_chart.dart';
 
@@ -12,12 +13,17 @@ class PatientHistory extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Session history',
-          style: TextStyle(fontWeight: FontWeight.w800),
+        title: Text(
+          tr('Session history'),
+          style: const TextStyle(fontWeight: FontWeight.w800),
         ),
+        actions: const [
+          LanguageToggleButton(),
+          SizedBox(width: 8),
+        ],
       ),
       body: SafeArea(
         child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
@@ -85,31 +91,31 @@ class PatientHistory extends StatelessWidget {
                     final cards = [
                       _HistoryStatCard(
                         icon: Icons.event_available_rounded,
-                        label: 'Sessions',
+                        label: tr('Sessions'),
                         value: '$sessionsCount',
                       ),
                       _HistoryStatCard(
                         icon: Icons.check_circle_outline_rounded,
-                        label: 'Correct Reps',
+                        label: tr('Correct Reps'),
                         value: '$totalCorrectReps',
                       ),
                       _HistoryStatCard(
                         icon: Icons.percent_rounded,
-                        label: 'Accuracy',
+                        label: tr('Accuracy'),
                         value: totalReps == 0
                             ? '—'
                             : '${correctRate.toStringAsFixed(0)}%',
                       ),
                       _HistoryStatCard(
                         icon: Icons.speed_rounded,
-                        label: 'Average Score',
+                        label: tr('Average Score'),
                         value: groups.isEmpty
                             ? '—'
                             : avgScore.toStringAsFixed(0),
                       ),
                       _HistoryStatCard(
                         icon: Icons.track_changes_rounded,
-                        label: 'Average ROM',
+                        label: tr('Average ROM'),
                         value: groups.isEmpty
                             ? '—'
                             : '${avgRom.toStringAsFixed(0)}°',
@@ -155,9 +161,9 @@ class PatientHistory extends StatelessWidget {
                   isDoctorView: false,
                 ),
                 const SizedBox(height: 24),
-                const Text(
-                  'Completed Sessions',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                Text(
+                  tr('Completed Sessions'),
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
                 ),
                 const SizedBox(height: 12),
                 ...groups.map(
@@ -197,6 +203,7 @@ class SessionDetails extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     final primary = Theme.of(context).colorScheme.primary;
 
     final correctRate = session.reps == 0
@@ -205,10 +212,14 @@ class SessionDetails extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Session details',
-          style: TextStyle(fontWeight: FontWeight.w800),
+        title: Text(
+          tr('Session details'),
+          style: const TextStyle(fontWeight: FontWeight.w800),
         ),
+        actions: const [
+          LanguageToggleButton(),
+          SizedBox(width: 8),
+        ],
       ),
       body: SafeArea(
         child: ListView(
@@ -235,7 +246,7 @@ class SessionDetails extends StatelessWidget {
             if (isWorkInProgressExercise(session.exercise)) ...[
               const SizedBox(height: 3),
               Text(
-                '${getExerciseDisplayName(session.exercise)} • Work in progress exercise',
+                '${tr(getExerciseDisplayName(session.exercise))} • ${tr('Work in progress')}',
                 style: TextStyle(
                   color: Colors.amber.shade900,
                   fontSize: 12,
@@ -258,17 +269,17 @@ class SessionDetails extends StatelessWidget {
             const SizedBox(height: 24),
             Row(
               children: [
-                const Expanded(
+                Expanded(
                   child: Text(
-                    'Assessments in this session',
-                    style: TextStyle(
+                    tr('Assessments in this session'),
+                    style: const TextStyle(
                       fontSize: 19,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
                 Text(
-                  '${session.reps} reps',
+                  '${session.reps} ${tr('reps')}',
                   style: TextStyle(
                     color: primary,
                     fontWeight: FontWeight.w700,
@@ -584,12 +595,12 @@ class _SessionCard extends StatelessWidget {
 
     String exerciseSummary;
     if (distinctExercises.isEmpty) {
-      exerciseSummary = getExerciseDisplayName(session.exercise);
+      exerciseSummary = tr(getExerciseDisplayName(session.exercise));
     } else if (distinctExercises.length == 1) {
-      exerciseSummary = getExerciseDisplayName(distinctExercises.first!);
+      exerciseSummary = tr(getExerciseDisplayName(distinctExercises.first!));
     } else {
       exerciseSummary =
-          '${distinctExercises.length} exercises (${distinctExercises.map((e) => getExerciseDisplayName(e!)).join(', ')})';
+          '${distinctExercises.length} ${tr('exercises')} (${distinctExercises.map((e) => tr(getExerciseDisplayName(e!))).join(', ')})';
     }
 
     final String statusLabel =
@@ -659,7 +670,7 @@ class _SessionCard extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
-                                statusLabel,
+                                tr(statusLabel),
                                 style: TextStyle(
                                   color: statusColor,
                                   fontSize: 10.5,
@@ -698,7 +709,7 @@ class _SessionCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'EXERCISES',
+                            tr('EXERCISES'),
                             style: TextStyle(
                               color: Colors.grey.shade500,
                               fontSize: 9,
@@ -732,7 +743,7 @@ class _SessionCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'CORRECT REPS',
+                            tr('CORRECT REPS'),
                             style: TextStyle(
                               color: Colors.grey.shade500,
                               fontSize: 9,
@@ -769,7 +780,7 @@ class _SessionCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(
-                            'AVG SCORE',
+                            tr('AVG SCORE'),
                             style: TextStyle(
                               color: Colors.grey.shade500,
                               fontSize: 9,
@@ -824,27 +835,27 @@ class _SessionStatsGrid extends StatelessWidget {
           builder: (context, constraints) {
             final items = [
               _StatTile(
-                label: 'Average Movement Score',
+                label: tr('Average Movement Score'),
                 value: '${session.averageScore.toStringAsFixed(0)}/100',
               ),
               _StatTile(
-                label: 'Total Correct Reps',
+                label: tr('Total Correct Reps'),
                 value: '${session.correctReps}/${session.reps}',
               ),
               _StatTile(
-                label: 'Correct Rep Rate',
+                label: tr('Correct Rep Rate'),
                 value: '${correctRate.toStringAsFixed(0)}%',
               ),
               _StatTile(
-                label: 'Range of Motion',
+                label: tr('Range of Motion'),
                 value: '${session.averageRom.toStringAsFixed(0)}°',
               ),
               _StatTile(
-                label: 'Average Duration',
+                label: tr('Average Duration'),
                 value: '${session.averageDuration.toStringAsFixed(1)}s',
               ),
               _StatTile(
-                label: 'AI Confidence',
+                label: tr('AI Confidence'),
                 value: '${session.averageConfidence.toStringAsFixed(0)}%',
               ),
             ];
@@ -888,9 +899,9 @@ class _SessionStatsGrid extends StatelessWidget {
             data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
             child: ExpansionTile(
               tilePadding: const EdgeInsets.symmetric(horizontal: 4),
-              title: const Text(
-                'Technical Details',
-                style: TextStyle(
+              title: Text(
+                tr('Technical Details'),
+                style: const TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w600,
                   color: Colors.grey,
@@ -909,7 +920,7 @@ class _SessionStatsGrid extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'AI Pose Confidence: ${session.averageConfidence.toStringAsFixed(1)}%',
+                        '${tr('AI Pose Confidence')}: ${session.averageConfidence.toStringAsFixed(1)}%',
                         style: const TextStyle(
                           fontSize: 12.5,
                           fontWeight: FontWeight.w600,
@@ -1050,7 +1061,7 @@ class _RepCard extends StatelessWidget {
                   child: Row(
                     children: [
                       Text(
-                        'Rep $repNumber',
+                        '${tr('Rep')} $repNumber',
                         style: const TextStyle(fontWeight: FontWeight.w800),
                       ),
                       const SizedBox(width: 8),
@@ -1065,7 +1076,7 @@ class _RepCard extends StatelessWidget {
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
-                          incorrect ? 'Needs Adjustment' : 'Good Form',
+                          incorrect ? tr('Needs Adjustment') : tr('Good Form'),
                           style: TextStyle(
                             color: incorrect
                                 ? Colors.red.shade700
@@ -1092,15 +1103,15 @@ class _RepCard extends StatelessWidget {
             Row(
               children: [
                 _RepMetric(
-                  label: 'RANGE OF MOTION',
+                  label: tr('RANGE OF MOTION'),
                   value: '${rom.toStringAsFixed(0)}°',
                 ),
                 _RepMetric(
-                  label: 'SPEED',
+                  label: tr('SPEED'),
                   value: speed,
                 ),
                 _RepMetric(
-                  label: 'DURATION',
+                  label: tr('DURATION'),
                   value: '${duration.toStringAsFixed(1)}s',
                 ),
               ],
@@ -1134,7 +1145,7 @@ class _RepCard extends StatelessWidget {
                           ),
                           const SizedBox(width: 5),
                           Text(
-                            'Focus',
+                            tr('Focus'),
                             style: TextStyle(
                               color: incorrect
                                   ? Colors.red.shade700
@@ -1280,17 +1291,16 @@ class _HistoryEmptyState extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            const Text(
-              'No assessment sessions yet',
-              style: TextStyle(
+            Text(
+              tr('No assessment sessions yet'),
+              style: const TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w800,
               ),
             ),
             const SizedBox(height: 7),
             Text(
-              'Complete an assessment session and '
-              'your session results will appear here.',
+              tr('Complete your first assessment to see your results here.'),
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Colors.grey.shade600,
@@ -1327,7 +1337,7 @@ String _formatDateTime(DateTime date) {
   if (local.year == now.year &&
       local.month == now.month &&
       local.day == now.day) {
-    return 'Today • $time';
+    return '${tr('Today')} • $time';
   }
 
   return '${local.day.toString().padLeft(2, '0')}/'

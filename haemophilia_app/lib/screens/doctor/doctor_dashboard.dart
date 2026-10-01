@@ -1,13 +1,16 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/user_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/clinical_data_service.dart';
+import '../../utils/app_localizations.dart';
+import '../../utils/exercise_utils.dart';
 import '../patient/patient_history.dart';
 import '../profile/edit_profile_screen.dart';
+import 'assign_exercises_screen.dart';
 import 'doctor_patient_detail.dart';
-import '../../utils/exercise_utils.dart';
 
 class DoctorDashboard extends StatefulWidget {
   final UserModel user;
@@ -36,327 +39,450 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
     Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final currentUser = widget.user;
-
-    return Scaffold(
-          appBar: AppBar(
-            elevation: 0,
-            titleSpacing: 16,
-            title: Row(
+  void _showAssignPatientPicker(BuildContext context, String doctorId) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.7,
+          minChildSize: 0.4,
+          maxChildSize: 0.95,
+          expand: false,
+          builder: (context, scrollController) {
+            return Column(
               children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.asset(
-                    'assets/icon/haemophysio_logo.png',
-                    width: 32,
-                    height: 32,
-                    fit: BoxFit.contain,
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          tr('Select Patient to Assign'),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(sheetContext),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 10),
-                const Flexible(
-                  child: Text(
-                    'HaemoPhysio',
-                    style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
-                    overflow: TextOverflow.ellipsis,
+                const Divider(height: 1),
+                Expanded(
+                  child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                    stream: FirebaseFirestore.instance
+                        .collection('users')
+                        .where('role', isEqualTo: 'patient')
+                        .snapshots(),
+                    builder: (context, snap) {
+                      if (snap.connectionState == ConnectionState.waiting && !snap.hasData) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      final docs = snap.data?.docs ?? [];
+                      if (docs.isEmpty) {
+                        return Center(
+                          child: Text(
+                            tr('No registered patients found.'),
+                            style: TextStyle(color: Colors.grey.shade600),
+                          ),
+                        );
+                      }
+                      return ListView.separated(
+                        controller: scrollController,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        itemCount: docs.length,
+                        separatorBuilder: (_, _) => const Divider(height: 1),
+                        itemBuilder: (context, i) {
+                          final doc = docs[i];
+                          final p = UserModel.fromMap(doc.id, doc.data());
+                          return ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: .10),
+                              child: Text(
+                                p.name.isNotEmpty ? p.name[0].toUpperCase() : 'P',
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            title: Text(
+                              p.name.isNotEmpty ? p.name : tr('Patient'),
+                              style: const TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                            subtitle: Text(p.email),
+                            trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                            onTap: () {
+                              Navigator.pop(sheetContext);
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => AssignExercisesScreen(
+                                    patientId: p.uid,
+                                    patient: p,
+                                  ),
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      );
+                    },
                   ),
                 ),
               ],
-            ),
-            actions: [
-              IconButton(
-                tooltip: 'Edit Profile',
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => EditProfileScreen(user: currentUser),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.person_outline_rounded),
-              ),
-              IconButton(
-                tooltip: 'Log out',
-                onPressed: _isLoggingOut ? null : _logout,
-                icon: _isLoggingOut
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.logout_rounded),
-              ),
-              const SizedBox(width: 8),
-            ],
-          ),
-          body: SafeArea(
-            child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-              stream: ClinicalDataService().watchAssignedPatients(),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return _ErrorState(message: snapshot.error.toString());
-                }
-
-                if (snapshot.connectionState == ConnectionState.waiting &&
-                    !snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                final patients = snapshot.data?.docs ?? [];
-
-                return ListView(
-                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 32),
-                  children: [
-                    _Hero(
-                      title: 'Welcome, Dr. ${currentUser.name}',
-                      subtitle:
-                          'Review patient progress, movement quality and clinical feedback.',
-                    ),
-                    const SizedBox(height: 24),
-                    StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                      stream: FirebaseFirestore.instance
-                          .collection('exerciseAssignments')
-                          .where('doctorId', isEqualTo: currentUser.uid)
-                          .snapshots(),
-                      builder: (context, assignSnap) {
-                        final assignDocs = assignSnap.data?.docs ?? [];
-
-                        final uniquePatientIds = <String>{};
-                        for (final p in patients) {
-                          if (p.id.isNotEmpty) uniquePatientIds.add(p.id);
-                        }
-                        for (final a in assignDocs) {
-                          final pid = a.data()['patientId']?.toString() ?? a.id;
-                          if (pid.isNotEmpty) uniquePatientIds.add(pid);
-                        }
-
-                        return _Metric(
-                          'Assigned Patients',
-                          '${uniquePatientIds.length}',
-                          Icons.people_outline,
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 24),
-                    _LiveAssessmentSection(
-                      doctorId: currentUser.uid,
-                      patients: patients,
-                    ),
-                    const Text(
-                      'Your patients',
-                      style:
-                          TextStyle(fontSize: 21, fontWeight: FontWeight.w800),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Open a patient to review sessions and errors.',
-                      style: TextStyle(color: Colors.grey.shade600),
-                    ),
-                    const SizedBox(height: 14),
-                    () {
-                      final uniquePatientDocs = <String, QueryDocumentSnapshot<Map<String, dynamic>>>{};
-                      for (final doc in patients) {
-                        uniquePatientDocs[doc.id] = doc;
-                      }
-                      final patientList = uniquePatientDocs.values.toList();
-
-                      if (patientList.isEmpty) {
-                        return const _EmptyCard();
-                      }
-
-                      return Column(
-                        children: patientList
-                            .map(
-                              (doc) => Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
-                                child: _PatientCard(doc: doc),
-                              ),
-                            )
-                            .toList(),
-                      );
-                    }(),
-                  ],
-                );
-              },
-            ),
-          ),
+            );
+          },
         );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
+    final currentUser = widget.user;
+    final doctorId = FirebaseAuth.instance.currentUser?.uid ?? currentUser.uid;
+
+    return Scaffold(
+      appBar: AppBar(
+        elevation: 0,
+        titleSpacing: 16,
+        title: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.asset(
+                'assets/icon/haemophysio_logo.png',
+                width: 28,
+                height: 28,
+                fit: BoxFit.contain,
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text(
+                'Somaiya HaemoPhysio',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          const LanguageToggleButton(),
+          IconButton(
+            tooltip: tr('Edit Profile'),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => EditProfileScreen(user: currentUser),
+                ),
+              );
+            },
+            icon: const Icon(Icons.person_outline_rounded),
+          ),
+          IconButton(
+            tooltip: tr('Log out'),
+            onPressed: _isLoggingOut ? null : _logout,
+            icon: _isLoggingOut
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.logout_rounded),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: SafeArea(
+        child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream: FirebaseFirestore.instance
+              .collection('exerciseAssignments')
+              .where('doctorId', isEqualTo: doctorId)
+              .snapshots(),
+          builder: (context, assignSnap) {
+            if (assignSnap.hasError) {
+              return _ErrorState(message: assignSnap.error.toString());
+            }
+
+            if (assignSnap.connectionState == ConnectionState.waiting &&
+                !assignSnap.hasData) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            final assignDocs = assignSnap.data?.docs ?? [];
+
+            // Doctor-specific: strictly extract unique patient IDs from this doctor's exerciseAssignments
+            final uniquePatientIds = <String>{};
+            for (final a in assignDocs) {
+              final data = a.data();
+              final pid = data['patientId']?.toString().trim();
+              final resolved = (pid != null && pid.isNotEmpty) ? pid : a.id;
+              if (resolved.isNotEmpty) {
+                uniquePatientIds.add(resolved);
+              }
+            }
+
+            final patientIdList = uniquePatientIds.toList();
+
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(20, 10, 20, 32),
+              children: [
+                _Hero(
+                  title: '${tr('Welcome, Dr.')} ${currentUser.name}',
+                  subtitle: tr('Review patient progress, movement quality and clinical feedback.'),
+                ),
+                const SizedBox(height: 24),
+                _Metric(
+                  tr('Assigned Patients'),
+                  '${uniquePatientIds.length}',
+                  Icons.people_outline,
+                ),
+                const SizedBox(height: 24),
+                _LiveAssessmentSection(
+                  doctorId: doctorId,
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            tr('Your patients'),
+                            style: const TextStyle(
+                                fontSize: 21, fontWeight: FontWeight.w800),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            tr('Open a patient to review sessions and errors.'),
+                            style: TextStyle(color: Colors.grey.shade600),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.person_add_alt_1_outlined),
+                      tooltip: tr('Assign exercises to a patient'),
+                      onPressed: () => _showAssignPatientPicker(context, doctorId),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                if (patientIdList.isEmpty)
+                  _EmptyCard(
+                    onAssignPatient: () => _showAssignPatientPicker(context, doctorId),
+                  )
+                else
+                  Column(
+                    children: patientIdList
+                        .map(
+                          (pid) => Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: _PatientCard(patientId: pid),
+                          ),
+                        )
+                        .toList(),
+                  ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
   }
 }
 
 class _PatientCard extends StatelessWidget {
-  final QueryDocumentSnapshot<Map<String, dynamic>> doc;
+  final String patientId;
 
-  const _PatientCard({required this.doc});
+  const _PatientCard({required this.patientId});
 
   @override
   Widget build(BuildContext context) {
-    final data = doc.data();
     final primary = Theme.of(context).colorScheme.primary;
 
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
       stream: FirebaseFirestore.instance
-          .collection('exerciseAssignments')
-          .doc(doc.id)
+          .collection('users')
+          .doc(patientId)
           .snapshots(),
-      builder: (context, assignmentSnap) {
-        final assignData = assignmentSnap.data?.data();
-        final assignStatus = assignData?['status']?.toString().toLowerCase();
-        final isPaused = assignStatus == 'paused';
-        final isInProgress = assignStatus == 'in_progress';
-        final sessionName = assignData?['sessionName']?.toString();
-        final progressPct =
-            (assignData?['progressPercentage'] as num?)?.toInt() ?? 0;
+      builder: (context, userSnap) {
+        final data = userSnap.data?.data() ?? {};
+        final patient = UserModel.fromMap(patientId, data);
 
-        return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-          stream: ClinicalDataService().watchPatientAssessments(doc.id),
-          builder: (context, snapshot) {
-            final assessments = snapshot.data?.docs ?? [];
-            final sessions = groupAssessmentSessions(assessments);
-            final latest = sessions.isEmpty ? null : sessions.first;
+        return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+          stream: FirebaseFirestore.instance
+              .collection('exerciseAssignments')
+              .doc(patientId)
+              .snapshots(),
+          builder: (context, assignmentSnap) {
+            final assignData = assignmentSnap.data?.data();
+            final assignStatus = assignData?['status']?.toString().toLowerCase();
+            final isPaused = assignStatus == 'paused';
+            final isInProgress = assignStatus == 'in_progress';
+            final sessionName = assignData?['sessionName']?.toString();
+            final progressPct =
+                (assignData?['progressPercentage'] as num?)?.toInt() ?? 0;
 
-            final patient = UserModel.fromMap(doc.id, data);
+            return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: ClinicalDataService().watchPatientAssessments(patientId),
+              builder: (context, snapshot) {
+                final assessments = snapshot.data?.docs ?? [];
+                final sessions = groupAssessmentSessions(assessments);
+                final latest = sessions.isEmpty ? null : sessions.first;
 
-            return Card(
-              child: InkWell(
-                borderRadius: BorderRadius.circular(20),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => DoctorPatientDetail(
-                        patientId: doc.id,
-                        patient: patient,
-                      ),
-                    ),
-                  );
-                },
-                child: Padding(
-                  padding: const EdgeInsets.all(17),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 25,
-                        backgroundColor: primary.withValues(alpha: .10),
-                        child: Text(
-                          patient.name.isNotEmpty
-                              ? patient.name[0].toUpperCase()
-                              : 'P',
-                          style: TextStyle(
-                            color: primary,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 18,
+                return Card(
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(20),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => DoctorPatientDetail(
+                            patientId: patientId,
+                            patient: patient,
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 13),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    patient.name.isNotEmpty
-                                        ? patient.name
-                                        : 'Patient',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                ),
-                                if (isPaused)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 7, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: Colors.amber.shade100,
-                                      borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(
-                                          color: Colors.amber.shade400),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(Icons.pause_circle_outline,
-                                            size: 11,
-                                            color: Colors.amber.shade900),
-                                        const SizedBox(width: 3),
-                                        Text(
-                                          'PAUSED ($progressPct%)',
-                                          style: TextStyle(
-                                            color: Colors.amber.shade900,
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w800,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  )
-                                else if (isInProgress)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 7, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: Colors.blue.shade100,
-                                      borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(
-                                          color: Colors.blue.shade400),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(Icons.play_circle_outline,
-                                            size: 11,
-                                            color: Colors.blue.shade900),
-                                        const SizedBox(width: 3),
-                                        Text(
-                                          'IN PROGRESS ($progressPct%)',
-                                          style: TextStyle(
-                                            color: Colors.blue.shade900,
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w800,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: 3),
-                            Text(
-                              isPaused
-                                  ? '${sessionName ?? "Session"} paused • $progressPct% complete'
-                                  : isInProgress
-                                      ? '${sessionName ?? "Session"} in progress • $progressPct%'
-                                      : latest == null
-                                          ? 'No assessments yet'
-                                          : 'Latest session • ${latest.averageScore.toStringAsFixed(0)}/100',
+                      );
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.all(17),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 25,
+                            backgroundColor: primary.withValues(alpha: .10),
+                            child: Text(
+                              patient.name.isNotEmpty
+                                  ? patient.name[0].toUpperCase()
+                                  : 'P',
                               style: TextStyle(
-                                color: isPaused
-                                    ? Colors.amber.shade800
-                                    : isInProgress
-                                        ? Colors.blue.shade800
-                                        : Colors.grey.shade600,
-                                fontSize: 12,
-                                fontWeight: (isPaused || isInProgress)
-                                    ? FontWeight.w600
-                                    : FontWeight.normal,
+                                color: primary,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 18,
                               ),
                             ),
-                          ],
-                        ),
+                          ),
+                          const SizedBox(width: 13),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        patient.name.isNotEmpty
+                                            ? patient.name
+                                            : tr('Patient'),
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                    ),
+                                    if (isPaused)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 7, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.amber.shade100,
+                                          borderRadius: BorderRadius.circular(6),
+                                          border: Border.all(
+                                              color: Colors.amber.shade400),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(Icons.pause_circle_outline,
+                                                size: 11,
+                                                color: Colors.amber.shade900),
+                                            const SizedBox(width: 3),
+                                            Text(
+                                              '${tr('PAUSED')} ($progressPct%)',
+                                              style: TextStyle(
+                                                color: Colors.amber.shade900,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w800,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      )
+                                    else if (isInProgress)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 7, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.blue.shade100,
+                                          borderRadius: BorderRadius.circular(6),
+                                          border: Border.all(
+                                              color: Colors.blue.shade400),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(Icons.play_circle_outline,
+                                                size: 11,
+                                                color: Colors.blue.shade900),
+                                            const SizedBox(width: 3),
+                                            Text(
+                                              '${tr('IN PROGRESS')} ($progressPct%)',
+                                              style: TextStyle(
+                                                color: Colors.blue.shade900,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w800,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  isPaused
+                                      ? '${sessionName ?? tr("Session")} ${tr("paused")} • $progressPct% ${tr("complete")}'
+                                      : isInProgress
+                                          ? '${sessionName ?? tr("Session")} ${tr("in progress")} • $progressPct%'
+                                          : latest == null
+                                              ? tr('No assessments yet')
+                                              : '${tr("Latest session")} • ${latest.averageScore.toStringAsFixed(0)}/100',
+                                  style: TextStyle(
+                                    color: isPaused
+                                        ? Colors.amber.shade800
+                                        : isInProgress
+                                            ? Colors.blue.shade800
+                                            : Colors.grey.shade600,
+                                    fontSize: 12,
+                                    fontWeight: (isPaused || isInProgress)
+                                        ? FontWeight.w600
+                                        : FontWeight.normal,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.chevron_right_rounded),
+                        ],
                       ),
-                      const Icon(Icons.chevron_right_rounded),
-                    ],
+                    ),
                   ),
-                ),
-              ),
+                );
+              },
             );
           },
         );
@@ -466,7 +592,9 @@ class _Metric extends StatelessWidget {
 }
 
 class _EmptyCard extends StatelessWidget {
-  const _EmptyCard();
+  final VoidCallback? onAssignPatient;
+
+  const _EmptyCard({this.onAssignPatient});
 
   @override
   Widget build(BuildContext context) {
@@ -477,16 +605,24 @@ class _EmptyCard extends StatelessWidget {
           children: [
             Icon(Icons.people_outline, size: 40, color: Colors.grey.shade500),
             const SizedBox(height: 10),
-            const Text(
-              'No patients assigned',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+            Text(
+              tr('No patients assigned'),
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
             ),
             const SizedBox(height: 5),
             Text(
-              'Ask an administrator to assign patients to your account.',
+              tr('Ask an administrator to assign patients to your account.'),
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.grey.shade600),
             ),
+            if (onAssignPatient != null) ...[
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: onAssignPatient,
+                icon: const Icon(Icons.person_add_alt_1_outlined),
+                label: Text(tr('Assign exercises to a patient')),
+              ),
+            ],
           ],
         ),
       ),
@@ -505,7 +641,7 @@ class _ErrorState extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Text(
-          'Could not load patients.\n\n$message',
+          '${tr("Could not load patients.")}\n\n$message',
           textAlign: TextAlign.center,
         ),
       ),
@@ -515,17 +651,13 @@ class _ErrorState extends StatelessWidget {
 
 class _LiveAssessmentSection extends StatelessWidget {
   final String doctorId;
-  final List<QueryDocumentSnapshot<Map<String, dynamic>>> patients;
 
   const _LiveAssessmentSection({
     required this.doctorId,
-    required this.patients,
   });
 
   @override
   Widget build(BuildContext context) {
-    final patientMap = {for (var p in patients) p.id: p};
-
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: ClinicalDataService().watchActiveDoctorSessions(doctorId),
       builder: (context, snapshot) {
@@ -586,13 +718,13 @@ class _LiveAssessmentSection extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (activeSessions.isNotEmpty) ...[
-              const Row(
+              Row(
                 children: [
-                  _PulsingLiveDot(),
-                  SizedBox(width: 8),
+                  const _PulsingLiveDot(),
+                  const SizedBox(width: 8),
                   Text(
-                    'Active Live Assessments',
-                    style: TextStyle(
+                    tr('Active Live Assessments'),
+                    style: const TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w800,
                       color: Color(0xFFD32F2F),
@@ -604,18 +736,16 @@ class _LiveAssessmentSection extends StatelessWidget {
               ...activeSessions.map((sessionDoc) {
                 final data = sessionDoc.data();
                 final patientId = data['patientId']?.toString() ?? '';
-                final patientDoc = patientMap[patientId];
+                final rawName = data['patientName']?.toString();
                 final patientName = formatFullName(
-                    data['patientName']?.toString().isNotEmpty == true
-                        ? data['patientName'].toString()
-                        : (patientDoc?.data()['name']?.toString() ?? 'Patient'));
-                final patientUser = patientDoc != null
-                    ? UserModel.fromMap(patientDoc.id, patientDoc.data())
-                    : UserModel(
-                        uid: patientId,
-                        name: patientName,
-                        email: '',
-                        role: 'patient');
+                    (rawName != null && rawName.isNotEmpty)
+                        ? rawName
+                        : 'Patient');
+                final patientUser = UserModel(
+                    uid: patientId,
+                    name: patientName,
+                    email: '',
+                    role: 'patient');
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
@@ -635,7 +765,7 @@ class _LiveAssessmentSection extends StatelessWidget {
                       color: Color(0xFFF57F17), size: 18),
                   const SizedBox(width: 8),
                   Text(
-                    'Paused Assessments (${pausedSessions.length})',
+                    '${tr("Paused Assessments")} (${pausedSessions.length})',
                     style: const TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w800,
@@ -648,18 +778,16 @@ class _LiveAssessmentSection extends StatelessWidget {
               ...pausedSessions.map((sessionDoc) {
                 final data = sessionDoc.data();
                 final patientId = data['patientId']?.toString() ?? '';
-                final patientDoc = patientMap[patientId];
+                final rawName = data['patientName']?.toString();
                 final patientName = formatFullName(
-                    data['patientName']?.toString().isNotEmpty == true
-                        ? data['patientName'].toString()
-                        : (patientDoc?.data()['name']?.toString() ?? 'Patient'));
-                final patientUser = patientDoc != null
-                    ? UserModel.fromMap(patientDoc.id, patientDoc.data())
-                    : UserModel(
-                        uid: patientId,
-                        name: patientName,
-                        email: '',
-                        role: 'patient');
+                    (rawName != null && rawName.isNotEmpty)
+                        ? rawName
+                        : 'Patient');
+                final patientUser = UserModel(
+                    uid: patientId,
+                    name: patientName,
+                    email: '',
+                    role: 'patient');
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
@@ -674,17 +802,19 @@ class _LiveAssessmentSection extends StatelessWidget {
             if (recentlyCompleted.isNotEmpty) ...[
               if (activeSessions.isNotEmpty || pausedSessions.isNotEmpty)
                 const SizedBox(height: 8),
-              const Row(
+              Row(
                 children: [
-                  Icon(Icons.check_circle_rounded,
+                  const Icon(Icons.check_circle_rounded,
                       color: Color(0xFF2E7D32), size: 18),
-                  SizedBox(width: 8),
-                  Text(
-                    'Recently Completed Assessments',
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF2E7D32),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      tr('Recently Completed Assessments'),
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF2E7D32),
+                      ),
                     ),
                   ),
                 ],
@@ -693,18 +823,16 @@ class _LiveAssessmentSection extends StatelessWidget {
               ...recentlyCompleted.map((sessionDoc) {
                 final data = sessionDoc.data();
                 final patientId = data['patientId']?.toString() ?? '';
-                final patientDoc = patientMap[patientId];
+                final rawName = data['patientName']?.toString();
                 final patientName = formatFullName(
-                    data['patientName']?.toString().isNotEmpty == true
-                        ? data['patientName'].toString()
-                        : (patientDoc?.data()['name']?.toString() ?? 'Patient'));
-                final patientUser = patientDoc != null
-                    ? UserModel.fromMap(patientDoc.id, patientDoc.data())
-                    : UserModel(
-                        uid: patientId,
-                        name: patientName,
-                        email: '',
-                        role: 'patient');
+                    (rawName != null && rawName.isNotEmpty)
+                        ? rawName
+                        : 'Patient');
+                final patientUser = UserModel(
+                    uid: patientId,
+                    name: patientName,
+                    email: '',
+                    role: 'patient');
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
@@ -794,14 +922,14 @@ class _LiveSessionCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: const Color(0xFFEF9A9A)),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      _PulsingLiveDot(size: 8),
-                      SizedBox(width: 5),
+                      const _PulsingLiveDot(size: 8),
+                      const SizedBox(width: 5),
                       Text(
-                        'LIVE ASSESSMENT',
-                        style: TextStyle(
+                        tr('LIVE ASSESSMENT'),
+                        style: const TextStyle(
                           color: Color(0xFFD32F2F),
                           fontWeight: FontWeight.w800,
                           fontSize: 10,
@@ -865,7 +993,7 @@ class _LiveSessionCard extends StatelessWidget {
                     minimumSize: Size.zero,
                   ),
                   child:
-                      const Text('View Patient', style: TextStyle(fontSize: 12)),
+                      Text(tr('View Patient'), style: const TextStyle(fontSize: 12)),
                 ),
               ],
             ),
@@ -876,7 +1004,7 @@ class _LiveSessionCard extends StatelessWidget {
               children: [
                 _LiveChip(
                   icon: Icons.repeat_rounded,
-                  label: '$repCount reps',
+                  label: '$repCount ${tr('reps')}',
                   color: const Color(0xFF1565C0),
                 ),
                 _LiveChip(
@@ -972,15 +1100,15 @@ class _PausedSessionCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: const Color(0xFFFFD54F)),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.pause_circle_outline_rounded,
+                      const Icon(Icons.pause_circle_outline_rounded,
                           size: 13, color: Color(0xFFF57F17)),
-                      SizedBox(width: 4),
+                      const SizedBox(width: 4),
                       Text(
-                        'PAUSED',
-                        style: TextStyle(
+                        tr('PAUSED'),
+                        style: const TextStyle(
                           color: Color(0xFFF57F17),
                           fontWeight: FontWeight.w800,
                           fontSize: 11,
@@ -1044,7 +1172,7 @@ class _PausedSessionCard extends StatelessWidget {
                     minimumSize: Size.zero,
                   ),
                   child:
-                      const Text('View Patient', style: TextStyle(fontSize: 12)),
+                      Text(tr('View Patient'), style: const TextStyle(fontSize: 12)),
                 ),
               ],
             ),
@@ -1056,12 +1184,12 @@ class _PausedSessionCard extends StatelessWidget {
                 if (progressPct > 0)
                   _LiveChip(
                     icon: Icons.pie_chart_outline_rounded,
-                    label: '$progressPct% complete',
+                    label: '$progressPct% ${tr('complete')}',
                     color: const Color(0xFFF57F17),
                   ),
                 _LiveChip(
                   icon: Icons.repeat_rounded,
-                  label: '$repCount reps',
+                  label: '$repCount ${tr('reps')}',
                   color: const Color(0xFF1565C0),
                 ),
                 if (score > 0)
@@ -1142,7 +1270,7 @@ class _RecentlyCompletedSessionCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '$patientName completed $exercise',
+                    '$patientName ${tr('completed')} $exercise',
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
@@ -1150,7 +1278,7 @@ class _RecentlyCompletedSessionCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'Score: ${finalScore.toStringAsFixed(0)}/100 • $finalReps reps',
+                    '${tr('Score')}: ${finalScore.toStringAsFixed(0)}/100 • $finalReps ${tr('reps')}',
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.grey.shade700,
@@ -1171,7 +1299,7 @@ class _RecentlyCompletedSessionCard extends StatelessWidget {
                   ),
                 );
               },
-              child: const Text('Review', style: TextStyle(fontSize: 12)),
+              child: Text(tr('Review'), style: const TextStyle(fontSize: 12)),
             ),
           ],
         ),

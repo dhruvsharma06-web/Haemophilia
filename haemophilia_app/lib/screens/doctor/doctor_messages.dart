@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../models/user_model.dart';
 import '../../services/clinical_data_service.dart';
 import '../../services/notification_service.dart';
+import '../../utils/app_localizations.dart';
 import '../patient/patient_history.dart';
 
 class DoctorMessages extends StatefulWidget {
@@ -128,6 +129,7 @@ class _DoctorMessagesState extends State<DoctorMessages> {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     final primary = Theme.of(context).colorScheme.primary;
 
     return Scaffold(
@@ -140,7 +142,7 @@ class _DoctorMessagesState extends State<DoctorMessages> {
               style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
             ),
             Text(
-              'Private Consultation Thread',
+              tr('Private Consultation Thread'),
               style: TextStyle(
                 fontSize: 11,
                 color: Colors.grey.shade600,
@@ -149,6 +151,9 @@ class _DoctorMessagesState extends State<DoctorMessages> {
             ),
           ],
         ),
+        actions: const [
+          LanguageToggleButton(),
+        ],
       ),
       body: Column(
         children: [
@@ -196,16 +201,16 @@ class _DoctorMessagesState extends State<DoctorMessages> {
                             color: Colors.grey.shade400,
                           ),
                           const SizedBox(height: 12),
-                          const Text(
-                            'No conversation yet',
-                            style: TextStyle(
+                          Text(
+                            tr('No conversation yet'),
+                            style: const TextStyle(
                               fontSize: 17,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            'Messages here are private between you and ${widget.patient.name}.',
+                            '${tr('Messages here are private between you and')} ${widget.patient.name}.',
                             textAlign: TextAlign.center,
                             style: TextStyle(color: Colors.grey.shade600),
                           ),
@@ -300,7 +305,7 @@ class _DoctorMessagesState extends State<DoctorMessages> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Discussing Session: ${_sessionContext!.sessionName}',
+                          '${tr('Discussing Session')}: ${_sessionContext!.sessionName}',
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
@@ -308,7 +313,7 @@ class _DoctorMessagesState extends State<DoctorMessages> {
                           ),
                         ),
                         Text(
-                          'Score: ${_sessionContext!.averageScore.toStringAsFixed(0)}/100 • ${_sessionContext!.correctReps}/${_sessionContext!.reps} reps',
+                          '${tr('Score')}: ${_sessionContext!.averageScore.toStringAsFixed(0)}/100 • ${_sessionContext!.correctReps}/${_sessionContext!.reps} ${tr('reps')}',
                           style: const TextStyle(
                             fontSize: 11,
                             color: Color(0xFF3B82F6),
@@ -339,7 +344,7 @@ class _DoctorMessagesState extends State<DoctorMessages> {
                       minLines: 1,
                       maxLines: 4,
                       decoration: InputDecoration(
-                        hintText: 'Write to ${widget.patient.name}...',
+                        hintText: '${tr('Write to')} ${widget.patient.name}...',
                       ),
                     ),
                   ),
@@ -444,30 +449,22 @@ class _SessionReferenceCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 5),
-            Row(
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 6,
+              runSpacing: 2,
               children: [
                 Text(
-                  '$correctReps/$reps correct reps',
+                  '$correctReps/$reps ${tr('correct reps')}${dt != null ? ' • ${dt.day}/${dt.month}/${dt.year}' : ''}',
                   style: const TextStyle(
                     fontSize: 11,
                     color: Color(0xFF64748B),
                   ),
                 ),
-                if (dt != null) ...[
-                  const Text(' • ',
-                      style: TextStyle(color: Color(0xFF94A3B8))),
-                  Text(
-                    '${dt.day}/${dt.month}/${dt.year}',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFF64748B),
-                    ),
-                  ),
-                ],
-                const Spacer(),
-                const Text(
-                  'Tap to inspect ›',
-                  style: TextStyle(
+                Text(
+                  tr('Tap to inspect ›'),
+                  style: const TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
                     color: Color(0xFF2563EB),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../utils/app_localizations.dart';
 import '../../utils/exercise_utils.dart';
 import 'exercise_demo_model.dart';
 
@@ -218,7 +219,7 @@ class _ExerciseDemoState extends State<ExerciseDemo>
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        'Step ${activePhase.phaseNumber}: ${activePhase.title}',
+                        '${tr('Step')} ${activePhase.phaseNumber}: ${tr(activePhase.title)}',
                         style: TextStyle(
                           color: widget.isDark ? Colors.white : Colors.black87,
                           fontSize: 11.5,
@@ -272,13 +273,13 @@ class _ExerciseDemoState extends State<ExerciseDemo>
                         : Icons.play_arrow_rounded,
                     size: 22,
                   ),
-                  tooltip: _controller.isAnimating ? 'Pause' : 'Play',
+                  tooltip: _controller.isAnimating ? tr('Pause') : tr('Play'),
                 ),
                 const SizedBox(width: 6),
                 IconButton.outlined(
                   onPressed: _replay,
                   icon: const Icon(Icons.replay_rounded, size: 20),
-                  tooltip: 'Replay from start',
+                  tooltip: tr('Replay from start'),
                 ),
                 const SizedBox(width: 6),
                 TextButton(
@@ -307,7 +308,7 @@ class _ExerciseDemoState extends State<ExerciseDemo>
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  'Auto-looping',
+                  tr('Auto-looping'),
                   style: TextStyle(
                     fontSize: 11,
                     color: Colors.grey.shade500,

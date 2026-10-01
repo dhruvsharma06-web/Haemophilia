@@ -24,21 +24,24 @@ service cloud.firestore {
     }
 
     function isAssignedDoctor(patientId) {
-      return isDoctor()
-        && get(/databases/$(database)/documents/users/$(patientId)).data.doctorId == request.auth.uid;
+      return isDoctor() && (
+        get(/databases/$(database)/documents/users/$(patientId)).data.doctorId == request.auth.uid ||
+        (
+          exists(/databases/$(database)/documents/exerciseAssignments/$(patientId)) &&
+          get(/databases/$(database)/documents/exerciseAssignments/$(patientId)).data.doctorId == request.auth.uid
+        )
+      );
     }
 
     match /users/{userId} {
-      // Registration creates a patient profile. Admins may create/manage profiles.
+      // Registration creates a patient or pending doctor profile. Admins may create/manage profiles.
       allow create: if isAdmin()
-        || (isSelf(userId) && request.resource.data.role == 'patient');
+        || (isSelf(userId) && request.resource.data.role in ['patient', 'pending_doctor']);
 
       // Patients can read themselves. Assigned doctors can read their patients.
       // Admins can read all user profiles.
       // Any signed-in user can read doctor profiles to discover and select clinicians.
-      allow read: if isSelf(userId) || isAdmin()
-        || (isDoctor() && resource.data.doctorId == request.auth.uid)
-        || (signedIn() && resource.data.role == 'doctor');
+      allow read: if isSelf(userId) || isAdmin() || isDoctor() || (signedIn() && resource.data.role == 'doctor');
 
       // Users can edit only their own personal profile.
       // Cannot modify role, doctorId, uid, or security-sensitive fields.
@@ -53,8 +56,8 @@ service cloud.firestore {
         // Patient app creates its own assessment result.
         allow create: if isSelf(userId);
 
-        // Patient, assigned doctor and admin can review results.
-        allow read: if isSelf(userId) || isAdmin() || isAssignedDoctor(userId);
+        // Patient, doctor, assigned doctor and admin can review results.
+        allow read: if isSelf(userId) || isAdmin() || isDoctor() || isAssignedDoctor(userId);
 
         // Only an admin or assigned doctor may change a stored assessment,
         // and a doctor may only add clinical feedback fields.
@@ -85,6 +88,12 @@ service cloud.firestore {
         allow read, update, delete: if isSelf(userId) || isAdmin();
         allow create: if signedIn();
       }
+    }
+ 
+    match /doctorApplications/{userId} {
+      allow create: if signedIn() && request.auth.uid == userId;
+      allow read: if signedIn() && (request.auth.uid == userId || isAdmin());
+      allow update, delete: if isAdmin();
     }
 
     match /exerciseAssignments/{patientId} {

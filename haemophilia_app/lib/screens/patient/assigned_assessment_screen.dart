@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../assessment/live_assessment_screen.dart';
+import '../../utils/app_localizations.dart';
 import '../../utils/exercise_utils.dart';
 import '../../widgets/exercise_demo/exercise_demo_dialog.dart';
 
@@ -202,25 +203,24 @@ class _AssignedAssessmentScreenState
           color: Colors.redAccent,
           size: 48,
         ),
-        title: const Text(
-          'Discard Session?',
-          style: TextStyle(fontWeight: FontWeight.bold),
+        title: Text(
+          tr('Discard Session?'),
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
-        content: const Text(
-          'Are you sure you want to discard your progress? '
-          'This session will be marked as discarded and cannot be resumed.',
+        content: Text(
+          tr('Are you sure you want to discard your progress? This session will be marked as discarded and cannot be resumed.'),
           textAlign: TextAlign.center,
         ),
         actionsAlignment: MainAxisAlignment.center,
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
+            child: Text(tr('Cancel')),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Discard'),
+            child: Text(tr('Discard')),
           ),
         ],
       ),
@@ -333,6 +333,7 @@ class _AssignedAssessmentScreenState
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     final primary = Theme.of(context).colorScheme.primary;
 
     if (_loading) {
@@ -346,10 +347,13 @@ class _AssignedAssessmentScreenState
     if (_isCompleted || _isNotAssigned) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text(
-            'Assigned Assessment',
-            style: TextStyle(fontWeight: FontWeight.w800),
+          title: Text(
+            tr('Assigned Assessment'),
+            style: const TextStyle(fontWeight: FontWeight.w800),
           ),
+          actions: const [
+            LanguageToggleButton(),
+          ],
         ),
         body: Center(
           child: Padding(
@@ -375,9 +379,9 @@ class _AssignedAssessmentScreenState
                   ),
                 ),
                 const SizedBox(height: 20),
-                const Text(
-                  'All done for now',
-                  style: TextStyle(
+                Text(
+                  tr('All done for now'),
+                  style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w800,
                   ),
@@ -385,8 +389,8 @@ class _AssignedAssessmentScreenState
                 const SizedBox(height: 8),
                 Text(
                   _isCompleted
-                      ? 'Your doctor will assign your next session when you are ready.'
-                      : 'No exercise session is currently assigned.',
+                      ? tr('Your doctor will assign your next session when you are ready.')
+                      : tr('No exercise session is currently assigned.'),
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Colors.grey.shade600,
@@ -398,7 +402,7 @@ class _AssignedAssessmentScreenState
                 FilledButton.icon(
                   onPressed: () => Navigator.of(context).pop(),
                   icon: const Icon(Icons.arrow_back_rounded),
-                  label: const Text('Back to Dashboard'),
+                  label: Text(tr('Back to Dashboard')),
                 ),
               ],
             ),
@@ -410,10 +414,13 @@ class _AssignedAssessmentScreenState
     if (_error != null) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text(
-            'Assigned Assessment',
-            style: TextStyle(fontWeight: FontWeight.w800),
+          title: Text(
+            tr('Assigned Assessment'),
+            style: const TextStyle(fontWeight: FontWeight.w800),
           ),
+          actions: const [
+            LanguageToggleButton(),
+          ],
         ),
         body: Center(
           child: Padding(
@@ -445,7 +452,7 @@ class _AssignedAssessmentScreenState
                     _loadAssignment();
                   },
                   icon: const Icon(Icons.refresh_rounded),
-                  label: const Text('Try Again'),
+                  label: Text(tr('Try Again')),
                 ),
               ],
             ),
@@ -456,10 +463,13 @@ class _AssignedAssessmentScreenState
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Assigned Session',
-          style: TextStyle(fontWeight: FontWeight.w800),
+        title: Text(
+          tr('Assigned Session'),
+          style: const TextStyle(fontWeight: FontWeight.w800),
         ),
+        actions: const [
+          LanguageToggleButton(),
+        ],
       ),
       body: SafeArea(
         child: Padding(
@@ -504,7 +514,7 @@ class _AssignedAssessmentScreenState
                             Row(
                               children: [
                                 Text(
-                                  'SESSION NAME',
+                                  tr('SESSION NAME'),
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w800,
@@ -523,9 +533,9 @@ class _AssignedAssessmentScreenState
                                       color: Colors.amber.shade700,
                                       borderRadius: BorderRadius.circular(6),
                                     ),
-                                    child: const Text(
-                                      'IN PROGRESS',
-                                      style: TextStyle(
+                                    child: Text(
+                                      tr('IN PROGRESS'),
+                                      style: const TextStyle(
                                         color: Colors.white,
                                         fontSize: 10,
                                         fontWeight: FontWeight.w800,
@@ -554,16 +564,16 @@ class _AssignedAssessmentScreenState
 
               const SizedBox(height: 22),
 
-              const Text(
-                'Exercises',
-                style: TextStyle(
+              Text(
+                tr('Exercises'),
+                style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
-                'Complete each exercise in the assigned order. Only correct repetitions count.',
+                tr('Complete each exercise in the assigned order. Only correct repetitions count.'),
                 style: TextStyle(
                   color: Colors.grey.shade600,
                   fontSize: 13,
@@ -620,8 +630,8 @@ class _AssignedAssessmentScreenState
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    'Exercise ${index + 1}',
+                                   Text(
+                                    '${tr('Exercise')} ${index + 1}',
                                     style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w700,
@@ -633,7 +643,7 @@ class _AssignedAssessmentScreenState
                                     children: [
                                       Expanded(
                                         child: Text(
-                                          name,
+                                          tr(name),
                                           style: const TextStyle(
                                             fontSize: 15,
                                             fontWeight: FontWeight.w800,
@@ -649,7 +659,7 @@ class _AssignedAssessmentScreenState
                                   if (isWip) ...[
                                     const SizedBox(height: 3),
                                     Text(
-                                      'Work in progress',
+                                      tr('Work in progress'),
                                       style: TextStyle(
                                         color: Colors.amber.shade900,
                                         fontSize: 11,
@@ -668,7 +678,7 @@ class _AssignedAssessmentScreenState
                                         ),
                                         const SizedBox(width: 4),
                                         Text(
-                                          'Completed ($target/$target correct reps)',
+                                          '${tr('Completed')} ($target/$target ${tr('correct reps')})',
                                           style: const TextStyle(
                                             color: Colors.green,
                                             fontSize: 11.5,
@@ -688,7 +698,7 @@ class _AssignedAssessmentScreenState
                                         ),
                                         const SizedBox(width: 4),
                                         Text(
-                                          'In Progress • $_savedCorrectReps/$target correct reps',
+                                          '${tr('In Progress')} • $_savedCorrectReps/$target ${tr('correct reps')}',
                                           style: TextStyle(
                                             color: Colors.amber.shade900,
                                             fontSize: 11.5,
@@ -700,7 +710,7 @@ class _AssignedAssessmentScreenState
                                   ] else ...[
                                     const SizedBox(height: 3),
                                     Text(
-                                      'Target: $target correct reps',
+                                      '${tr('Target')}: $target ${tr('correct reps')}',
                                       style: TextStyle(
                                         fontSize: 12,
                                         color: Colors.grey.shade700,
@@ -729,7 +739,7 @@ class _AssignedAssessmentScreenState
                                           ),
                                           const SizedBox(width: 4),
                                           Text(
-                                            'How to perform',
+                                            tr('How to perform'),
                                             style: TextStyle(
                                               fontSize: 12,
                                               fontWeight: FontWeight.w700,
@@ -750,7 +760,7 @@ class _AssignedAssessmentScreenState
                                   exerciseName: rawName,
                                 );
                               },
-                              tooltip: 'How to perform $name',
+                              tooltip: '${tr('How to perform')} ${tr(name)}',
                               icon: Icon(
                                 _exerciseIcon(rawName),
                                 color: isDone
@@ -776,9 +786,9 @@ class _AssignedAssessmentScreenState
                   child: FilledButton.icon(
                     onPressed: _startAssessment,
                     icon: const Icon(Icons.play_arrow_rounded),
-                    label: const Text(
-                      'Continue Session',
-                      style: TextStyle(
+                    label: Text(
+                      tr('Continue Session'),
+                      style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
                       ),
@@ -796,9 +806,9 @@ class _AssignedAssessmentScreenState
                     ),
                     onPressed: _discardSession,
                     icon: const Icon(Icons.delete_outline_rounded, size: 18),
-                    label: const Text(
-                      'Discard Session',
-                      style: TextStyle(
+                    label: Text(
+                      tr('Discard Session'),
+                      style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
                       ),
@@ -812,9 +822,9 @@ class _AssignedAssessmentScreenState
                   child: FilledButton.icon(
                     onPressed: _startAssessment,
                     icon: const Icon(Icons.play_arrow_rounded),
-                    label: const Text(
-                      'Start Session',
-                      style: TextStyle(
+                    label: Text(
+                      tr('Start Session'),
+                      style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
                       ),

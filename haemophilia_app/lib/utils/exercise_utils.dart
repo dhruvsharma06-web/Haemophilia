@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'app_localizations.dart';
+
 // Canonical exercise identifiers
 const String kAssistedShoulderFlexion = 'assisted_shoulder_flexion';
 const String kShoulderRotation = 'shoulder_rotation';
@@ -199,7 +201,7 @@ Widget buildWipBadge({
         ),
         SizedBox(width: compact ? 3 : 5),
         Text(
-          'WORK IN PROGRESS',
+          tr('WORK IN PROGRESS'),
           style: TextStyle(
             color: textColor,
             fontSize: compact ? 9.5 : 11,

@@ -5,11 +5,14 @@ import 'package:flutter/material.dart';
 import 'firebase_options.dart';
 import 'screens/auth/auth_gate.dart';
 import 'services/notification_service.dart';
+import 'utils/app_localizations.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await AppLocaleService.init();
 
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
@@ -29,11 +32,19 @@ class HaemophiliaApp extends StatelessWidget {
   Widget build(BuildContext context) {
     const primary = Color(0xFF1769AA);
 
-    return MaterialApp(
-      navigatorKey: navigatorKey,
-      debugShowCheckedModeBanner: false,
-      title: 'HaemoPhysio',
-      theme: ThemeData(
+    return ValueListenableBuilder<String>(
+      valueListenable: AppLocaleService.currentLocale,
+      builder: (context, localeCode, child) {
+        return MaterialApp(
+          navigatorKey: navigatorKey,
+          debugShowCheckedModeBanner: false,
+          title: 'Somaiya HaemoPhysio',
+          locale: Locale(localeCode),
+          builder: (context, child) => AppLocaleScope(
+            notifier: AppLocaleService.currentLocale,
+            child: child!,
+          ),
+          theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
           seedColor: primary,
@@ -90,6 +101,8 @@ class HaemophiliaApp extends StatelessWidget {
         ),
       ),
       home: const AuthGate(),
+        );
+      },
     );
   }
 }

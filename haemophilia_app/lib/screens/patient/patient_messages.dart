@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/user_model.dart';
 import '../../services/clinical_data_service.dart';
+import '../../utils/app_localizations.dart';
 import 'patient_doctor_chat_screen.dart';
 
 class PatientMessages extends StatefulWidget {
@@ -35,14 +36,18 @@ class _PatientMessagesState extends State<PatientMessages> {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     final primary = Theme.of(context).colorScheme.primary;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Messages',
-          style: TextStyle(fontWeight: FontWeight.w800),
+        title: Text(
+          tr('Messages'),
+          style: const TextStyle(fontWeight: FontWeight.w800),
         ),
+        actions: const [
+          LanguageToggleButton(),
+        ],
       ),
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
         // Stream all doctors from the users collection
@@ -82,16 +87,16 @@ class _PatientMessagesState extends State<PatientMessages> {
                       color: primary,
                     ),
                     const SizedBox(height: 12),
-                    const Text(
-                      'No doctors available',
-                      style: TextStyle(
+                    Text(
+                      tr('No doctors available'),
+                      style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Your clinician team will appear here once registered.',
+                      tr('Your clinician team will appear here once registered.'),
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Colors.grey.shade600),
                     ),
@@ -234,7 +239,7 @@ class _PatientMessagesState extends State<PatientMessages> {
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
-                                'ASSIGNED',
+                                tr('ASSIGNED'),
                                 style: TextStyle(
                                   color: primary,
                                   fontSize: 9,
@@ -266,7 +271,7 @@ class _PatientMessagesState extends State<PatientMessages> {
                             Expanded(
                               child: Text(
                                 item.lastMessage ??
-                                    'No messages yet • Tap to start chat',
+                                    tr('No messages yet • Tap to start chat'),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(

@@ -7,6 +7,7 @@ import '../patient/patient_history.dart';
 import 'doctor_messages.dart';
 import 'doctor_session_detail.dart';
 import 'assign_exercises_screen.dart';
+import '../../utils/app_localizations.dart';
 import '../../utils/exercise_utils.dart';
 import '../../widgets/session_analytics_chart.dart';
 
@@ -22,12 +23,17 @@ class DoctorPatientDetail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          patient.name.isEmpty ? 'Patient' : patient.name,
+          patient.name.isEmpty ? tr('Patient') : patient.name,
           style: const TextStyle(fontWeight: FontWeight.w800),
         ),
+        actions: const [
+          LanguageToggleButton(),
+          SizedBox(width: 8),
+        ],
       ),
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
         stream: ClinicalDataService().watchPatientAssessments(patientId),
@@ -81,7 +87,7 @@ class DoctorPatientDetail extends StatelessWidget {
                   );
                 },
                 icon: const Icon(Icons.forum_outlined),
-                label: const Text('Message patient'),
+                label: Text(tr('Message patient')),
               ),
               const SizedBox(height: 10),
 
@@ -100,8 +106,8 @@ OutlinedButton.icon(
   icon: const Icon(
     Icons.assignment_outlined,
   ),
-  label: const Text(
-    'Assign Exercises',
+  label: Text(
+    tr('Assign Exercises'),
   ),
 ),
               StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
@@ -185,16 +191,16 @@ OutlinedButton.icon(
                 children: [
                   Expanded(
                     child: _Stat(
-                      'Average score',
+                      tr('Average Score'),
                       sessions.isEmpty ? '—' : '${avg.toStringAsFixed(0)}/100',
                     ),
                   ),
                   const SizedBox(width: 10),
-                  Expanded(child: _Stat('Sessions', '${sessions.length}')),
+                  Expanded(child: _Stat(tr('Sessions'), '${sessions.length}')),
                   const SizedBox(width: 10),
                   Expanded(
                     child: _Stat(
-                      'Accuracy',
+                      tr('Accuracy'),
                       totalRepsAll == 0
                           ? '—'
                           : '${accuracyPct.toStringAsFixed(0)}% ($totalCorrectAll/$totalRepsAll)',
@@ -203,9 +209,9 @@ OutlinedButton.icon(
                 ],
               ),
               const SizedBox(height: 26),
-              const Text(
-                'Progress analytics',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+              Text(
+                tr('Progress analytics'),
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 12),
 
@@ -216,8 +222,8 @@ OutlinedButton.icon(
 
               const SizedBox(height: 26),
 
-              const Text(
-                'Session history',
+              Text(
+                tr('Session history'),
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 12),
@@ -246,7 +252,7 @@ OutlinedButton.icon(
                           ],
                         ),
                         subtitle: Text(
-                          '${session.reps} reps • ${session.correctReps}/${session.reps} correct',
+                          '${session.reps} ${tr('reps')} • ${session.correctReps}/${session.reps} ${tr('correct')}',
                         ),
                         trailing: Text(
                           '${session.averageScore.toStringAsFixed(0)}/100',
@@ -286,12 +292,12 @@ class _ProfileCard extends StatelessWidget {
     final primary = Theme.of(context).colorScheme.primary;
 
     final details = <String>[];
-    if (patient.age != null) details.add('Age: ${patient.age}');
+    if (patient.age != null) details.add('${tr('Age')}: ${patient.age}');
     if (patient.gender != null && patient.gender!.isNotEmpty) {
-      details.add('Gender: ${patient.gender}');
+      details.add('${tr('Gender')}: ${patient.gender}');
     }
     if (patient.phoneNumber != null && patient.phoneNumber!.isNotEmpty) {
-      details.add('Phone: ${patient.phoneNumber}');
+      details.add('${tr('Phone Number')}: ${patient.phoneNumber}');
     }
 
     return Card(
@@ -403,7 +409,7 @@ class _Empty extends StatelessWidget {
         padding: const EdgeInsets.all(25),
         child: Center(
           child: Text(
-            'No assessment sessions yet.',
+            tr('No assessment sessions yet'),
             style: TextStyle(color: Colors.grey.shade600),
           ),
         ),
@@ -428,39 +434,39 @@ class PatientProgressChart extends StatelessWidget {
           borderRadius: BorderRadius.circular(18),
           side: BorderSide(color: Colors.grey.shade200),
         ),
-        child: const Padding(
-          padding: EdgeInsets.all(24),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Patient Progress',
-                style: TextStyle(
+                tr('Patient Progress'),
+                style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
                 ),
               ),
-              SizedBox(height: 6),
+              const SizedBox(height: 6),
               Text(
-                'Assessment score across completed sessions',
-                style: TextStyle(
+                tr('Assessment score across completed sessions'),
+                style: const TextStyle(
                   color: Colors.grey,
                   fontSize: 13,
                 ),
               ),
-              SizedBox(height: 25),
+              const SizedBox(height: 25),
               Center(
                 child: Column(
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.insights_outlined,
                       size: 42,
                       color: Colors.grey,
                     ),
-                    SizedBox(height: 10),
+                    const SizedBox(height: 10),
                     Text(
-                      'No progress data yet',
-                      style: TextStyle(
+                      tr('No progress data yet'),
+                      style: const TextStyle(
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -484,17 +490,17 @@ class PatientProgressChart extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Patient Progress',
-              style: TextStyle(
+            Text(
+              tr('Patient Progress'),
+              style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
               ),
             ),
             const SizedBox(height: 5),
-            const Text(
-              'Assessment score across completed sessions',
-              style: TextStyle(
+            Text(
+              tr('Assessment score across completed sessions'),
+              style: const TextStyle(
                 color: Colors.grey,
                 fontSize: 13,
               ),
@@ -821,9 +827,9 @@ class _DoctorAssignmentStatusCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'CURRENT ASSIGNMENT',
-                        style: TextStyle(
+                      Text(
+                        tr('CURRENT ASSIGNMENT'),
+                        style: const TextStyle(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w800,
                           color: Colors.grey,
@@ -853,7 +859,7 @@ class _DoctorAssignmentStatusCard extends StatelessWidget {
                       Icon(statusIcon, color: statusFg, size: 14),
                       const SizedBox(width: 4),
                       Text(
-                        statusLabel,
+                        tr(statusLabel),
                         style: TextStyle(
                           color: statusFg,
                           fontSize: 11,
@@ -885,7 +891,7 @@ class _DoctorAssignmentStatusCard extends StatelessWidget {
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        'Current: ${getExerciseDisplayName(currentExercise)}',
+                        '${tr('Current')}: ${getExerciseDisplayName(currentExercise)}',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
@@ -911,18 +917,20 @@ class _DoctorAssignmentStatusCard extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  '$completionPct% Completed',
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.grey.shade700,
+                Expanded(
+                  child: Text(
+                    '$completionPct% ${tr('Completed')}',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.grey.shade700,
+                    ),
                   ),
                 ),
+                const SizedBox(width: 8),
                 Text(
-                  '$completedExercises of $totalExercises exercises finished',
+                  '$completedExercises ${tr('of')} $totalExercises ${tr('exercises finished')}',
                   style: TextStyle(
                     fontSize: 11,
                     color: Colors.grey.shade600,
@@ -946,7 +954,7 @@ class _DoctorAssignmentStatusCard extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Correct Reps',
+                              tr('Correct Reps'),
                               style: TextStyle(
                                 fontSize: 11,
                                 color: Colors.grey.shade600,
@@ -975,7 +983,7 @@ class _DoctorAssignmentStatusCard extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Total Reps Attempted',
+                              tr('Total Reps Attempted'),
                               style: TextStyle(
                                 fontSize: 11,
                                 color: Colors.grey.shade600,
@@ -1004,7 +1012,7 @@ class _DoctorAssignmentStatusCard extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Accuracy',
+                              tr('Accuracy'),
                               style: TextStyle(
                                 fontSize: 11,
                                 color: Colors.grey.shade600,
@@ -1029,9 +1037,9 @@ class _DoctorAssignmentStatusCard extends StatelessWidget {
             ),
             if (exercises.isNotEmpty) ...[
               const SizedBox(height: 12),
-              const Text(
-                'ASSIGNED EXERCISES',
-                style: TextStyle(
+              Text(
+                tr('ASSIGNED EXERCISES'),
+                style: const TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w800,
                   color: Colors.grey,
@@ -1086,7 +1094,7 @@ class _DoctorAssignmentStatusCard extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        '$exCorrect / $exTarget correct reps',
+                        '$exCorrect / $exTarget ${tr('correct reps')}',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -1104,12 +1112,14 @@ class _DoctorAssignmentStatusCard extends StatelessWidget {
                 children: [
                   Icon(Icons.access_time_rounded, size: 13, color: Colors.grey.shade600),
                   const SizedBox(width: 5),
-                  Text(
-                    'Last activity: ${_formatDateTime(lastActivity!)}',
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      color: Colors.grey.shade600,
-                      fontWeight: FontWeight.w500,
+                  Expanded(
+                    child: Text(
+                      '${tr('Last activity')}: ${_formatDateTime(lastActivity!)}',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: Colors.grey.shade600,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
                 ],

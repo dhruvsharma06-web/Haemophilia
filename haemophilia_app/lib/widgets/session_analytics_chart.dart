@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../screens/patient/patient_history.dart';
+import '../utils/app_localizations.dart';
 
 enum AnalyticsMetric {
   score('Movement Score', 'Average Movement Score', 'pts', true),
@@ -74,6 +75,7 @@ class _SessionAnalyticsChartState extends State<SessionAnalyticsChart> {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     final primary = Theme.of(context).colorScheme.primary;
 
     if (widget.sessions.isEmpty) {
@@ -83,34 +85,34 @@ class _SessionAnalyticsChartState extends State<SessionAnalyticsChart> {
           borderRadius: BorderRadius.circular(18),
           side: BorderSide(color: Colors.grey.shade200),
         ),
-        child: const Padding(
-          padding: EdgeInsets.all(24),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Session Progress Trends',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                tr('Session Progress Trends'),
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
               ),
-              SizedBox(height: 6),
+              const SizedBox(height: 6),
               Text(
-                'Session-level averages across completed sessions',
-                style: TextStyle(color: Colors.grey, fontSize: 13),
+                tr('Session-level averages across completed sessions'),
+                style: const TextStyle(color: Colors.grey, fontSize: 13),
               ),
-              SizedBox(height: 25),
+              const SizedBox(height: 25),
               Center(
                 child: Column(
                   children: [
-                    Icon(Icons.insights_outlined, size: 42, color: Colors.grey),
-                    SizedBox(height: 10),
+                    const Icon(Icons.insights_outlined, size: 42, color: Colors.grey),
+                    const SizedBox(height: 10),
                     Text(
-                      'No assessment sessions yet',
-                      style: TextStyle(fontWeight: FontWeight.w700),
+                      tr('No assessment sessions yet'),
+                      style: const TextStyle(fontWeight: FontWeight.w700),
                     ),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 4),
                     Text(
-                      'Complete assessment sessions to view progress trends.',
-                      style: TextStyle(color: Colors.grey, fontSize: 12),
+                      tr('Complete assessment sessions to view progress trends.'),
+                      style: const TextStyle(color: Colors.grey, fontSize: 12),
                     ),
                   ],
                 ),
@@ -170,16 +172,16 @@ class _SessionAnalyticsChartState extends State<SessionAnalyticsChart> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _selectedMetric.fullLabel,
+                        tr(_selectedMetric.fullLabel),
                         style: const TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
                       const SizedBox(height: 3),
-                      const Text(
-                        'Tap any session data point to inspect details',
-                        style: TextStyle(color: Colors.grey, fontSize: 12),
+                      Text(
+                        tr('Tap any session data point to inspect details'),
+                        style: const TextStyle(color: Colors.grey, fontSize: 12),
                       ),
                     ],
                   ),
@@ -192,7 +194,7 @@ class _SessionAnalyticsChartState extends State<SessionAnalyticsChart> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    '${chronologicalSessions.length} session${chronologicalSessions.length == 1 ? '' : 's'}',
+                    '${chronologicalSessions.length} ${tr('Sessions')}',
                     style: TextStyle(
                       color: primary,
                       fontSize: 11,
@@ -213,7 +215,7 @@ class _SessionAnalyticsChartState extends State<SessionAnalyticsChart> {
                   return Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: ChoiceChip(
-                      label: Text(metric.shortLabel),
+                      label: Text(tr(metric.shortLabel)),
                       selected: isSelected,
                       onSelected: (selected) {
                         if (selected) {
@@ -396,14 +398,14 @@ class _SessionAnalyticsChartState extends State<SessionAnalyticsChart> {
                           runSpacing: 4,
                           children: [
                             _miniMetric(
-                                'Score',
+                                tr('Score'),
                                 '${selectedSession.averageScore.toStringAsFixed(0)}/100',
                                 primary),
-                            _miniMetric('ROM',
+                            _miniMetric(tr('ROM'),
                                 '${selectedSession.averageRom.toStringAsFixed(0)}°'),
-                            _miniMetric('Correct',
+                            _miniMetric(tr('Correct'),
                                 '${selectedSession.correctReps}/${selectedSession.reps} (${selectedSession.correctRate.toStringAsFixed(0)}%)'),
-                            _miniMetric('AI Confidence',
+                            _miniMetric(tr('AI Confidence'),
                                 '${selectedSession.averageConfidence.toStringAsFixed(0)}%'),
                           ],
                         ),
@@ -427,7 +429,7 @@ class _SessionAnalyticsChartState extends State<SessionAnalyticsChart> {
                 children: [
                   Expanded(
                     child: _SummaryItem(
-                      label: 'Latest Session',
+                      label: tr('Latest Session'),
                       value:
                           '${latestValue.toStringAsFixed(1)}${_selectedMetric.unit}',
                       color: primary,
@@ -440,7 +442,7 @@ class _SessionAnalyticsChartState extends State<SessionAnalyticsChart> {
                   ),
                   Expanded(
                     child: _SummaryItem(
-                      label: 'Overall Average',
+                      label: tr('Overall Average'),
                       value:
                           '${overallAverage.toStringAsFixed(1)}${_selectedMetric.unit}',
                       color: Colors.black87,
@@ -453,7 +455,7 @@ class _SessionAnalyticsChartState extends State<SessionAnalyticsChart> {
                   ),
                   Expanded(
                     child: _SummaryItem(
-                      label: 'Total Sessions',
+                      label: tr('Total Sessions'),
                       value: '${chronologicalSessions.length}',
                       color: Colors.black87,
                     ),

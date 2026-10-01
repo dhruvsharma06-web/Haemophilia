@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../models/user_model.dart';
 import '../../services/auth_service.dart';
+import '../../utils/app_localizations.dart';
 
 class EditProfileScreen extends StatefulWidget {
   final UserModel user;
@@ -79,8 +80,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       widget.onProfileUpdated?.call(updated);
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Profile updated successfully!'),
+        SnackBar(
+          content: Text(tr('Profile updated successfully!')),
           backgroundColor: Colors.green,
         ),
       );
@@ -98,21 +99,25 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     final primary = Theme.of(context).colorScheme.primary;
     final initial =
         widget.user.name.isNotEmpty ? widget.user.name[0].toUpperCase() : 'U';
     final roleLabel = widget.user.role == 'doctor'
-        ? 'Doctor'
+        ? tr('Doctor')
         : widget.user.role == 'admin'
-            ? 'Admin'
-            : 'Patient';
+            ? tr('Admin')
+            : tr('Patient');
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Edit Profile',
-          style: TextStyle(fontWeight: FontWeight.w800),
+        title: Text(
+          tr('Edit Profile'),
+          style: const TextStyle(fontWeight: FontWeight.w800),
         ),
+        actions: const [
+          LanguageToggleButton(),
+        ],
       ),
       body: SafeArea(
         child: Form(
@@ -165,16 +170,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               TextFormField(
                 controller: _nameController,
                 textInputAction: TextInputAction.next,
-                decoration: const InputDecoration(
-                  labelText: 'Full Name *',
-                  prefixIcon: Icon(Icons.person_outline_rounded),
+                decoration: InputDecoration(
+                  labelText: tr('Full Name *'),
+                  prefixIcon: const Icon(Icons.person_outline_rounded),
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return 'Please enter your full name';
+                    return tr('Please enter your full name');
                   }
                   if (value.trim().length < 2) {
-                    return 'Name must be at least 2 characters';
+                    return tr('Name must be at least 2 characters');
                   }
                   return null;
                 },
@@ -187,11 +192,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 readOnly: true,
                 enabled: false,
                 decoration: InputDecoration(
-                  labelText: 'Email Address',
+                  labelText: tr('Email Address'),
                   prefixIcon: const Icon(Icons.email_outlined),
                   suffixIcon: const Icon(Icons.lock_outline, size: 18),
                   helperText:
-                      'Managed by Authentication and cannot be changed directly.',
+                      tr('Managed by Authentication and cannot be changed directly.'),
                   helperStyle: TextStyle(color: Colors.grey.shade600, fontSize: 11),
                 ),
               ),
@@ -206,10 +211,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   FilteringTextInputFormatter.digitsOnly,
                   LengthLimitingTextInputFormatter(3),
                 ],
-                decoration: const InputDecoration(
-                  labelText: 'Age',
+                decoration: InputDecoration(
+                  labelText: tr('Age'),
                   hintText: 'e.g. 28',
-                  prefixIcon: Icon(Icons.cake_outlined),
+                  prefixIcon: const Icon(Icons.cake_outlined),
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
@@ -217,13 +222,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   }
                   final age = int.tryParse(value.trim());
                   if (age == null) {
-                    return 'Please enter a valid whole number';
+                    return tr('Please enter a valid whole number');
                   }
                   if (age <= 0) {
-                    return 'Age must be greater than 0';
+                    return tr('Age must be greater than 0');
                   }
                   if (age > 120) {
-                    return 'Please enter a sensible age (up to 120)';
+                    return tr('Please enter a sensible age (up to 120)');
                   }
                   return null;
                 },
@@ -233,13 +238,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               // Gender
               DropdownButtonFormField<String>(
                 initialValue: _selectedGender,
-                decoration: const InputDecoration(
-                  labelText: 'Gender',
-                  prefixIcon: Icon(Icons.wc_outlined),
+                decoration: InputDecoration(
+                  labelText: tr('Gender'),
+                  prefixIcon: const Icon(Icons.wc_outlined),
                 ),
-                hint: const Text('Select gender'),
+                hint: Text(tr('Select gender')),
                 items: _genderOptions
-                    .map((g) => DropdownMenuItem(value: g, child: Text(g)))
+                    .map((g) => DropdownMenuItem(value: g, child: Text(tr(g))))
                     .toList(),
                 onChanged: (val) {
                   setState(() => _selectedGender = val);
@@ -252,10 +257,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 controller: _phoneController,
                 keyboardType: TextInputType.phone,
                 textInputAction: TextInputAction.done,
-                decoration: const InputDecoration(
-                  labelText: 'Phone Number',
+                decoration: InputDecoration(
+                  labelText: tr('Phone Number'),
                   hintText: 'e.g. +1 555-0199',
-                  prefixIcon: Icon(Icons.phone_outlined),
+                  prefixIcon: const Icon(Icons.phone_outlined),
                 ),
               ),
               const SizedBox(height: 32),
@@ -269,7 +274,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
-                      child: const Text('Cancel'),
+                      child: Text(tr('Cancel')),
                     ),
                   ),
                   const SizedBox(width: 14),
@@ -290,7 +295,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               ),
                             )
                           : const Icon(Icons.check_rounded),
-                      label: Text(_saving ? 'Saving...' : 'Save Changes'),
+                      label: Text(_saving ? tr('Saving...') : tr('Save Changes')),
                     ),
                   ),
                 ],

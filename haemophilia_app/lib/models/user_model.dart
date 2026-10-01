@@ -23,6 +23,10 @@ class UserModel {
   final String? gender;
   final String? phoneNumber;
   final String? photoUrl;
+  final bool isApproved;
+  final String? registrationNumber;
+  final String? specialization;
+  final String? hospital;
 
   UserModel({
     required this.uid,
@@ -34,19 +38,30 @@ class UserModel {
     this.gender,
     this.phoneNumber,
     this.photoUrl,
+    this.isApproved = true,
+    this.registrationNumber,
+    this.specialization,
+    this.hospital,
   }) : name = formatFullName(name);
 
   factory UserModel.fromMap(String uid, Map<String, dynamic> data) {
+    final role = data['role'] as String? ?? 'patient';
+    final approved = data['isApproved'] as bool? ?? (role != 'pending_doctor');
+
     return UserModel(
       uid: uid,
       name: formatFullName(data['name'] as String? ?? ''),
       email: data['email'] as String? ?? '',
-      role: data['role'] as String? ?? 'patient',
+      role: role,
       doctorId: data['doctorId']?.toString(),
       age: (data['age'] as num?)?.toInt(),
       gender: data['gender']?.toString(),
       phoneNumber: data['phoneNumber']?.toString(),
       photoUrl: data['photoUrl']?.toString(),
+      isApproved: approved,
+      registrationNumber: data['registrationNumber']?.toString(),
+      specialization: data['specialization']?.toString(),
+      hospital: data['hospital']?.toString(),
     );
   }
 
@@ -55,11 +70,15 @@ class UserModel {
       'name': name,
       'email': email,
       'role': role,
+      'isApproved': isApproved,
       if (doctorId != null) 'doctorId': doctorId,
       if (age != null) 'age': age,
       if (gender != null) 'gender': gender,
       if (phoneNumber != null) 'phoneNumber': phoneNumber,
       if (photoUrl != null) 'photoUrl': photoUrl,
+      if (registrationNumber != null) 'registrationNumber': registrationNumber,
+      if (specialization != null) 'specialization': specialization,
+      if (hospital != null) 'hospital': hospital,
     };
   }
 
@@ -72,6 +91,10 @@ class UserModel {
     String? gender,
     String? phoneNumber,
     String? photoUrl,
+    bool? isApproved,
+    String? registrationNumber,
+    String? specialization,
+    String? hospital,
   }) {
     return UserModel(
       uid: uid,
@@ -83,6 +106,10 @@ class UserModel {
       gender: gender ?? this.gender,
       phoneNumber: phoneNumber ?? this.phoneNumber,
       photoUrl: photoUrl ?? this.photoUrl,
+      isApproved: isApproved ?? this.isApproved,
+      registrationNumber: registrationNumber ?? this.registrationNumber,
+      specialization: specialization ?? this.specialization,
+      hospital: hospital ?? this.hospital,
     );
   }
 }

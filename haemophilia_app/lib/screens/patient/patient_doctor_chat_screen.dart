@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../models/user_model.dart';
 import '../../services/clinical_data_service.dart';
 import '../../services/notification_service.dart';
+import '../../utils/app_localizations.dart';
 import 'patient_history.dart';
 
 class PatientDoctorChatScreen extends StatefulWidget {
@@ -109,6 +110,7 @@ class _PatientDoctorChatScreenState extends State<PatientDoctorChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     final primary = Theme.of(context).colorScheme.primary;
 
     return Scaffold(
@@ -126,7 +128,7 @@ class _PatientDoctorChatScreenState extends State<PatientDoctorChatScreen> {
               ),
             ),
             Text(
-              'Physician',
+              tr('Physician'),
               style: TextStyle(
                 fontSize: 12,
                 color: Colors.grey.shade600,
@@ -135,6 +137,9 @@ class _PatientDoctorChatScreenState extends State<PatientDoctorChatScreen> {
             ),
           ],
         ),
+        actions: const [
+          LanguageToggleButton(),
+        ],
       ),
       body: Column(
         children: [
@@ -181,16 +186,16 @@ class _PatientDoctorChatScreenState extends State<PatientDoctorChatScreen> {
                             color: primary,
                           ),
                           const SizedBox(height: 12),
-                          const Text(
-                            'No messages yet',
-                            style: TextStyle(
+                          Text(
+                            tr('No messages yet'),
+                            style: const TextStyle(
                               fontSize: 19,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            'Send a message to ${widget.doctorName} to start the conversation.',
+                            '${tr('Send a message to')} ${widget.doctorName} ${tr('to start the conversation')}.',
                             textAlign: TextAlign.center,
                             style: const TextStyle(color: Colors.grey),
                           ),
@@ -280,7 +285,7 @@ class _PatientDoctorChatScreenState extends State<PatientDoctorChatScreen> {
                       textInputAction: TextInputAction.newline,
                       decoration: InputDecoration(
                         hintText:
-                            'Write to ${widget.doctorName.startsWith("Dr.") ? widget.doctorName : "Dr. ${widget.doctorName}"}...',
+                            '${tr('Write to')} ${widget.doctorName.startsWith("Dr.") ? widget.doctorName : "Dr. ${widget.doctorName}"}...',
                       ),
                     ),
                   ),
@@ -385,30 +390,22 @@ class _SessionReferenceCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 5),
-            Row(
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 6,
+              runSpacing: 2,
               children: [
                 Text(
-                  '$correctReps/$reps correct reps',
+                  '$correctReps/$reps ${tr('correct reps')}${dt != null ? ' • ${dt.day}/${dt.month}/${dt.year}' : ''}',
                   style: const TextStyle(
                     fontSize: 11,
                     color: Color(0xFF64748B),
                   ),
                 ),
-                if (dt != null) ...[
-                  const Text(' • ',
-                      style: TextStyle(color: Color(0xFF94A3B8))),
-                  Text(
-                    '${dt.day}/${dt.month}/${dt.year}',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFF64748B),
-                    ),
-                  ),
-                ],
-                const Spacer(),
-                const Text(
-                  'View Session ›',
-                  style: TextStyle(
+                Text(
+                  tr('View Session ›'),
+                  style: const TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
                     color: Color(0xFF2563EB),

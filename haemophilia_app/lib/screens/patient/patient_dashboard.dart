@@ -12,6 +12,7 @@ import '../../utils/exercise_utils.dart';
 import '../../widgets/session_analytics_chart.dart';
 import '../assessment/live_assessment_screen.dart';
 import '../../widgets/exercise_demo/exercise_demo_dialog.dart';
+import '../../utils/app_localizations.dart';
 
 class PatientDashboard extends StatefulWidget {
   final UserModel user;
@@ -126,21 +127,21 @@ class _PatientDashboardState extends State<PatientDashboard> {
           color: Colors.redAccent,
           size: 44,
         ),
-        title: const Text('Discard Session?'),
-        content: const Text(
-          'Are you sure you want to discard your progress? This session cannot be resumed once discarded.',
+        title: Text(tr('Discard Session?')),
+        content: Text(
+          tr('Are you sure you want to discard your progress? This session cannot be resumed once discarded.'),
           textAlign: TextAlign.center,
         ),
         actionsAlignment: MainAxisAlignment.center,
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
+            child: Text(tr('Cancel')),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Discard'),
+            child: Text(tr('Discard')),
           ),
         ],
       ),
@@ -162,6 +163,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     final width = MediaQuery.sizeOf(context).width;
     final compact = width < 600;
     final currentUser = widget.user;
@@ -175,25 +177,29 @@ class _PatientDashboardState extends State<PatientDashboard> {
           children: [
             Image.asset(
               'assets/icon/haemophysio_logo.png',
-              width: 38,
-              height: 38,
+              width: 32,
+              height: 32,
               fit: BoxFit.contain,
             ),
-            const SizedBox(width: 11),
-            const Text(
-              'HaemoPhysio',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -.3,
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text(
+                'Somaiya HaemoPhysio',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -.3,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
         ),
         actions: [
+          const LanguageToggleButton(),
           PopupMenuButton<String>(
             enabled: !_isLoggingOut,
-            tooltip: 'Account',
+            tooltip: tr('Account'),
             offset: const Offset(0, 52),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),
@@ -231,29 +237,29 @@ class _PatientDashboardState extends State<PatientDashboard> {
                 _logout();
               }
             },
-                itemBuilder: (_) => [
-                  PopupMenuItem(
-                    value: 'edit_profile',
-                    child: ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.edit_outlined),
-                      title: const Text('Edit Profile'),
-                      subtitle: Text(currentUser.name),
-                    ),
-                  ),
-                  const PopupMenuDivider(),
-                  const PopupMenuItem(
-                    value: 'logout',
-                    child: ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: Icon(Icons.logout),
-                      title: Text('Log out'),
-                    ),
-                  ),
-                ],
+            itemBuilder: (_) => [
+              PopupMenuItem(
+                value: 'edit_profile',
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.edit_outlined),
+                  title: Text(tr('Edit Profile')),
+                  subtitle: Text(currentUser.name),
+                ),
               ),
-              const SizedBox(width: 12),
+              const PopupMenuDivider(),
+              PopupMenuItem(
+                value: 'logout',
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.logout),
+                  title: Text(tr('Log out')),
+                ),
+              ),
             ],
+          ),
+          const SizedBox(width: 12),
+        ],
           ),
           body: SafeArea(
             top: false,
@@ -482,10 +488,10 @@ class _PatientDashboardState extends State<PatientDashboard> {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const _SectionTitle(
-                            title: 'Your progress',
+                          _SectionTitle(
+                            title: tr('Your progress'),
                             subtitle:
-                                'Clear summary of your physiotherapy performance',
+                                tr('Clear summary of your physiotherapy performance'),
                           ),
 
                           const SizedBox(height: 14),
@@ -495,31 +501,31 @@ class _PatientDashboardState extends State<PatientDashboard> {
                               final cards = [
                                 _StatCard(
                                   icon: Icons.event_available_rounded,
-                                  label: 'Sessions',
+                                  label: tr('Sessions'),
                                   value: '$sessionsCount',
                                 ),
                                 _StatCard(
                                   icon: Icons.check_circle_outline_rounded,
-                                  label: 'Correct Reps',
+                                  label: tr('Correct Reps'),
                                   value: '$totalCorrectReps',
                                 ),
                                 _StatCard(
                                   icon: Icons.percent_rounded,
-                                  label: 'Accuracy',
+                                  label: tr('Accuracy'),
                                   value: totalReps == 0
                                       ? '—'
                                       : '${correctRate.toStringAsFixed(0)}%',
                                 ),
                                 _StatCard(
                                   icon: Icons.speed_rounded,
-                                  label: 'Average Score',
+                                  label: tr('Average Score'),
                                   value: sessions.isEmpty
                                       ? '—'
                                       : avgScore.toStringAsFixed(0),
                                 ),
                                 _StatCard(
                                   icon: Icons.track_changes_rounded,
-                                  label: 'Average ROM',
+                                  label: tr('Average ROM'),
                                   value: sessions.isEmpty
                                       ? '—'
                                       : '${avgRom.toStringAsFixed(0)}°',
@@ -586,11 +592,11 @@ class _PatientDashboardState extends State<PatientDashboard> {
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
-                              const Expanded(
+                              Expanded(
                                 child: _SectionTitle(
-                                  title: 'Recent sessions',
+                                  title: tr('Recent sessions'),
                                   subtitle:
-                                      'Detailed session summary and completion status',
+                                      tr('Detailed session summary and completion status'),
                                 ),
                               ),
                               if (sessions.isNotEmpty)
@@ -605,7 +611,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
                                       ),
                                     );
                                   },
-                                  child: const Text('View history'),
+                                  child: Text(tr('View history')),
                                 ),
                             ],
                           ),
@@ -668,12 +674,12 @@ class _PatientDashboardState extends State<PatientDashboard> {
                           color: Theme.of(context).colorScheme.primary,
                         ),
                       ),
-                      title: const Text(
-                        'Doctor messages',
-                        style: TextStyle(fontWeight: FontWeight.w800),
+                      title: Text(
+                        tr('Doctor messages'),
+                        style: const TextStyle(fontWeight: FontWeight.w800),
                       ),
-                      subtitle: const Text(
-                        'View guidance and message your doctor.',
+                      subtitle: Text(
+                        tr('View guidance and message your doctor.'),
                       ),
                       trailing: const Icon(Icons.chevron_right_rounded),
                       onTap: () => Navigator.push(
@@ -776,9 +782,9 @@ class _ResumeAssessmentCard extends StatelessWidget {
                               color: Colors.amber.shade800,
                               borderRadius: BorderRadius.circular(6),
                             ),
-                            child: const Text(
-                              'ASSESSMENT IN PROGRESS',
-                              style: TextStyle(
+                            child: Text(
+                              tr('ASSESSMENT IN PROGRESS'),
+                              style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 10,
                                 fontWeight: FontWeight.w800,
@@ -852,9 +858,9 @@ class _ResumeAssessmentCard extends StatelessWidget {
                       ),
                       onPressed: onResume,
                       icon: const Icon(Icons.play_arrow_rounded),
-                      label: const Text(
-                        'Resume Assessment',
-                        style: TextStyle(
+                      label: Text(
+                        tr('Resume Assessment'),
+                        style: const TextStyle(
                             fontSize: 15, fontWeight: FontWeight.w700),
                       ),
                     ),
@@ -872,9 +878,9 @@ class _ResumeAssessmentCard extends StatelessWidget {
                       ),
                       onPressed: onDiscard,
                       icon: const Icon(Icons.delete_outline_rounded, size: 18),
-                      label: const Text(
-                        'Discard',
-                        style: TextStyle(
+                      label: Text(
+                        tr('Discard'),
+                        style: const TextStyle(
                             fontSize: 14, fontWeight: FontWeight.w700),
                       ),
                     ),
@@ -990,9 +996,9 @@ class _ActiveSessionCard extends StatelessWidget {
               child: FilledButton.icon(
                 onPressed: onPressed,
                 icon: const Icon(Icons.play_arrow_rounded),
-                label: const Text(
-                  'Start Session',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                label: Text(
+                  tr('Start Session'),
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                 ),
               ),
             ),
@@ -1045,9 +1051,9 @@ class _NoSessionAssignedCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'All done for now',
-                    style: TextStyle(
+                  Text(
+                    tr('All done for now'),
+                    style: const TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w800,
                     ),
@@ -1055,8 +1061,8 @@ class _NoSessionAssignedCard extends StatelessWidget {
                   const SizedBox(height: 5),
                   Text(
                     isCompleted
-                        ? 'Your doctor will assign your next session when you are ready.'
-                        : 'No exercise session is currently assigned.',
+                        ? tr('Your doctor will assign your next session when you are ready.')
+                        : tr('No exercise session is currently assigned.'),
                     style: TextStyle(
                       color: Colors.grey.shade600,
                       fontSize: 13,
@@ -1306,9 +1312,9 @@ class _RecentFocusCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Most recent focus',
-                  style: TextStyle(
+                Text(
+                  tr('Most Recent Focus'),
+                  style: const TextStyle(
                     color: Colors.blueAccent,
                     fontWeight: FontWeight.w800,
                     fontSize: 12,
@@ -1317,7 +1323,7 @@ class _RecentFocusCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  focusTip,
+                  tr(focusTip),
                   style: TextStyle(
                     color: Colors.grey.shade800,
                     fontSize: 13.5,
@@ -1363,12 +1369,12 @@ class _SessionSummaryCard extends StatelessWidget {
 
     String exerciseSummary;
     if (distinctExercises.isEmpty) {
-      exerciseSummary = getExerciseDisplayName(session.exercise);
+      exerciseSummary = tr(getExerciseDisplayName(session.exercise));
     } else if (distinctExercises.length == 1) {
-      exerciseSummary = getExerciseDisplayName(distinctExercises.first!);
+      exerciseSummary = tr(getExerciseDisplayName(distinctExercises.first!));
     } else {
       exerciseSummary =
-          '${distinctExercises.length} exercises (${distinctExercises.map((e) => getExerciseDisplayName(e!)).join(', ')})';
+          '${distinctExercises.length} ${tr('exercises')} (${distinctExercises.map((e) => tr(getExerciseDisplayName(e!))).join(', ')})';
     }
 
     // Determine completion status
@@ -1439,7 +1445,7 @@ class _SessionSummaryCard extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
-                                statusLabel,
+                                tr(statusLabel),
                                 style: TextStyle(
                                   color: statusColor,
                                   fontSize: 10.5,
@@ -1478,7 +1484,7 @@ class _SessionSummaryCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'EXERCISES',
+                            tr('EXERCISES'),
                             style: TextStyle(
                               color: Colors.grey.shade500,
                               fontSize: 9,
@@ -1512,7 +1518,7 @@ class _SessionSummaryCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'CORRECT REPS',
+                            tr('CORRECT REPS'),
                             style: TextStyle(
                               color: Colors.grey.shade500,
                               fontSize: 9,
@@ -1529,7 +1535,7 @@ class _SessionSummaryCard extends StatelessWidget {
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
                               color: isGood
-                                  ? Colors.green.shade700
+                                   ? Colors.green.shade700
                                   : Colors.orange.shade800,
                             ),
                           ),
@@ -1549,7 +1555,7 @@ class _SessionSummaryCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(
-                            'AVG SCORE',
+                            tr('AVG SCORE'),
                             style: TextStyle(
                               color: Colors.grey.shade500,
                               fontSize: 9,
@@ -1597,7 +1603,7 @@ String _formatDateTime(DateTime date) {
   if (local.year == now.year &&
       local.month == now.month &&
       local.day == now.day) {
-    return 'Today • $time';
+    return '${tr('Today')} • $time';
   }
 
   return '${local.day.toString().padLeft(2, '0')}/'
@@ -1639,7 +1645,7 @@ class _WelcomeHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Welcome back, $firstName',
+                  '${tr("Welcome back,")} $firstName',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: compact ? 24 : 30,
@@ -1651,8 +1657,7 @@ class _WelcomeHeader extends StatelessWidget {
                 const SizedBox(height: 7),
 
                 Text(
-                  'Track your physiotherapy progress '
-                  'and complete guided movement assessments.',
+                  tr('Track exercises, monitor progress and recover safely.'),
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: .88),
                     height: 1.45,
@@ -1717,16 +1722,15 @@ class _EmptyAssessmentsCard extends StatelessWidget {
 
               const SizedBox(height: 12),
 
-              const Text(
-                'No assessment sessions yet',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+              Text(
+                tr('No assessment sessions yet'),
+                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
               ),
 
               const SizedBox(height: 5),
 
               Text(
-                'Complete your first assessment '
-                'to see your results here.',
+                tr('Complete your first assessment to see your results here.'),
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Colors.grey.shade600,
@@ -1858,9 +1862,9 @@ class _ExerciseLibrarySection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionTitle(
-          title: 'Exercise library & guides',
-          subtitle: 'Step-by-step technique guides and interactive demonstrations',
+        _SectionTitle(
+          title: tr('Exercise library & guides'),
+          subtitle: tr('Step-by-step technique guides and interactive demonstrations'),
         ),
         const SizedBox(height: 14),
         LayoutBuilder(
@@ -1939,7 +1943,7 @@ class _ExerciseLibraryCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        exercise.displayName,
+                        tr(exercise.displayName),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -1952,7 +1956,7 @@ class _ExerciseLibraryCard extends StatelessWidget {
                         buildWipBadge(compact: true)
                       else
                         Text(
-                          'Clinically Validated',
+                          tr('Clinically Validated'),
                           style: TextStyle(
                             fontSize: 11,
                             color: Colors.green.shade700,
@@ -1967,7 +1971,7 @@ class _ExerciseLibraryCard extends StatelessWidget {
             const SizedBox(height: 10),
             Expanded(
               child: Text(
-                exercise.description,
+                tr(exercise.description),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -1995,9 +1999,9 @@ class _ExerciseLibraryCard extends StatelessWidget {
                       );
                     },
                     icon: const Icon(Icons.play_circle_outline_rounded, size: 16),
-                    label: const Text(
-                      'Tutorial',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                    label: Text(
+                      tr('Tutorial'),
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
                     ),
                   ),
                 ),
@@ -2021,9 +2025,9 @@ class _ExerciseLibraryCard extends StatelessWidget {
                       );
                     },
                     icon: const Icon(Icons.videocam_outlined, size: 16),
-                    label: const Text(
-                      'Practice',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                    label: Text(
+                      tr('Practice'),
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
                     ),
                   ),
                 ),

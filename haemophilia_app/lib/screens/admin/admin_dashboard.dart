@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../models/user_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/clinical_data_service.dart';
+import '../../utils/app_localizations.dart';
 
 class AdminDashboard extends StatefulWidget {
   final UserModel user;
@@ -34,6 +35,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     final user = widget.user;
     final service = ClinicalDataService();
 
@@ -43,23 +45,27 @@ class _AdminDashboardState extends State<AdminDashboard> {
               children: [
                 Image.asset(
                   'assets/icon/haemophysio_logo.png',
-                  width: 36,
-                  height: 36,
+                  width: 32,
+                  height: 32,
                   fit: BoxFit.contain,
                 ),
-                const SizedBox(width: 10),
-                const Text(
-                  'HaemoPhysio Admin',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Somaiya HaemoPhysio ${tr('Admin')}',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-          ],
-        ),
+              ],
+            ),
         actions: [
+          const LanguageToggleButton(),
           IconButton(
-            tooltip: 'Log out',
+            tooltip: tr('Log out'),
             onPressed: _isLoggingOut ? null : _logout,
             icon: _isLoggingOut
                 ? const SizedBox(
@@ -102,26 +108,26 @@ class _AdminDashboardState extends State<AdminDashboard> {
             padding: const EdgeInsets.fromLTRB(20, 10, 20, 32),
             children: [
               _Hero(
-                title: 'Welcome, ${user.name}',
+                title: '${tr('Welcome back,')} ${user.name}',
                 subtitle:
-                    'Manage accounts, doctor assignments and platform access.',
+                    tr('Manage accounts, doctor assignments and platform access.'),
               ),
               const SizedBox(height: 24),
               LayoutBuilder(
                 builder: (context, constraints) {
                   final metrics = [
                     _Metric(
-                      'Doctors',
+                      tr('Doctors'),
                       '$doctors',
                       Icons.medical_services_outlined,
                     ),
                     _Metric(
-                      'Patients',
+                      tr('Patients'),
                       '$patients',
                       Icons.people_outline,
                     ),
                     _Metric(
-                      'Users',
+                      tr('Total Users'),
                       '${docs.length}',
                       Icons.groups_outlined,
                     ),
@@ -154,13 +160,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 },
               ),
               const SizedBox(height: 28),
-              const Text(
-                'User management',
-                style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800),
+              Text(
+                tr('Manage Users'),
+                style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 4),
               Text(
-                'Promote existing accounts and assign patients to doctors.',
+                tr('Promote existing accounts and assign patients to doctors.'),
                 style: TextStyle(color: Colors.grey.shade600),
               ),
               const SizedBox(height: 14),

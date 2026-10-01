@@ -13,6 +13,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../../services/assessment_history_service.dart';
 import '../../services/notification_service.dart';
+import '../../utils/app_localizations.dart';
 import '../../utils/exercise_utils.dart';
 import '../../widgets/exercise_demo/exercise_demo_dialog.dart';
 
@@ -193,7 +194,7 @@ class _LiveAssessmentScreenState
   // ============================================================
 
   static const String websocketUrl =
-      'wss://furniture-float-franchise-trained.trycloudflare.com/v1/assessments/live';
+      'wss://lessons-family-councils-obvious.trycloudflare.com/v1/assessments/live';
 
   static const Duration frameInterval =
       Duration(milliseconds: 50);
@@ -1128,13 +1129,13 @@ class _LiveAssessmentScreenState
             color: Colors.green,
             size: 56,
           ),
-          title: const Text(
-            'Session Completed!',
-            style: TextStyle(fontWeight: FontWeight.bold),
+          title: Text(
+            tr('Session Completed!'),
+            style: const TextStyle(fontWeight: FontWeight.bold),
           ),
           content: Text(
-            'Great job! You have completed all exercises for '
-            '"$sessionName". Your progress has been saved.',
+            '${tr('Great job! You have completed all exercises for')} '
+            '"$sessionName". ${tr('Your progress has been saved.')}',
             textAlign: TextAlign.center,
           ),
           actionsAlignment: MainAxisAlignment.center,
@@ -1144,7 +1145,7 @@ class _LiveAssessmentScreenState
                 Navigator.pop(context); // Close dialog
                 Navigator.pop(this.context); // Pop LiveAssessmentScreen
               },
-              child: const Text('Done'),
+              child: Text(tr('Done')),
             ),
           ],
         );
@@ -1603,25 +1604,24 @@ class _LiveAssessmentScreenState
           color: Colors.redAccent,
           size: 48,
         ),
-        title: const Text(
-          'Discard Session?',
-          style: TextStyle(fontWeight: FontWeight.bold),
+        title: Text(
+          tr('Discard Session?'),
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
-        content: const Text(
-          'Are you sure you want to discard your progress? '
-          'This session will be marked as discarded and cannot be resumed.',
+        content: Text(
+          tr('Are you sure you want to discard your progress? This session will be marked as discarded and cannot be resumed.'),
           textAlign: TextAlign.center,
         ),
         actionsAlignment: MainAxisAlignment.center,
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
+            child: Text(tr('Cancel')),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Discard'),
+            child: Text(tr('Discard')),
           ),
         ],
       ),
@@ -1782,9 +1782,9 @@ class _LiveAssessmentScreenState
                   ),
                 ),
                 const SizedBox(height: 18),
-                const Text(
-                  'Assessment in progress',
-                  style: TextStyle(
+                Text(
+                  tr('Assessment in progress'),
+                  style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
@@ -1793,7 +1793,7 @@ class _LiveAssessmentScreenState
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'You have not completed all exercises for "${widget.sessionName ?? 'this session'}". What would you like to do?',
+                  '${tr('You have not completed all exercises for')} "${widget.sessionName ?? tr('this session')}". ${tr('What would you like to do?')}',
                   style: const TextStyle(
                     fontSize: 14,
                     color: Colors.white70,
@@ -1816,9 +1816,9 @@ class _LiveAssessmentScreenState
                     _saveAndExit();
                   },
                   icon: const Icon(Icons.bookmark_add_outlined),
-                  label: const Text(
-                    'Save & Exit',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  label: Text(
+                    tr('Save & Exit'),
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -1836,9 +1836,9 @@ class _LiveAssessmentScreenState
                     _discardAndExit();
                   },
                   icon: const Icon(Icons.delete_outline_rounded),
-                  label: const Text(
-                    'Discard Progress',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  label: Text(
+                    tr('Discard Progress'),
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -1850,9 +1850,9 @@ class _LiveAssessmentScreenState
                   onPressed: () {
                     Navigator.pop(sheetContext);
                   },
-                  child: const Text(
-                    'Continue Assessment',
-                    style: TextStyle(fontSize: 15),
+                  child: Text(
+                    tr('Continue Assessment'),
+                    style: const TextStyle(fontSize: 15),
                   ),
                 ),
               ],
@@ -1933,7 +1933,7 @@ class _LiveAssessmentScreenState
   }
 
   static const String errorFrameBaseUrl =
-      'https://furniture-float-franchise-trained.trycloudflare.com/v1/assets/error-frames/';
+      'https://lessons-family-councils-obvious.trycloudflare.com/v1/assets/error-frames/';
 
   String? _errorFrameUrl(Map<String, dynamic> rep) {
     // Support all versions of the backend payload so the image keeps working
@@ -2412,9 +2412,9 @@ class _LiveAssessmentScreenState
                 size: 16,
                 color: Color(0xFF38BDF8),
               ),
-              label: const Text(
-                'How to perform',
-                style: TextStyle(
+              label: Text(
+                tr('How to perform'),
+                style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                   color: Colors.white,
@@ -2449,7 +2449,7 @@ class _LiveAssessmentScreenState
                 color: Colors.greenAccent,
               ),
               label: Text(
-                _isCompactView ? 'Expand UI' : 'Compact UI',
+                _isCompactView ? tr('Expand UI') : tr('Compact UI'),
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -2553,9 +2553,9 @@ class _LiveAssessmentScreenState
                     ),
                     onPressed: _handleExitAttempt,
                     icon: const Icon(Icons.stop_rounded, size: 18),
-                    label: const Text(
-                      'End',
-                      style: TextStyle(
+                    label: Text(
+                      tr('End'),
+                      style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
                       ),
@@ -2571,9 +2571,9 @@ class _LiveAssessmentScreenState
                     ),
                     onPressed: _handleExitAttempt,
                     icon: const Icon(Icons.stop_rounded, size: 20),
-                    label: const Text(
-                      'End Assessment',
-                      style: TextStyle(
+                    label: Text(
+                      tr('End Assessment'),
+                      style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 15,
                       ),
@@ -2795,12 +2795,12 @@ class _LiveAssessmentScreenState
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _compactStat('SCORE', _score.toStringAsFixed(0)),
-              _compactStat('ROM', '${_rom.toStringAsFixed(1)}°'),
-              _compactStat('SPEED', _speed),
+              _compactStat(tr('SCORE'), _score.toStringAsFixed(0)),
+              _compactStat(tr('ROM'), '${_rom.toStringAsFixed(1)}°'),
+              _compactStat(tr('SPEED'), tr(_speed)),
               _compactStat(
-                'FORM',
-                _form,
+                tr('FORM'),
+                tr(_form),
                 valueColor: _form.toLowerCase().contains('correct')
                     ? Colors.greenAccent
                     : _form.toLowerCase().contains('incorrect')

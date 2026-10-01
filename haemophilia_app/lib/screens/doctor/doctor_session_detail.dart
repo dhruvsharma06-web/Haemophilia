@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/user_model.dart';
 import '../patient/patient_history.dart';
 import '../../utils/exercise_utils.dart';
+import '../../utils/app_localizations.dart';
 import 'doctor_messages.dart';
 
 class DoctorSessionDetail extends StatelessWidget {
@@ -19,6 +20,7 @@ class DoctorSessionDetail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     final rate = session.reps == 0
         ? 0.0
         : (session.correctReps / session.reps) * 100;
@@ -48,12 +50,16 @@ class DoctorSessionDetail extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Session review',
-          style: TextStyle(
+        title: Text(
+          tr('Session review'),
+          style: const TextStyle(
             fontWeight: FontWeight.w800,
           ),
         ),
+        actions: const [
+          LanguageToggleButton(),
+          SizedBox(width: 8),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(
@@ -110,27 +116,27 @@ class DoctorSessionDetail extends StatelessWidget {
             runSpacing: 10,
             children: [
               _Stat(
-                'Average score',
+                tr('Average score'),
                 '${session.averageScore.toStringAsFixed(0)}/100',
               ),
               _Stat(
-                'Correct reps',
+                tr('Correct reps'),
                 '${session.correctReps}/${session.reps}',
               ),
               _Stat(
-                'Success rate',
+                tr('Success rate'),
                 '${rate.toStringAsFixed(0)}%',
               ),
               _Stat(
-                'Average ROM',
+                tr('Average ROM'),
                 '${session.averageRom.toStringAsFixed(0)}°',
               ),
               _Stat(
-                'Avg duration',
+                tr('Avg duration'),
                 '${session.averageDuration.toStringAsFixed(1)}s',
               ),
               _Stat(
-                'AI confidence',
+                tr('AI confidence'),
                 '${session.averageConfidence.toStringAsFixed(1)}%',
               ),
             ],
@@ -152,14 +158,14 @@ class DoctorSessionDetail extends StatelessWidget {
               );
             },
             icon: const Icon(Icons.forum_outlined),
-            label: const Text('Message Patient About This Session'),
+            label: Text(tr('Message Patient About This Session')),
           ),
 
           const SizedBox(height: 24),
 
-          const Text(
-            'Rep-by-rep review',
-            style: TextStyle(
+          Text(
+            tr('Rep-by-rep review'),
+            style: const TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w800,
             ),
@@ -252,7 +258,7 @@ class _RepReview extends StatelessWidget {
 
                 Expanded(
                   child: Text(
-                    'Rep $number • $form',
+                    '${tr('Rep')} $number • ${tr(form)}',
                     style: const TextStyle(
                       fontWeight: FontWeight.w800,
                       fontSize: 16,
@@ -277,19 +283,19 @@ class _RepReview extends StatelessWidget {
             Row(
               children: [
                 _M(
-                  'ROM',
+                  tr('ROM'),
                   '${_num(d['rangeOfMotion']).toStringAsFixed(0)}°',
                 ),
                 _M(
-                  'SPEED',
+                  tr('SPEED'),
                   d['speed']?.toString() ?? '—',
                 ),
                 _M(
-                  'DURATION',
+                  tr('DURATION'),
                   '${_num(d['duration']).toStringAsFixed(1)}s',
                 ),
                 _M(
-                  'AI',
+                  tr('AI'),
                   '${_num(d['confidence']).toStringAsFixed(1)}%',
                 ),
               ],
@@ -443,8 +449,12 @@ class _Stat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final statWidth = screenWidth < 380
+        ? (screenWidth - 48) / 2
+        : 160.0;
     return SizedBox(
-      width: 160,
+      width: statWidth.clamp(130.0, 180.0),
       child: Card(
         child: Padding(
           padding: const EdgeInsets.all(15),
