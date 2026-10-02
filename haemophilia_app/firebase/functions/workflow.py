@@ -65,12 +65,14 @@ def notification_is_current(data, recipient, patient, doctor, assignment, now):
 def notification_copy(kind, language):
     if language == 'hi':
         return {
+            'new_patient': ('नया मरीज़ पंजीकृत हुआ', 'ऐप खोलकर नए मरीज़ की जानकारी देखें।'),
             'session_assigned': ('व्यायाम सत्र उपलब्ध है', 'ऐप खोलकर अपना निर्धारित सत्र देखें।'),
             'new_message': ('नया संदेश', 'आपको एक नया संदेश मिला है। ऐप खोलकर देखें।'),
             'support': ('सहायता संदेश', 'आपके सहायता अनुरोध में नया संदेश है।'),
             'session_completed': ('सत्र पूरा हुआ', 'एक रोगी का सत्र समीक्षा के लिए उपलब्ध है।'),
         }.get(kind, ('Somaiya HemoPhysio', 'ऐप में नया अपडेट देखें।'))
     return {
+        'new_patient': ('New patient registered', 'Open the app to review the new patient.'),
         'session_assigned': ('Exercise session available', 'Open the app to view your scheduled session.'),
         'new_message': ('New message', 'You have a new message. Open the app to read it.'),
         'support': ('Support message', 'Your help request has a new message.'),

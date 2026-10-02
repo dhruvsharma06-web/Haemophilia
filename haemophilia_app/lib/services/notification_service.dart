@@ -8,6 +8,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 
 import '../models/user_model.dart';
+import '../screens/admin/admin_dashboard.dart';
 import '../screens/doctor/doctor_messages.dart';
 import '../screens/patient/assigned_assessment_screen.dart';
 import '../screens/patient/patient_doctor_chat_screen.dart';
@@ -202,6 +203,17 @@ class NotificationService {
     catch (_) { return; }
     if (!navContext.mounted || _auth.currentUser?.uid != currentUser.uid || account==null || account['accountActive']==false || (account['role'] != 'admin' && account['consentVersion'] != consentVersion) || account['role']=='pending_doctor' || (account['role']=='doctor' && account['isApproved']==false) || (account['role']=='patient' && account['onboardingCompleted'] != true)) return;
     switch (type) {
+      case 'new_patient':
+        if (account['role'] != 'admin') return;
+        Navigator.push(
+          navContext,
+          MaterialPageRoute(
+            builder: (_) => AdminDashboard(
+              user: UserModel.fromMap(currentUser.uid, account!),
+            ),
+          ),
+        );
+        break;
       case 'support':
         final ticketId = data['ticketId']?.toString();
         if (ticketId == null) return;

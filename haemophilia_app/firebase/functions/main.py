@@ -142,6 +142,12 @@ def dispatch_notification(event: firestore_fn.Event[firestore_fn.DocumentSnapsho
             return
         payload = event.data.to_dict() or {}
         data = payload.get('data') or {}
+        if data.get('type') == 'new_patient':
+            patient_id = data.get('patientId')
+            patient = _db().collection('users').document(patient_id).get().to_dict() if patient_id else None
+            if user.get('role') != 'admin' or not patient or patient.get('role') != 'patient' or patient.get('doctorId'):
+                notification_ref.update({'pushStatus': 'obsolete'})
+                return
         if data.get('type') in ('new_message', 'session_assigned', 'session_completed'):
             patient_id, doctor_id = data.get('patientId'), data.get('doctorId')
             patient = _db().collection('users').document(patient_id).get().to_dict() if patient_id else None
@@ -211,6 +217,27 @@ def notify_support_reply(event: firestore_fn.Event[firestore_fn.DocumentSnapshot
             continue
         _create_notification_once(_db().transaction(), ref, {'senderId': message.get('senderId'), 'read': False, 'title': 'Support message', 'body': 'Open the app to read a help message.', 'createdAt': firestore.SERVER_TIMESTAMP,
                  'data': {'type': 'support', 'ticketId': event.params['ticketId']}})
+
+
+@retrying_firestore_trigger(firestore_fn.on_document_created(document='users/{userId}'))
+def notify_admins_new_patient(event: firestore_fn.Event[firestore_fn.DocumentSnapshot | None]) -> None:
+    if event.data is None:
+        return
+    patient = event.data.to_dict() or {}
+    if patient.get('role') != 'patient' or patient.get('accountActive') is False:
+        return
+    patient_id = event.params['userId']
+    for admin in _db().collection('users').where(filter=FieldFilter('role', '==', 'admin')).stream():
+        if (admin.to_dict() or {}).get('accountActive') is False:
+            continue
+        ref = admin.reference.collection('notifications').document('new_patient_' + patient_id)
+        _create_notification_once(_db().transaction(), ref, {
+            'senderId': patient_id, 'read': False,
+            'title': 'New patient registered',
+            'body': 'Open the app to review the new patient.',
+            'createdAt': firestore.SERVER_TIMESTAMP,
+            'data': {'type': 'new_patient', 'patientId': patient_id},
+        })
 
 
 @firestore.transactional

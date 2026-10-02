@@ -59,7 +59,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: AppText(
-                    '${tr('Somaiya HemoPhysio')} ${tr('Admin')}',
+                    tr('Admin'),
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
@@ -72,7 +72,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
         actions: [
           const LanguageToggleButton(),
           IconButton(tooltip: tr('Add doctor'), icon: const Icon(Icons.person_add_alt_1), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddDoctorScreen()))),
-          IconButton(tooltip: tr('Grievances'), icon: const Icon(Icons.support_agent), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HelpScreen(admin: true)))),
           IconButton(
             tooltip: tr('Log out'),
             onPressed: _isLoggingOut ? null : _logout,
@@ -87,12 +86,39 @@ class _AdminDashboardState extends State<AdminDashboard> {
           const SizedBox(width: 8),
         ],
       ),
-      bottomNavigationBar: NavigationBar(selectedIndex:_section,onDestinationSelected:(value)=>setState(()=>_section=value),destinations:[
-        NavigationDestination(icon:const Icon(Icons.manage_accounts_outlined),label:tr('Manage Users')),
-        NavigationDestination(icon:const Icon(Icons.how_to_reg),label:tr('Doctor approvals')),
-        NavigationDestination(icon:const Icon(Icons.support_agent),label:tr('Grievances')),
-      ]),
-      body: _section == 2 ? const HelpScreen(admin:true) : StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      bottomNavigationBar: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        stream: service.watchAllUsers(),
+        builder: (context, snapshot) {
+          final pending = snapshot.data?.docs.where(_isNewPatient).length ?? 0;
+          return NavigationBar(
+            selectedIndex: _section,
+            onDestinationSelected: (value) => setState(() => _section = value),
+            destinations: [
+              NavigationDestination(
+                icon: Badge(
+                  isLabelVisible: pending > 0,
+                  label: Text(pending > 99 ? '99+' : '$pending'),
+                  child: const Icon(Icons.person_add_alt_1_outlined),
+                ),
+                label: tr('New patients'),
+              ),
+              NavigationDestination(
+                icon: const Icon(Icons.manage_accounts_outlined),
+                label: tr('Manage Users'),
+              ),
+              NavigationDestination(
+                icon: const Icon(Icons.how_to_reg),
+                label: tr('Doctor approvals'),
+              ),
+              NavigationDestination(
+                icon: const Icon(Icons.support_agent),
+                label: tr('Grievances'),
+              ),
+            ],
+          );
+        },
+      ),
+      body: _section == 3 ? const HelpScreen(admin:true) : StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
         stream: service.watchAllUsers(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
@@ -112,11 +138,19 @@ class _AdminDashboardState extends State<AdminDashboard> {
           }
 
           final allDocs = snapshot.data?.docs ?? [];
-          final docs = _section == 1 ? allDocs.where((doc)=>doc.data()['role']=='pending_doctor' || (doc.data()['role']=='doctor' && doc.data()['isApproved']==false)).toList() : allDocs;
+          final docs = _section == 0
+              ? allDocs.where(_isNewPatient).toList()
+              : _section == 2
+              ? allDocs.where((doc) => doc.data()['role'] == 'pending_doctor' ||
+                  (doc.data()['role'] == 'doctor' && doc.data()['isApproved'] == false)).toList()
+              : allDocs.toList();
+          if (_section == 0) {
+            docs.sort((a, b) => _createdAt(b.data()).compareTo(_createdAt(a.data())));
+          }
           final doctors =
-              docs.where((doc) => doc.data()['role'] == 'doctor').length;
+              allDocs.where((doc) => doc.data()['role'] == 'doctor').length;
           final patients =
-              docs.where((doc) => doc.data()['role'] == 'patient').length;
+              allDocs.where((doc) => doc.data()['role'] == 'patient').length;
 
           return ListView(
             padding: const EdgeInsets.fromLTRB(20, 10, 20, 32),
@@ -142,7 +176,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     ),
                     _Metric(
                       tr('Total Users'),
-                      '${docs.length}',
+                      '${allDocs.length}',
                       Icons.groups_outlined,
                     ),
                   ];
@@ -175,27 +209,174 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
               const SizedBox(height: 28),
               Text(
-                tr('Manage Users'),
+                tr(_section == 0 ? 'New patients' : _section == 2 ? 'Doctor approvals' : 'Manage Users'),
                 style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 4),
               Text(
-                tr('Promote existing accounts and assign patients to doctors.'),
+                tr(_section == 0
+                    ? 'Patients waiting for a doctor. Review screening and assign a clinician.'
+                    : _section == 2
+                    ? 'Review clinician applications before granting access.'
+                    : 'Manage existing accounts and doctor transfers.'),
                 style: TextStyle(color: Colors.grey.shade600),
               ),
               const SizedBox(height: 14),
               if (docs.isEmpty)
-                const _Empty()
+                _Empty(message: _section == 0 ? 'No patients are waiting for a doctor.' :
+                    _section == 2 ? 'No doctor applications are waiting.' : 'No users found.')
               else
                 ...docs.map(
-                  (doc) => _UserCard(
-                    doc: doc,
-                    currentAdminId: user.uid,
-                  ),
+                  (doc) => _section == 0
+                      ? _NewPatientCard(doc: doc)
+                      : _UserCard(doc: doc, currentAdminId: user.uid),
                 ),
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+bool _isNewPatient(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
+  final data = doc.data();
+  final doctorId = data['doctorId']?.toString().trim();
+  return data['role'] == 'patient' && data['accountActive'] != false &&
+      (doctorId == null || doctorId.isEmpty);
+}
+
+DateTime _createdAt(Map<String, dynamic> data) =>
+    (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.fromMillisecondsSinceEpoch(0);
+
+class _NewPatientCard extends StatelessWidget {
+  final QueryDocumentSnapshot<Map<String, dynamic>> doc;
+
+  const _NewPatientCard({required this.doc});
+
+  Future<void> _assign(BuildContext context) async {
+    final doctors = await ClinicalDataService().getDoctors();
+    if (!context.mounted) return;
+    if (doctors.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(tr('No approved doctors are available.'))),
+      );
+      return;
+    }
+    String? selectedDoctor;
+    var saving = false;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) {
+          AppLocaleScope.of(dialogContext);
+          return AlertDialog(
+            title: Text(tr('Assign doctor')),
+            content: SizedBox(
+              width: 420,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(doc.data()['name']?.toString() ?? tr('Patient')),
+                    const SizedBox(height: 12),
+                    PatientScreeningCard(data: doc.data()),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      initialValue: selectedDoctor,
+                      decoration: InputDecoration(labelText: tr('Approved doctor')),
+                      items: doctors.map((doctor) => DropdownMenuItem(
+                        value: doctor.id,
+                        child: Text(doctor.data()['name']?.toString() ?? tr('Doctor')),
+                      )).toList(),
+                      onChanged: saving ? null : (value) => setDialogState(() => selectedDoctor = value),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: saving ? null : () => Navigator.pop(dialogContext),
+                child: Text(tr('Cancel')),
+              ),
+              FilledButton(
+                onPressed: saving || selectedDoctor == null ? null : () async {
+                  setDialogState(() => saving = true);
+                  try {
+                    await AdminService().manageUser(
+                      uid: doc.id, role: 'patient', active: true,
+                      doctorId: selectedDoctor, requireUnassigned: true,
+                    );
+                    if (dialogContext.mounted) Navigator.pop(dialogContext);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(tr('Doctor assigned.'))),
+                      );
+                    }
+                  } catch (error) {
+                    if (dialogContext.mounted) setDialogState(() => saving = false);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(error is StateError
+                            ? tr(error.message.toString())
+                            : error is FirebaseException && error.code == 'permission-denied'
+                                ? tr('Firebase access settings are blocking patient assignment. Contact the project owner.')
+                                : firebaseErrorMessage(error))),
+                      );
+                    }
+                  }
+                },
+                child: Text(tr('Assign')),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
+    final data = doc.data();
+    final createdAt = _createdAt(data);
+    final hasDate = createdAt.millisecondsSinceEpoch > 0;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(data['name']?.toString() ?? tr('Patient'),
+                style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 3),
+            Text(data['patientId']?.toString() ?? doc.id),
+            if (hasDate) Text('${tr('Registered')}: ${createdAt.day}/${createdAt.month}/${createdAt.year}'),
+            const SizedBox(height: 12),
+            PatientScreeningCard(data: data),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () async {
+                  try { await _assign(context); }
+                  catch (error) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(firebaseErrorMessage(error, fallback: 'Could not load doctors.'))),
+                      );
+                    }
+                  }
+                },
+                icon: const Icon(Icons.person_add_alt_1),
+                label: Text(tr('Assign doctor')),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -501,7 +682,8 @@ class _Metric extends StatelessWidget {
 }
 
 class _Empty extends StatelessWidget {
-  const _Empty();
+  final String message;
+  const _Empty({required this.message});
 
   @override
   Widget build(BuildContext context) {
@@ -510,8 +692,8 @@ class _Empty extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(28),
         child: Center(
-          child: AppText(
-            'No users found.',
+          child: Text(
+            tr(message),
             style: TextStyle(color: Colors.grey.shade600),
           ),
         ),

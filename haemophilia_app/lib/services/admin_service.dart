@@ -41,6 +41,7 @@ class AdminService {
     required String role,
     required bool active,
     String? doctorId,
+    bool requireUnassigned = false,
   }) async {
     final actor = FirebaseAuth.instance.currentUser?.uid;
     if (actor == null) throw StateError('Please sign in.');
@@ -70,6 +71,9 @@ class AdminService {
         }
       }
       final oldDoctor = userDoc.data()?['doctorId'];
+      if (requireUnassigned && oldDoctor != null && oldDoctor.toString().trim().isNotEmpty) {
+        throw StateError('This patient already has a doctor. Refresh the patient list.');
+      }
       if (role == 'doctor' && userDoc.data()?['role'] != 'doctor') {
         for (final field in [
           'registrationNumber',

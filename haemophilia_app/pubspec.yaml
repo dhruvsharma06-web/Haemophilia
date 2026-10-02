@@ -51,9 +51,10 @@ flutter_launcher_icons:
   android: true
   ios: true
   image_path: "assets/icon/haemophysio_logo.png"
-  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_background: "#F5F7F8"
   adaptive_icon_foreground: "assets/icon/haemophysio_logo.png"
   remove_alpha_ios: true
+  background_color_ios: "#F5F7F8"
   web:
     generate: true
     image_path: "assets/icon/haemophysio_logo.png"
