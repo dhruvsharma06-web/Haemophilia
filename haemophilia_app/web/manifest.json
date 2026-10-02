@@ -1,11 +1,11 @@
 {
-    "name": "HaemoPhysio",
-    "short_name": "HaemoPhysio",
+    "name": "Somaiya HemoPhysio",
+    "short_name": "HemoPhysio",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#F5F7F8",
+    "theme_color": "#1B5961",
+    "description": "Guided physiotherapy sessions and exercise history for haemophilia care.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

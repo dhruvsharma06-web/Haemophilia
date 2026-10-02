@@ -1,3 +1,9 @@
+import '../../utils/firebase_errors.dart';
+import '../../widgets/app_text.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:async';
+import '../support/help_screen.dart';
+import 'session_reports_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
@@ -9,6 +15,7 @@ import 'patient_history.dart';
 import 'patient_messages.dart';
 import 'assigned_assessment_screen.dart';
 import '../../utils/exercise_utils.dart';
+import '../../utils/schedule_utils.dart';
 import '../../widgets/session_analytics_chart.dart';
 import '../assessment/live_assessment_screen.dart';
 import '../../widgets/exercise_demo/exercise_demo_dialog.dart';
@@ -27,6 +34,15 @@ class _PatientDashboardState extends State<PatientDashboard> {
   final AuthService _authService = AuthService();
 
   bool _isLoggingOut = false;
+  int _section = 0;
+  Timer? _availabilityTimer;
+  @override
+  void initState() {
+    super.initState();
+    _availabilityTimer=Timer.periodic(const Duration(seconds:30), (_) { if(mounted) setState(() {}); });
+  }
+  @override
+  void dispose() { _availabilityTimer?.cancel(); super.dispose(); }
 
   Future<void> _logout() async {
     if (_isLoggingOut) return;
@@ -57,9 +73,11 @@ class _PatientDashboardState extends State<PatientDashboard> {
 
   void _resumeAssessment(Map<String, dynamic> data) {
     final sessionId = data['sessionId']?.toString() ?? '';
-    final rawExercises = data['exercises'] ?? data['exerciseProgress'];
+    final rawExercises = data['exercises'];
+    final rawProgress = data['exerciseProgress'] ?? rawExercises;
+    final progress = rawProgress is List ? rawProgress.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList() : <Map<String, dynamic>>[];
     final List<Map<String, dynamic>>? assignedExercises =
-        (rawExercises is List && rawExercises.isNotEmpty)
+        (data['practice'] != true && rawExercises is List && rawExercises.isNotEmpty)
             ? rawExercises
                 .whereType<Map>()
                 .map((e) => Map<String, dynamic>.from(e))
@@ -90,7 +108,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
     if (assignedExercises != null &&
         currentIndex >= 0 &&
         currentIndex < assignedExercises.length) {
-      final currentEx = assignedExercises[currentIndex];
+      final currentEx = currentIndex < progress.length ? progress[currentIndex] : assignedExercises[currentIndex];
       currentExCorrect = (currentEx['completedCorrectReps'] as num?)?.toInt() ?? 0;
       currentExTotal = (currentEx['completedTotalReps'] as num?)?.toInt() ?? 0;
     } else {
@@ -111,7 +129,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
           initialCorrectReps: currentExCorrect,
           initialTotalReps: currentExTotal,
           initialRepSequence: sessionTotalReps,
-          initialExerciseProgress: assignedExercises,
+          initialExerciseProgress: progress,
         ),
       ),
     );
@@ -170,7 +188,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
     final firstName = _getFirstName(currentUser.name);
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: _section >= 3 ? null : AppBar(
         toolbarHeight: compact ? 68 : 76,
         titleSpacing: compact ? 20 : 28,
         title: Row(
@@ -183,11 +201,11 @@ class _PatientDashboardState extends State<PatientDashboard> {
             ),
             const SizedBox(width: 8),
             const Expanded(
-              child: Text(
-                'Somaiya HaemoPhysio',
+              child: AppText(
+                'Somaiya HemoPhysio',
                 style: TextStyle(
                   fontSize: 18,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                   letterSpacing: -.3,
                 ),
                 overflow: TextOverflow.ellipsis,
@@ -220,7 +238,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
                           : 'P',
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.primary,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
@@ -261,7 +279,14 @@ class _PatientDashboardState extends State<PatientDashboard> {
           const SizedBox(width: 12),
         ],
           ),
-          body: SafeArea(
+          bottomNavigationBar: NavigationBar(selectedIndex: _section, onDestinationSelected: (value) => setState(() => _section = value), destinations: [
+            NavigationDestination(icon: const Icon(Icons.event_note), label: tr('Sessions')),
+            NavigationDestination(icon: const Icon(Icons.self_improvement), label: tr('Practice')),
+            NavigationDestination(icon: const Icon(Icons.history), label: tr('History')),
+            NavigationDestination(icon: const Icon(Icons.chat_bubble_outline), label: tr('Messages')),
+            NavigationDestination(icon: const Icon(Icons.support_agent), label: tr('Help')),
+          ]),
+          body: _section == 3 ? PatientMessages(user: widget.user) : _section == 4 ? const HelpScreen() : SafeArea(
             top: false,
             child: SingleChildScrollView(
               padding: EdgeInsets.fromLTRB(
@@ -280,6 +305,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
 
                   const SizedBox(height: 24),
 
+                  if (_section == 0) ...[
                   // --------------------------------------------------
                   // NEXT ASSESSMENT / RESUME ASSESSMENT
                   // --------------------------------------------------
@@ -287,6 +313,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
                     stream: AssessmentHistoryService()
                         .watchUnfinishedSessions(widget.user.uid),
                     builder: (context, unfinishedSnap) {
+                      if (widget.user.doctorId == null) return Card(child: Padding(padding: const EdgeInsets.all(20), child: Text(tr('Please wait while we assign you a doctor. Exercise demonstrations are available below.'))));
                       final allDocs = unfinishedSnap.data?.docs ?? [];
                       // STRICT FILTER: Only 'active', 'paused', or 'in_progress' are eligible for Resume.
                       // 'completed', 'abandoned', or 'discarded' sessions MUST NEVER appear here!
@@ -371,6 +398,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
                               assignmentSnapshot.hasData &&
                               assignmentSnapshot.data!.exists &&
                               (status == 'assigned' || isPaused) &&
+                              assignmentAvailable(assignmentData!, DateTime.now()) &&
                               hasExercises;
 
                           if (!hasActiveAssignment) {
@@ -383,7 +411,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
                           }
 
                           final sessionName =
-                              assignmentData?['sessionName']?.toString().trim() ??
+                              assignmentData['sessionName']?.toString().trim() ??
                                   'Physiotherapy Session';
                           final exerciseCount = rawExercises.length;
 
@@ -402,6 +430,9 @@ class _PatientDashboardState extends State<PatientDashboard> {
 
                   const SizedBox(height: 30),
 
+                  ],
+                  if (_section == 2) ...[
+                  OutlinedButton.icon(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SessionReportsScreen(patientId: widget.user.uid))), icon: const Icon(Icons.description_outlined), label: Text(tr('Session reports'))),
                   // --------------------------------------------------
                   // PROGRESS
                   // --------------------------------------------------
@@ -411,7 +442,7 @@ class _PatientDashboardState extends State<PatientDashboard> {
                     builder: (context, snapshot) {
                       if (snapshot.hasError) {
                         return _AssessmentDataErrorCard(
-                          message: snapshot.error.toString(),
+                          message: firebaseErrorMessage(snapshot.error, fallback: 'Could not load your session history.'),
                         );
                       }
 
@@ -652,55 +683,13 @@ class _PatientDashboardState extends State<PatientDashboard> {
 
                   const SizedBox(height: 24),
 
-                  // --------------------------------------------------
-                  // DOCTOR MESSAGES
-                  // --------------------------------------------------
-                  Card(
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 17,
-                        vertical: 6,
-                      ),
-                      leading: Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary
-                              .withValues(alpha: .09),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Icon(
-                          Icons.forum_outlined,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                      ),
-                      title: Text(
-                        tr('Doctor messages'),
-                        style: const TextStyle(fontWeight: FontWeight.w800),
-                      ),
-                      subtitle: Text(
-                        tr('View guidance and message your doctor.'),
-                      ),
-                      trailing: const Icon(Icons.chevron_right_rounded),
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => PatientMessages(user: widget.user),
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // --------------------------------------------------
-                  // EXERCISE LIBRARY & DEMONSTRATIONS
-                  // --------------------------------------------------
+                  ],
+                  if (_section == 1 || (_section == 0 && widget.user.doctorId == null))
                   _ExerciseLibrarySection(compact: compact),
 
                   const SizedBox(height: 24),
 
-                  _AccountCard(user: currentUser),
+                  if (_section == 0) ...[AppText('${tr('Patient ID')}: ${currentUser.patientId}'), const SizedBox(height: 12), _AccountCard(user: currentUser)],
                 ],
               ),
             ),
@@ -738,6 +727,7 @@ class _ResumeAssessmentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     return Card(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(24),
@@ -787,7 +777,7 @@ class _ResumeAssessmentCard extends StatelessWidget {
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 10,
-                                fontWeight: FontWeight.w800,
+                                fontWeight: FontWeight.w700,
                                 letterSpacing: 0.5,
                               ),
                             ),
@@ -799,7 +789,7 @@ class _ResumeAssessmentCard extends StatelessWidget {
                         sessionName,
                         style: const TextStyle(
                           fontSize: 18,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                       const SizedBox(height: 3),
@@ -832,7 +822,7 @@ class _ResumeAssessmentCard extends StatelessWidget {
                       color: Colors.amber.shade900, size: 22),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: Text(
+                    child: AppText(
                       'Ready to continue: $exerciseName ($repsCompleted reps completed)',
                       style: TextStyle(
                         fontSize: 13,
@@ -916,6 +906,7 @@ class _ActiveSessionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     final primary = Theme.of(context).colorScheme.primary;
 
     return Card(
@@ -948,11 +939,11 @@ class _ActiveSessionCard extends StatelessWidget {
                         sessionName,
                         style: const TextStyle(
                           fontSize: 18,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                       const SizedBox(height: 5),
-                      Text(
+                      AppText(
                         'Assigned session by your doctor with $exerciseCount exercise${exerciseCount == 1 ? '' : 's'}. Complete all correct reps to finish.',
                         style: TextStyle(
                           color: Colors.grey.shade700,
@@ -978,7 +969,7 @@ class _ActiveSessionCard extends StatelessWidget {
                   Icon(Icons.assignment_outlined, color: primary, size: 22),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: Text(
+                    child: AppText(
                       'Ready to begin: $sessionName',
                       style: const TextStyle(
                         fontSize: 13,
@@ -1024,6 +1015,7 @@ class _NoSessionAssignedCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     return Card(
       child: Padding(
         padding: EdgeInsets.all(compact ? 20 : 24),
@@ -1055,7 +1047,7 @@ class _NoSessionAssignedCard extends StatelessWidget {
                     tr('All done for now'),
                     style: const TextStyle(
                       fontSize: 17,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(height: 5),
@@ -1091,6 +1083,7 @@ class _SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1098,7 +1091,7 @@ class _SectionTitle extends StatelessWidget {
           title,
           style: const TextStyle(
             fontSize: 21,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
             letterSpacing: -.25,
           ),
         ),
@@ -1129,6 +1122,7 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     final primary = Theme.of(context).colorScheme.primary;
 
     return Card(
@@ -1159,7 +1153,7 @@ class _StatCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontSize: 23,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
 
@@ -1196,6 +1190,7 @@ class _AssessmentDataErrorCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(18),
@@ -1213,9 +1208,9 @@ class _AssessmentDataErrorCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  const AppText(
                     'Could not load assessments',
-                    style: TextStyle(fontWeight: FontWeight.w800),
+                    style: TextStyle(fontWeight: FontWeight.w700),
                   ),
 
                   const SizedBox(height: 4),
@@ -1243,6 +1238,7 @@ class _LoadingAssessmentsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(28),
@@ -1257,7 +1253,7 @@ class _LoadingAssessmentsCard extends StatelessWidget {
 
               const SizedBox(height: 12),
 
-              Text(
+              AppText(
                 'Loading your assessments...',
                 style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
               ),
@@ -1280,6 +1276,7 @@ class _RecentFocusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -1316,7 +1313,7 @@ class _RecentFocusCard extends StatelessWidget {
                   tr('Most Recent Focus'),
                   style: const TextStyle(
                     color: Colors.blueAccent,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                     fontSize: 12,
                     letterSpacing: 0.3,
                   ),
@@ -1352,6 +1349,7 @@ class _SessionSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     final primary = Theme.of(context).colorScheme.primary;
 
     final successRate = session.reps == 0
@@ -1431,7 +1429,7 @@ class _SessionSummaryCard extends StatelessWidget {
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                   fontSize: 15,
-                                  fontWeight: FontWeight.w800,
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
                             ),
@@ -1488,7 +1486,7 @@ class _SessionSummaryCard extends StatelessWidget {
                             style: TextStyle(
                               color: Colors.grey.shade500,
                               fontSize: 9,
-                              fontWeight: FontWeight.w800,
+                              fontWeight: FontWeight.w700,
                               letterSpacing: 0.5,
                             ),
                           ),
@@ -1522,12 +1520,12 @@ class _SessionSummaryCard extends StatelessWidget {
                             style: TextStyle(
                               color: Colors.grey.shade500,
                               fontSize: 9,
-                              fontWeight: FontWeight.w800,
+                              fontWeight: FontWeight.w700,
                               letterSpacing: 0.5,
                             ),
                           ),
                           const SizedBox(height: 2),
-                          Text(
+                          AppText(
                             '${session.correctReps}/${session.reps} (${successRate.toStringAsFixed(0)}%)',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -1559,18 +1557,18 @@ class _SessionSummaryCard extends StatelessWidget {
                             style: TextStyle(
                               color: Colors.grey.shade500,
                               fontSize: 9,
-                              fontWeight: FontWeight.w800,
+                              fontWeight: FontWeight.w700,
                               letterSpacing: 0.5,
                             ),
                           ),
                           const SizedBox(height: 2),
-                          Text(
+                          AppText(
                             '${session.averageScore.toStringAsFixed(0)}/100',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 12.5,
-                              fontWeight: FontWeight.w800,
+                              fontWeight: FontWeight.w700,
                               color: primary,
                             ),
                           ),
@@ -1624,17 +1622,14 @@ class _WelcomeHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     final primary = Theme.of(context).colorScheme.primary;
 
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(compact ? 20 : 24),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [primary, Color.lerp(primary, const Color(0xFF63B4E8), .45)!],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: primary,
         borderRadius: BorderRadius.circular(24),
       ),
       child: Row(
@@ -1644,12 +1639,12 @@ class _WelcomeHeader extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                AppText(
                   '${tr("Welcome back,")} $firstName',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: compact ? 24 : 30,
-                    fontWeight: FontWeight.w800,
+                    fontSize: compact ? 22 : 26,
+                    fontWeight: FontWeight.w700,
                     letterSpacing: -.5,
                   ),
                 ),
@@ -1700,6 +1695,7 @@ class _EmptyAssessmentsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     return Card(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
@@ -1724,7 +1720,7 @@ class _EmptyAssessmentsCard extends StatelessWidget {
 
               Text(
                 tr('No assessment sessions yet'),
-                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
               ),
 
               const SizedBox(height: 5),
@@ -1757,6 +1753,7 @@ class _AccountCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     final primary = Theme.of(context).colorScheme.primary;
 
     final initial = user.name.isNotEmpty ? user.name[0].toUpperCase() : 'P';
@@ -1788,7 +1785,7 @@ class _AccountCard extends StatelessWidget {
                   style: TextStyle(
                     color: primary,
                     fontSize: 19,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
@@ -1803,7 +1800,7 @@ class _AccountCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 15,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(height: 3),
@@ -1838,7 +1835,7 @@ class _AccountCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(16),
                   ),
                 ),
-                child: const Text('Edit', style: TextStyle(fontSize: 12)),
+                child: const AppText('Edit', style: TextStyle(fontSize: 12)),
               ),
             ],
           ),
@@ -1859,6 +1856,7 @@ class _ExerciseLibrarySection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1906,6 +1904,7 @@ class _ExerciseLibraryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     final theme = Theme.of(context);
     final primary = theme.colorScheme.primary;
 
@@ -1948,7 +1947,7 @@ class _ExerciseLibraryCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontSize: 14.5,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                       const SizedBox(height: 3),
@@ -1956,7 +1955,7 @@ class _ExerciseLibraryCard extends StatelessWidget {
                         buildWipBadge(compact: true)
                       else
                         Text(
-                          tr('Clinically Validated'),
+                          tr('Movement guide'),
                           style: TextStyle(
                             fontSize: 11,
                             color: Colors.green.shade700,
@@ -2014,15 +2013,16 @@ class _ExerciseLibraryCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(10),
                       ),
                     ),
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => LiveAssessmentScreen(
-                            exerciseName: exercise.displayName,
-                          ),
-                        ),
-                      );
+                    onPressed: () async {
+                      final uid = FirebaseAuth.instance.currentUser?.uid;
+                      if (uid == null) return;
+                      final profile = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+                      if (!context.mounted) return;
+                      if (profile.data()?['doctorId'] == null) {
+                        showExerciseDemoDialog(context, exerciseName: exercise.id);
+                      } else {
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => LiveAssessmentScreen(exerciseName: exercise.displayName)));
+                      }
                     },
                     icon: const Icon(Icons.videocam_outlined, size: 16),
                     label: Text(

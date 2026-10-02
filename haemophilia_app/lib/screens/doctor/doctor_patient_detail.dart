@@ -1,15 +1,19 @@
+import '../../widgets/app_text.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/user_model.dart';
 import '../../services/clinical_data_service.dart';
 import '../patient/patient_history.dart';
+import '../patient/session_reports_screen.dart';
 import 'doctor_messages.dart';
 import 'doctor_session_detail.dart';
 import 'assign_exercises_screen.dart';
 import '../../utils/app_localizations.dart';
 import '../../utils/exercise_utils.dart';
 import '../../widgets/session_analytics_chart.dart';
+import '../../widgets/patient_screening_card.dart';
+import '../../utils/firebase_errors.dart';
 
 class DoctorPatientDetail extends StatelessWidget {
   final String patientId;
@@ -30,9 +34,10 @@ class DoctorPatientDetail extends StatelessWidget {
           patient.name.isEmpty ? tr('Patient') : patient.name,
           style: const TextStyle(fontWeight: FontWeight.w800),
         ),
-        actions: const [
-          LanguageToggleButton(),
-          SizedBox(width: 8),
+        actions: [
+          IconButton(tooltip: tr('Session reports'), icon: const Icon(Icons.description_outlined), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SessionReportsScreen(patientId: patientId)))),
+          const LanguageToggleButton(),
+          const SizedBox(width: 8),
         ],
       ),
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
@@ -42,8 +47,7 @@ class DoctorPatientDetail extends StatelessWidget {
             return Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
-                child: Text(
-                  'Could not load patient data.\n\n${snapshot.error}',
+                child: Text(firebaseErrorMessage(snapshot.error, fallback: 'Could not load patient data.'),
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -73,6 +77,15 @@ class DoctorPatientDetail extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
             children: [
               _ProfileCard(patient: patient),
+              const SizedBox(height: 12),
+              StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                stream: FirebaseFirestore.instance.collection('users').doc(patientId).snapshots(),
+                builder: (context, profile) {
+                  if (profile.hasError) return Text(firebaseErrorMessage(profile.error, fallback: 'Could not load patient screening.'));
+                  if (!profile.hasData) return const LinearProgressIndicator();
+                  return PatientScreeningCard(data: profile.data!.data() ?? {});
+                },
+              ),
               const SizedBox(height: 12),
               FilledButton.icon(
                 onPressed: () {
@@ -251,10 +264,10 @@ OutlinedButton.icon(
                             ],
                           ],
                         ),
-                        subtitle: Text(
+                        subtitle: AppText(
                           '${session.reps} ${tr('reps')} • ${session.correctReps}/${session.reps} ${tr('correct')}',
                         ),
-                        trailing: Text(
+                        trailing: AppText(
                           '${session.averageScore.toStringAsFixed(0)}/100',
                           style: const TextStyle(fontWeight: FontWeight.w800),
                         ),
@@ -289,6 +302,7 @@ class _ProfileCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     final primary = Theme.of(context).colorScheme.primary;
 
     final details = <String>[];
@@ -369,6 +383,7 @@ class _Stat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -404,6 +419,7 @@ class _Empty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(25),
@@ -427,6 +443,7 @@ class PatientProgressChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     if (scores.isEmpty) {
       return Card(
         elevation: 0,
@@ -523,14 +540,14 @@ class PatientProgressChart extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
+                AppText(
                   'Session 1',
                   style: TextStyle(
                     fontSize: 11,
                     color: Colors.grey.shade600,
                   ),
                 ),
-                Text(
+                AppText(
                   'Session ${scores.length}',
                   style: TextStyle(
                     fontSize: 11,
@@ -758,6 +775,7 @@ class _DoctorAssignmentStatusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     Color statusBg;
     Color statusFg;
     String statusLabel;
@@ -890,7 +908,7 @@ class _DoctorAssignmentStatusCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 6),
                     Expanded(
-                      child: Text(
+                      child: AppText(
                         '${tr('Current')}: ${getExerciseDisplayName(currentExercise)}',
                         style: TextStyle(
                           fontSize: 12,
@@ -919,7 +937,7 @@ class _DoctorAssignmentStatusCard extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: Text(
+                  child: AppText(
                     '$completionPct% ${tr('Completed')}',
                     style: TextStyle(
                       fontSize: 11.5,
@@ -929,7 +947,7 @@ class _DoctorAssignmentStatusCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Text(
+                AppText(
                   '$completedExercises ${tr('of')} $totalExercises ${tr('exercises finished')}',
                   style: TextStyle(
                     fontSize: 11,
@@ -991,7 +1009,7 @@ class _DoctorAssignmentStatusCard extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(height: 2),
-                            Text(
+                            AppText(
                               '$totalAttemptedReps',
                               style: const TextStyle(
                                 fontSize: 14,
@@ -1093,7 +1111,7 @@ class _DoctorAssignmentStatusCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                      Text(
+                      AppText(
                         '$exCorrect / $exTarget ${tr('correct reps')}',
                         style: TextStyle(
                           fontSize: 12,
@@ -1113,7 +1131,7 @@ class _DoctorAssignmentStatusCard extends StatelessWidget {
                   Icon(Icons.access_time_rounded, size: 13, color: Colors.grey.shade600),
                   const SizedBox(width: 5),
                   Expanded(
-                    child: Text(
+                    child: AppText(
                       '${tr('Last activity')}: ${_formatDateTime(lastActivity!)}',
                       style: TextStyle(
                         fontSize: 11.5,

@@ -1,17 +1,18 @@
+import '../utils/app_localizations.dart';
+import '../screens/support/help_screen.dart';
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 
 import '../models/user_model.dart';
 import '../screens/doctor/doctor_messages.dart';
 import '../screens/patient/assigned_assessment_screen.dart';
 import '../screens/patient/patient_doctor_chat_screen.dart';
-import '../screens/patient/patient_history.dart';
+import '../screens/patient/session_reports_screen.dart';
+import '../widgets/consent_form.dart';
 
 /// Top-level background message handler for FCM.
 @pragma('vm:entry-point')
@@ -81,7 +82,7 @@ class NotificationService {
       // 4. Listen for token refresh events
       _tokenRefreshSub?.cancel();
       _tokenRefreshSub = _messaging.onTokenRefresh.listen((newToken) async {
-        debugPrint('FCM Token refreshed: $newToken');
+        debugPrint('FCM device token refreshed.');
         _lastToken = newToken;
         await _saveTokenToFirestore(newToken);
       });
@@ -150,6 +151,7 @@ class NotificationService {
         'fcmToken': token,
         'fcmTokens': FieldValue.arrayUnion([token]),
         'updatedAt': FieldValue.serverTimestamp(),
+        'language': AppLocaleService.currentLocale.value,
       }, SetOptions(merge: true)).timeout(const Duration(seconds: 3));
       _lastSavedToken = token;
       _lastSavedUid = user.uid;
@@ -170,11 +172,13 @@ class NotificationService {
       if (token != null && token.isNotEmpty) {
         await _firestore.collection('users').doc(uid).update({
           'fcmTokens': FieldValue.arrayRemove([token]),
+          'fcmToken': FieldValue.delete(),
         }).timeout(const Duration(seconds: 2));
       }
     } catch (e) {
       debugPrint('Error clearing FCM token on logout (non-fatal): $e');
     } finally {
+      try { await _messaging.deleteToken().timeout(const Duration(seconds:2)); } catch (_) {}
       _lastToken = null;
       _lastSavedToken = null;
       _lastSavedUid = null;
@@ -182,7 +186,7 @@ class NotificationService {
   }
 
   /// Handles routing when a user taps a notification.
-  void handleNotificationTap(Map<String, dynamic> data) {
+  Future<void> handleNotificationTap(Map<String, dynamic> data) async {
     final navContext = _navigatorKey?.currentContext;
     if (navContext == null) {
       debugPrint('Cannot navigate: navigatorContext is null');
@@ -191,9 +195,24 @@ class NotificationService {
 
     final type = data['type']?.toString().toLowerCase();
 
+    final currentUser = _auth.currentUser;
+    if (currentUser == null) return;
+    Map<String,dynamic>? account;
+    try { account=(await _firestore.collection('users').doc(currentUser.uid).get()).data(); }
+    catch (_) { return; }
+    if (!navContext.mounted || _auth.currentUser?.uid != currentUser.uid || account==null || account['accountActive']==false || (account['role'] != 'admin' && account['consentVersion'] != consentVersion) || account['role']=='pending_doctor' || (account['role']=='doctor' && account['isApproved']==false) || (account['role']=='patient' && account['onboardingCompleted'] != true)) return;
     switch (type) {
+      case 'support':
+        final ticketId = data['ticketId']?.toString();
+        if (ticketId == null) return;
+        _firestore.collection('users').doc(_auth.currentUser!.uid).get().then((profile) {
+          if (!navContext.mounted) return;
+          Navigator.push(navContext, MaterialPageRoute(builder: (_) => SupportThread(ticketId: ticketId, admin: profile.data()?['role'] == 'admin')));
+        });
+        break;
       case 'session_assigned':
       case 'assignment':
+        if (account['role'] != 'patient' || data['patientId'] != currentUser.uid) return;
         Navigator.push(
           navContext,
           MaterialPageRoute(
@@ -203,12 +222,13 @@ class NotificationService {
         break;
 
       case 'session_completed':
-        Navigator.push(
-          navContext,
-          MaterialPageRoute(
-            builder: (_) => const PatientHistory(),
-          ),
-        );
+        final patientId=data['patientId']?.toString();
+        if (patientId == null || account['role'] != 'doctor' || data['doctorId'] != currentUser.uid) return;
+        try {
+          final patient=(await _firestore.collection('users').doc(patientId).get()).data();
+          if (!navContext.mounted || patient?['doctorId'] != currentUser.uid) return;
+          Navigator.push(navContext,MaterialPageRoute(builder:(_)=>SessionReportsScreen(patientId:patientId)));
+        } catch (_) { return; }
         break;
 
       case 'new_message':
@@ -219,7 +239,7 @@ class NotificationService {
 
         if (currentUid != null) {
           // If the recipient is the patient, route to PatientDoctorChatScreen
-          if (currentUid == patientId &&
+          if (account['doctorId'] == doctorId && currentUid == patientId &&
               doctorId != null &&
               doctorId.isNotEmpty) {
             _firestore
@@ -227,7 +247,7 @@ class NotificationService {
                 .doc(currentUid)
                 .get()
                 .then((patientDoc) {
-              if (!patientDoc.exists || navContext.mounted != true) return;
+              if (!patientDoc.exists || navContext.mounted != true || patientDoc.data()?['doctorId'] != doctorId) return;
               final patient =
                   UserModel.fromMap(patientDoc.id, patientDoc.data()!);
               _firestore.collection('users').doc(doctorId).get().then((docDoc) {
@@ -255,7 +275,7 @@ class NotificationService {
                 .doc(patientId)
                 .get()
                 .then((patientDoc) {
-              if (!patientDoc.exists || navContext.mounted != true) return;
+              if (!patientDoc.exists || navContext.mounted != true || patientDoc.data()?['doctorId'] != doctorId) return;
               final patient =
                   UserModel.fromMap(patientDoc.id, patientDoc.data()!);
               Navigator.push(
@@ -306,7 +326,7 @@ class NotificationService {
           ],
         ),
         action: SnackBarAction(
-          label: 'View',
+          label: tr('View'),
           onPressed: () => handleNotificationTap(message.data),
         ),
       ),
@@ -315,7 +335,7 @@ class NotificationService {
 
   /// Sends a notification to a target user.
   /// 1. Persists a notification record in `users/{targetUserId}/notifications`.
-  /// 2. Dispatches an HTTP request to the backend notification endpoint for FCM push delivery.
+  /// 2. The server Firestore trigger dispatches FCM to registered devices.
   Future<void> sendNotification({
     required String targetUserId,
     required String title,
@@ -344,28 +364,5 @@ class NotificationService {
       debugPrint('Error creating notification document in Firestore: $e');
     }
 
-    // 2. Dispatch to backend notification endpoint (FastAPI) for FCM push delivery
-    try {
-      const backendUrl =
-          'https://lessons-family-councils-obvious.trycloudflare.com/v1/notifications/send';
-
-      final response = await http
-          .post(
-            Uri.parse(backendUrl),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'target_user_id': targetUserId,
-              'title': title,
-              'body': body,
-              'data': data,
-            }),
-          )
-          .timeout(const Duration(seconds: 5));
-
-      debugPrint('Backend notification response: ${response.statusCode}');
-    } catch (e) {
-      // Backend notification dispatch is best-effort; Firestore record is already created.
-      debugPrint('Backend notification dispatch error (best-effort): $e');
-    }
   }
 }

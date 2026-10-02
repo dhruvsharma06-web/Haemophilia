@@ -1,3 +1,5 @@
+import '../../utils/firebase_errors.dart';
+import '../../widgets/app_text.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -9,6 +11,7 @@ import '../../utils/app_localizations.dart';
 import '../../utils/exercise_utils.dart';
 import '../patient/patient_history.dart';
 import '../profile/edit_profile_screen.dart';
+import '../support/help_screen.dart';
 import 'assign_exercises_screen.dart';
 import 'doctor_patient_detail.dart';
 
@@ -23,6 +26,8 @@ class DoctorDashboard extends StatefulWidget {
 
 class _DoctorDashboardState extends State<DoctorDashboard> {
   bool _isLoggingOut = false;
+  String _search = '';
+  int _section = 0;
 
   Future<void> _logout() async {
     if (_isLoggingOut) return;
@@ -64,7 +69,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
                           tr('Select Patient to Assign'),
                           style: const TextStyle(
                             fontSize: 18,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ),
@@ -81,6 +86,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
                     stream: FirebaseFirestore.instance
                         .collection('users')
                         .where('role', isEqualTo: 'patient')
+                        .where('doctorId', isEqualTo: doctorId)
                         .snapshots(),
                     builder: (context, snap) {
                       if (snap.connectionState == ConnectionState.waiting && !snap.hasData) {
@@ -169,9 +175,9 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
             ),
             const SizedBox(width: 8),
             const Expanded(
-              child: Text(
-                'Somaiya HaemoPhysio',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+              child: AppText(
+                'Somaiya HemoPhysio',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -179,6 +185,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
         ),
         actions: [
           const LanguageToggleButton(),
+          IconButton(tooltip: tr('Contact admin'), icon: const Icon(Icons.support_agent), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HelpScreen()))),
           IconButton(
             tooltip: tr('Edit Profile'),
             onPressed: () {
@@ -205,15 +212,21 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
           const SizedBox(width: 8),
         ],
       ),
-      body: SafeArea(
+      bottomNavigationBar: NavigationBar(selectedIndex:_section,onDestinationSelected:(value)=>setState(()=>_section=value),destinations:[
+        NavigationDestination(icon:const Icon(Icons.people_outline),label:tr('Patients')),
+        NavigationDestination(icon:const Icon(Icons.monitor_heart_outlined),label:tr('Live sessions')),
+        NavigationDestination(icon:const Icon(Icons.support_agent),label:tr('Help')),
+      ]),
+      body: _section == 2 ? const HelpScreen() : SafeArea(
         child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
           stream: FirebaseFirestore.instance
-              .collection('exerciseAssignments')
+              .collection('users')
+              .where('role', isEqualTo: 'patient')
               .where('doctorId', isEqualTo: doctorId)
               .snapshots(),
           builder: (context, assignSnap) {
             if (assignSnap.hasError) {
-              return _ErrorState(message: assignSnap.error.toString());
+              return _ErrorState(message: firebaseErrorMessage(assignSnap.error, fallback: 'Could not load patient data.'));
             }
 
             if (assignSnap.connectionState == ConnectionState.waiting &&
@@ -224,21 +237,14 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
             final assignDocs = assignSnap.data?.docs ?? [];
 
             // Doctor-specific: strictly extract unique patient IDs from this doctor's exerciseAssignments
-            final uniquePatientIds = <String>{};
-            for (final a in assignDocs) {
-              final data = a.data();
-              final pid = data['patientId']?.toString().trim();
-              final resolved = (pid != null && pid.isNotEmpty) ? pid : a.id;
-              if (resolved.isNotEmpty) {
-                uniquePatientIds.add(resolved);
-              }
-            }
+            final uniquePatientIds = assignDocs.map((d) => d.id).toSet();
 
             final patientIdList = uniquePatientIds.toList();
 
             return ListView(
               padding: const EdgeInsets.fromLTRB(20, 10, 20, 32),
               children: [
+                if (_section == 0) ...[
                 _Hero(
                   title: '${tr('Welcome, Dr.')} ${currentUser.name}',
                   subtitle: tr('Review patient progress, movement quality and clinical feedback.'),
@@ -250,9 +256,9 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
                   Icons.people_outline,
                 ),
                 const SizedBox(height: 24),
-                _LiveAssessmentSection(
-                  doctorId: doctorId,
-                ),
+                ],
+                if (_section == 1) _LiveAssessmentSection(doctorId: doctorId),
+                if (_section == 0) ...[
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -263,7 +269,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
                           Text(
                             tr('Your patients'),
                             style: const TextStyle(
-                                fontSize: 21, fontWeight: FontWeight.w800),
+                                fontSize: 21, fontWeight: FontWeight.w700),
                           ),
                           const SizedBox(height: 4),
                           Text(
@@ -281,13 +287,15 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
                   ],
                 ),
                 const SizedBox(height: 14),
+                TextField(decoration: InputDecoration(labelText: tr('Search by patient ID'), prefixIcon: const Icon(Icons.search)), onChanged: (v) => setState(() => _search = v.trim().toUpperCase())),
+                const SizedBox(height: 12),
                 if (patientIdList.isEmpty)
                   _EmptyCard(
                     onAssignPatient: () => _showAssignPatientPicker(context, doctorId),
                   )
                 else
                   Column(
-                    children: patientIdList
+                    children: patientIdList.where((id) => _search.isEmpty || ('SHP-${id.toUpperCase()}').contains(_search))
                         .map(
                           (pid) => Padding(
                             padding: const EdgeInsets.only(bottom: 12),
@@ -296,6 +304,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
                         )
                         .toList(),
                   ),
+                ],
               ],
             );
           },
@@ -312,6 +321,7 @@ class _PatientCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     final primary = Theme.of(context).colorScheme.primary;
 
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
@@ -371,7 +381,7 @@ class _PatientCard extends StatelessWidget {
                                   : 'P',
                               style: TextStyle(
                                 color: primary,
-                                fontWeight: FontWeight.w800,
+                                fontWeight: FontWeight.w700,
                                 fontSize: 18,
                               ),
                             ),
@@ -381,6 +391,7 @@ class _PatientCard extends StatelessWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                Text(patient.patientId, style: TextStyle(color: primary, fontSize: 11)),
                                 Row(
                                   children: [
                                     Expanded(
@@ -389,7 +400,7 @@ class _PatientCard extends StatelessWidget {
                                             ? patient.name
                                             : tr('Patient'),
                                         style: const TextStyle(
-                                          fontWeight: FontWeight.w800,
+                                          fontWeight: FontWeight.w700,
                                           fontSize: 16,
                                         ),
                                       ),
@@ -411,12 +422,12 @@ class _PatientCard extends StatelessWidget {
                                                 size: 11,
                                                 color: Colors.amber.shade900),
                                             const SizedBox(width: 3),
-                                            Text(
+                                            AppText(
                                               '${tr('PAUSED')} ($progressPct%)',
                                               style: TextStyle(
                                                 color: Colors.amber.shade900,
                                                 fontSize: 10,
-                                                fontWeight: FontWeight.w800,
+                                                fontWeight: FontWeight.w700,
                                               ),
                                             ),
                                           ],
@@ -439,12 +450,12 @@ class _PatientCard extends StatelessWidget {
                                                 size: 11,
                                                 color: Colors.blue.shade900),
                                             const SizedBox(width: 3),
-                                            Text(
+                                            AppText(
                                               '${tr('IN PROGRESS')} ($progressPct%)',
                                               style: TextStyle(
                                                 color: Colors.blue.shade900,
                                                 fontSize: 10,
-                                                fontWeight: FontWeight.w800,
+                                                fontWeight: FontWeight.w700,
                                               ),
                                             ),
                                           ],
@@ -499,17 +510,13 @@ class _Hero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     final primary = Theme.of(context).colorScheme.primary;
 
     return Container(
       padding: const EdgeInsets.all(21),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            primary,
-            Color.lerp(primary, const Color(0xFF63B4E8), .45)!,
-          ],
-        ),
+        color: primary,
         borderRadius: BorderRadius.circular(24),
       ),
       child: Column(
@@ -520,7 +527,7 @@ class _Hero extends StatelessWidget {
             style: const TextStyle(
               color: Colors.white,
               fontSize: 24,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 7),
@@ -546,6 +553,7 @@ class _Metric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     final primary = Theme.of(context).colorScheme.primary;
 
     return Card(
@@ -571,7 +579,7 @@ class _Metric extends StatelessWidget {
                     value,
                     style: const TextStyle(
                       fontSize: 22,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                   Text(
@@ -598,6 +606,7 @@ class _EmptyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(28),
@@ -607,7 +616,7 @@ class _EmptyCard extends StatelessWidget {
             const SizedBox(height: 10),
             Text(
               tr('No patients assigned'),
-              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17),
             ),
             const SizedBox(height: 5),
             Text(
@@ -637,10 +646,11 @@ class _ErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
-        child: Text(
+        child: AppText(
           '${tr("Could not load patients.")}\n\n$message',
           textAlign: TextAlign.center,
         ),
@@ -658,14 +668,15 @@ class _LiveAssessmentSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+    AppLocaleScope.of(context);
+    return StreamBuilder<List<QueryDocumentSnapshot<Map<String, dynamic>>>>(
       stream: ClinicalDataService().watchActiveDoctorSessions(doctorId),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return const SizedBox.shrink();
         }
 
-        final docs = snapshot.data!.docs;
+        final docs = snapshot.data!;
         final now = DateTime.now();
 
         // 1. Active sessions (exclude stale sessions where no update happened in the last 20 minutes)
@@ -726,7 +737,7 @@ class _LiveAssessmentSection extends StatelessWidget {
                     tr('Active Live Assessments'),
                     style: const TextStyle(
                       fontSize: 17,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                       color: Color(0xFFD32F2F),
                     ),
                   ),
@@ -764,11 +775,11 @@ class _LiveAssessmentSection extends StatelessWidget {
                   const Icon(Icons.pause_circle_outline_rounded,
                       color: Color(0xFFF57F17), size: 18),
                   const SizedBox(width: 8),
-                  Text(
+                  AppText(
                     '${tr("Paused Assessments")} (${pausedSessions.length})',
                     style: const TextStyle(
                       fontSize: 17,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                       color: Color(0xFFF57F17),
                     ),
                   ),
@@ -812,7 +823,7 @@ class _LiveAssessmentSection extends StatelessWidget {
                       tr('Recently Completed Assessments'),
                       style: const TextStyle(
                         fontSize: 17,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                         color: Color(0xFF2E7D32),
                       ),
                     ),
@@ -878,6 +889,7 @@ class _LiveSessionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     final repCount = (sessionData['currentRepCount'] as num?)?.toInt() ?? 0;
     final score = (sessionData['currentScore'] as num?)?.toDouble() ?? 0.0;
     final form = sessionData['currentForm']?.toString() ?? 'Assessing...';
@@ -931,7 +943,7 @@ class _LiveSessionCard extends StatelessWidget {
                         tr('LIVE ASSESSMENT'),
                         style: const TextStyle(
                           color: Color(0xFFD32F2F),
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w700,
                           fontSize: 10,
                           letterSpacing: 0.5,
                         ),
@@ -960,7 +972,7 @@ class _LiveSessionCard extends StatelessWidget {
                         patientName,
                         style: const TextStyle(
                           fontSize: 16,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -1056,6 +1068,7 @@ class _PausedSessionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     final repCount = (sessionData['currentRepCount'] as num?)?.toInt() ??
         (sessionData['totalReps'] as num?)?.toInt() ??
         (sessionData['completedCorrectReps'] as num?)?.toInt() ??
@@ -1110,7 +1123,7 @@ class _PausedSessionCard extends StatelessWidget {
                         tr('PAUSED'),
                         style: const TextStyle(
                           color: Color(0xFFF57F17),
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w700,
                           fontSize: 11,
                           letterSpacing: 0.5,
                         ),
@@ -1139,7 +1152,7 @@ class _PausedSessionCard extends StatelessWidget {
                         patientName,
                         style: const TextStyle(
                           fontSize: 16,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -1225,6 +1238,7 @@ class _RecentlyCompletedSessionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     final finalReps = (sessionData['finalRepCount'] ??
             sessionData['currentRepCount'] as num?)
         ?.toInt() ??
@@ -1269,7 +1283,7 @@ class _RecentlyCompletedSessionCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  AppText(
                     '$patientName ${tr('completed')} $exercise',
                     style: const TextStyle(
                       fontSize: 14,
@@ -1277,7 +1291,7 @@ class _RecentlyCompletedSessionCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 2),
-                  Text(
+                  AppText(
                     '${tr('Score')}: ${finalScore.toStringAsFixed(0)}/100 • $finalReps ${tr('reps')}',
                     style: TextStyle(
                       fontSize: 12,
@@ -1321,6 +1335,7 @@ class _LiveChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -1383,6 +1398,7 @@ class _PulsingLiveDotState extends State<_PulsingLiveDot>
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     return AnimatedBuilder(
       animation: _animation,
       builder: (context, child) {

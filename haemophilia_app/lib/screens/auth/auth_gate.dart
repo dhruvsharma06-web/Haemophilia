@@ -1,3 +1,4 @@
+import '../../widgets/app_text.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -10,6 +11,9 @@ import '../doctor/doctor_dashboard.dart';
 import '../patient/patient_dashboard.dart';
 import 'doctor_pending_approval_screen.dart';
 import 'login_screen.dart';
+import 'patient_onboarding_screen.dart';
+import '../../widgets/consent_form.dart';
+import '../../services/onboarding_service.dart';
 
 /// Gate widget that determines whether the user is authenticated and routes
 /// to the appropriate dashboard based on their role stored in Firestore.
@@ -32,9 +36,13 @@ class _AuthGateState extends State<AuthGate> {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<User?>(
+    return ValueListenableBuilder<bool>(
+      valueListenable: AuthService.googleValidation,
+      builder: (context, validating, _) {
+        return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, authSnapshot) {
+        if (validating) return const LoginScreen();
         // While Firebase Auth is determining the current user state
         if (authSnapshot.connectionState == ConnectionState.waiting) {
           return Scaffold(
@@ -48,8 +56,8 @@ class _AuthGateState extends State<AuthGate> {
                     fit: BoxFit.contain,
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    'Somaiya HaemoPhysio',
+                  const AppText(
+                    'Somaiya HemoPhysio',
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.w800,
@@ -65,7 +73,7 @@ class _AuthGateState extends State<AuthGate> {
         }
 
         final user = authSnapshot.data;
-        if (user == null) {
+        if (user == null || FirebaseAuth.instance.currentUser?.uid != user.uid) {
           _syncedUid = null;
           return const LoginScreen();
         }
@@ -90,8 +98,8 @@ class _AuthGateState extends State<AuthGate> {
                         fit: BoxFit.contain,
                       ),
                       const SizedBox(height: 16),
-                      const Text(
-                        'Somaiya HaemoPhysio',
+                      const AppText(
+                        'Somaiya HemoPhysio',
                         style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.w800,
@@ -124,7 +132,7 @@ class _AuthGateState extends State<AuthGate> {
                           color: Colors.grey,
                         ),
                         const SizedBox(height: 16),
-                        const Text(
+                        const AppText(
                           'User profile not found',
                           style: TextStyle(
                             fontSize: 18,
@@ -132,7 +140,7 @@ class _AuthGateState extends State<AuthGate> {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        Text(
+                        AppText(
                           'Could not load account details for ${user.email ?? user.uid}.',
                           textAlign: TextAlign.center,
                           style: TextStyle(color: Colors.grey.shade600),
@@ -140,7 +148,7 @@ class _AuthGateState extends State<AuthGate> {
                         const SizedBox(height: 24),
                         FilledButton.tonal(
                           onPressed: () => AuthService().logout(),
-                          child: const Text('Sign out to try another account'),
+                          child: const AppText('Sign out to try another account'),
                         ),
                       ],
                     ),
@@ -159,6 +167,21 @@ class _AuthGateState extends State<AuthGate> {
               }
             });
 
+            if (data['accountActive'] == false) {
+              return Scaffold(body: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                const AppText('Account inactive. Please contact the administrator.'),
+                TextButton(onPressed: () => AuthService().logout(), child: const AppText('Sign out')),
+              ])));
+            }
+            if (userModel.role != 'admin' && data['consentVersion'] != consentVersion) {
+              return Scaffold(appBar: AppBar(title: const AppText('Somaiya HemoPhysio')), body: Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 560), child: SingleChildScrollView(padding: const EdgeInsets.all(24), child: Column(children: [
+                ConsentForm(patient: userModel.role == 'patient', onAccept: (research) => OnboardingService().acceptConsent(research)),
+                TextButton(onPressed: () => AuthService().logout(), child: const AppText('Sign out')),
+              ])))));
+            }
+            if (userModel.role == 'patient' && data['onboardingCompleted'] != true) {
+              return const PatientOnboardingScreen();
+            }
             switch (userModel.role.toLowerCase()) {
               case 'doctor':
                 if (!userModel.isApproved) {
@@ -170,11 +193,14 @@ class _AuthGateState extends State<AuthGate> {
               case 'admin':
                 return AdminDashboard(user: userModel);
               case 'patient':
-              default:
                 return PatientDashboard(user: userModel);
+              default:
+                return Scaffold(body: Center(child: TextButton(onPressed: () => AuthService().logout(), child: const AppText('Account access unavailable. Sign out and contact admin.'))));
             }
           },
         );
+      },
+    );
       },
     );
   }

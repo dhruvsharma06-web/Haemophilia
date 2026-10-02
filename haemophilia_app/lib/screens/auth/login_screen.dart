@@ -1,10 +1,10 @@
+import '../../widgets/app_text.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../services/auth_service.dart';
 import '../../utils/app_localizations.dart';
 import 'doctor_login_screen.dart';
-import 'health_screening_screen.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -179,7 +179,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text(
+                                  content: AppText(
                                     '${tr('Could not send reset email:')} $e',
                                   ),
                                 ),
@@ -208,6 +208,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
   String _firebaseAuthError(FirebaseAuthException e) {
     switch (e.code) {
+      case 'wrong-login-portal':
+      case 'profile-not-found':
+      case 'account-inactive':
+        return tr(e.message ?? 'Login failed. Please try again.');
       case 'invalid-credential':
         return tr('Invalid email or password.');
       case 'user-not-found':
@@ -271,8 +275,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     fit: BoxFit.contain,
                   ),
                   const SizedBox(height: 16),
-                  Text(
-                    'Somaiya HaemoPhysio',
+                  AppText(
+                    'Somaiya HemoPhysio',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: compact ? 26 : 30,
@@ -480,93 +484,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 14),
-
-                  // Health Risk Screening Widget (Physio-Project ML screening)
-                  Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const HealthScreeningScreen(),
-                          ),
-                        );
-                      },
-                      borderRadius: BorderRadius.circular(16),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF0FDF4),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: const Color(0xFF86EFAC),
-                            width: 1.2,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 36,
-                              height: 36,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFDCFCE7),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Icon(
-                                Icons.health_and_safety_outlined,
-                                size: 20,
-                                color: Color(0xFF15803D),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          tr('Health Risk Screening'),
-                                          style: const TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w700,
-                                            color: Color(0xFF14532D),
-                                          ),
-                                        ),
-                                      ),
-                                      Text(
-                                        '${tr('Start')} ›',
-                                        style: const TextStyle(
-                                          fontSize: 12.5,
-                                          fontWeight: FontWeight.w800,
-                                          color: Color(0xFF15803D),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    tr('Check your symptoms and understand possible health risks.'),
-                                    style: TextStyle(
-                                      fontSize: 11.5,
-                                      color: Colors.grey.shade700,
-                                      height: 1.25,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
 
                   // Dedicated Clinician Switch Card
                   Container(

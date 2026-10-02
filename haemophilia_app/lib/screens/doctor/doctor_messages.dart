@@ -1,3 +1,5 @@
+import '../../utils/firebase_errors.dart';
+import '../../widgets/app_text.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -112,7 +114,7 @@ class _DoctorMessagesState extends State<DoctorMessages> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not send message: $e')),
+        SnackBar(content: Text(firebaseErrorMessage(e, fallback: 'Could not send message. Please try again.'))),
       );
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -122,7 +124,7 @@ class _DoctorMessagesState extends State<DoctorMessages> {
   String _time(dynamic value) {
     if (value is Timestamp) {
       final date = value.toDate().toLocal();
-      return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+      return '${date.day}/${date.month}/${date.year}  ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
     }
     return '';
   }
@@ -166,8 +168,7 @@ class _DoctorMessagesState extends State<DoctorMessages> {
                   return Center(
                     child: Padding(
                       padding: const EdgeInsets.all(24),
-                      child: Text(
-                        'Could not load messages.\n\n${snapshot.error}',
+                      child: Text(firebaseErrorMessage(snapshot.error, fallback: 'Could not load messages.'),
                         textAlign: TextAlign.center,
                       ),
                     ),
@@ -209,7 +210,7 @@ class _DoctorMessagesState extends State<DoctorMessages> {
                             ),
                           ),
                           const SizedBox(height: 6),
-                          Text(
+                          AppText(
                             '${tr('Messages here are private between you and')} ${widget.patient.name}.',
                             textAlign: TextAlign.center,
                             style: TextStyle(color: Colors.grey.shade600),
@@ -304,7 +305,7 @@ class _DoctorMessagesState extends State<DoctorMessages> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
+                        AppText(
                           '${tr('Discussing Session')}: ${_sessionContext!.sessionName}',
                           style: const TextStyle(
                             fontSize: 12,
@@ -312,7 +313,7 @@ class _DoctorMessagesState extends State<DoctorMessages> {
                             color: Color(0xFF1E3A8A),
                           ),
                         ),
-                        Text(
+                        AppText(
                           '${tr('Score')}: ${_sessionContext!.averageScore.toStringAsFixed(0)}/100 • ${_sessionContext!.correctReps}/${_sessionContext!.reps} ${tr('reps')}',
                           style: const TextStyle(
                             fontSize: 11,
@@ -380,6 +381,7 @@ class _SessionReferenceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     final exercise = sessionContext['sessionName']?.toString() ??
         sessionContext['exercise']?.toString() ??
         'Physiotherapy Session';
@@ -437,7 +439,7 @@ class _SessionReferenceCard extends StatelessWidget {
                     color: scoreColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: Text(
+                  child: AppText(
                     '${score.toStringAsFixed(0)}/100',
                     style: TextStyle(
                       color: scoreColor,
@@ -455,7 +457,7 @@ class _SessionReferenceCard extends StatelessWidget {
               spacing: 6,
               runSpacing: 2,
               children: [
-                Text(
+                AppText(
                   '$correctReps/$reps ${tr('correct reps')}${dt != null ? ' • ${dt.day}/${dt.month}/${dt.year}' : ''}',
                   style: const TextStyle(
                     fontSize: 11,

@@ -1,3 +1,5 @@
+import '../../widgets/app_text.dart';
+import '../../widgets/consent_form.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -75,6 +77,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     final age = int.tryParse(ageText);
 
+    final researchConsent = await requestRegistrationConsent(context);
+    if (researchConsent == null || !mounted) return;
     setState(() => _loading = true);
 
     try {
@@ -84,6 +88,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         lastName: lastName,
         email: email,
         password: password,
+        consentAccepted: true,
+        researchConsent: researchConsent,
         age: age,
         gender: _selectedGender,
         phoneNumber: phone.isNotEmpty ? phone : null,
@@ -209,8 +215,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                       const SizedBox(height: 12),
                       Center(
-                        child: Text(
-                          'Somaiya HaemoPhysio',
+                        child: AppText(
+                          'Somaiya HemoPhysio',
                           style: TextStyle(
                             fontSize: compact ? 21 : 24,
                             fontWeight: FontWeight.w900,

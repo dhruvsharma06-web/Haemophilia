@@ -1,3 +1,4 @@
+import '../../widgets/app_text.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -336,7 +337,7 @@ class _AssignedAssessmentScreenState
               ),
               alignment:
                   Alignment.center,
-              child: Text(
+              child: AppText(
                 '${index + 1}',
                 style:
                     TextStyle(
@@ -382,7 +383,7 @@ class _AssignedAssessmentScreenState
                     height: 5,
                   ),
 
-                  Text(
+                  AppText(
                     'Target: $target correct reps',
                     style:
                         TextStyle(
@@ -449,7 +450,7 @@ class _AssignedAssessmentScreenState
               height: 16,
             ),
 
-            const Text(
+            const AppText(
               'Unable to load session',
               textAlign:
                   TextAlign.center,
@@ -486,7 +487,7 @@ class _AssignedAssessmentScreenState
                 Icons.refresh,
               ),
               label:
-                  const Text(
+                  const AppText(
                 'Try Again',
               ),
             ),
@@ -506,7 +507,7 @@ class _AssignedAssessmentScreenState
   ) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
+        title: const AppText(
           'Assigned Session',
           style: TextStyle(
             fontWeight:
@@ -631,7 +632,7 @@ class _AssignedAssessmentScreenState
                                             CrossAxisAlignment
                                                 .start,
                                         children: [
-                                          Text(
+                                          AppText(
                                             'Physiotherapy Session',
                                             style:
                                                 TextStyle(
@@ -675,7 +676,7 @@ class _AssignedAssessmentScreenState
                             // EXERCISES
                             // ==========================================
 
-                            const Text(
+                            const AppText(
                               'Exercises',
                               style:
                                   TextStyle(
@@ -691,7 +692,7 @@ class _AssignedAssessmentScreenState
                               height: 5,
                             ),
 
-                            Text(
+                            AppText(
                               'Complete each exercise in order. '
                               'Only correct repetitions count.',
                               style:
@@ -744,7 +745,7 @@ class _AssignedAssessmentScreenState
                                       .play_arrow_rounded,
                                 ),
                                 label:
-                                    const Text(
+                                    const AppText(
                                   'Start Session',
                                   style:
                                       TextStyle(

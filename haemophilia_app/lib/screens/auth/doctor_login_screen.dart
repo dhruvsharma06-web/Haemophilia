@@ -1,3 +1,4 @@
+import '../../widgets/app_text.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -43,21 +44,11 @@ class _DoctorLoginScreenState extends State<DoctorLoginScreen> {
     setState(() => _loading = true);
 
     try {
-      final userModel = await _authService.login(
+      await _authService.login(
+        portal: LoginPortal.clinician,
         email: identifier,
         password: password,
       );
-
-      // Verify role
-      final role = userModel.role.toLowerCase();
-      if (role == 'patient') {
-        await _authService.logout();
-        if (!mounted) return;
-        _showError(
-          tr('This account is registered as a patient. Please use the Patient Login.'),
-        );
-        return;
-      }
 
       if (!mounted) return;
 
@@ -157,7 +148,7 @@ class _DoctorLoginScreenState extends State<DoctorLoginScreen> {
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text(
+                                  content: AppText(
                                     '${tr('Could not send reset email:')} $e',
                                   ),
                                 ),
@@ -186,6 +177,10 @@ class _DoctorLoginScreenState extends State<DoctorLoginScreen> {
 
   String _firebaseAuthError(FirebaseAuthException e) {
     switch (e.code) {
+      case 'wrong-login-portal':
+      case 'profile-not-found':
+      case 'account-inactive':
+        return tr(e.message ?? 'Login failed. Please try again.');
       case 'invalid-credential':
         return tr('Invalid credentials or password.');
       case 'user-not-found':
@@ -249,8 +244,8 @@ class _DoctorLoginScreenState extends State<DoctorLoginScreen> {
                     fit: BoxFit.contain,
                   ),
                   const SizedBox(height: 16),
-                  Text(
-                    'Somaiya HaemoPhysio',
+                  AppText(
+                    'Somaiya HemoPhysio',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: compact ? 25 : 29,

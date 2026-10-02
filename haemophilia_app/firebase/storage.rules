@@ -12,23 +12,25 @@ service firebase.storage {
       }
 
       function isAdmin() {
-        return signedIn() && myUser().data.role == 'admin';
+        return signedIn() && myUser().data.get('accountActive', true) && myUser().data.role == 'admin';
       }
 
       function isAssignedDoctor() {
         return signedIn()
           && myUser().data.role == 'doctor'
+          && myUser().data.get('accountActive', true) && myUser().data.get('isApproved', true)
           && firestore.get(/databases/(default)/documents/users/$(patientId)).data.doctorId == request.auth.uid;
       }
 
       // Patients upload their own error evidence. Assigned doctors and admins
       // can review it. Images are JPEGs produced by the assessment backend.
       allow write: if signedIn() && request.auth.uid == patientId
+        && myUser().data.get('accountActive', true) && myUser().data.get('consentVersion', '') == '2026-10-02-v1'
         && request.resource.contentType == 'image/jpeg'
         && request.resource.size < 5 * 1024 * 1024;
 
       allow read: if signedIn()
-        && (request.auth.uid == patientId || isAssignedDoctor() || isAdmin());
+        && ((request.auth.uid == patientId && myUser().data.get('accountActive', true)) || isAssignedDoctor() || isAdmin());
     }
   }
 }

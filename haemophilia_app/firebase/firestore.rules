@@ -1,242 +1,160 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    function signedIn() {
-      return request.auth != null;
+    function signedIn() { return request.auth != null; }
+    function profile(uid) { return get(/databases/$(database)/documents/users/$(uid)).data; }
+    function active() { return signedIn() && profile(request.auth.uid).get('accountActive', true); }
+    function isSelf(uid) { return active() && request.auth.uid == uid; }
+    function isAdmin() { return active() && profile(request.auth.uid).role == 'admin'; }
+    function isDoctor() { return active() && profile(request.auth.uid).role == 'doctor' && profile(request.auth.uid).get('isApproved', true); }
+    function isAssignedDoctor(uid) { return isDoctor() && profile(uid).get('doctorId', '') == request.auth.uid; }
+    function patientAccess(uid) { return isSelf(uid) || isAssignedDoctor(uid) || isAdmin(); }
+    function currentPair(patientId, doctorId) {
+      return active() && profile(patientId).role == 'patient' && profile(patientId).get('doctorId', '') == doctorId
+        && profile(doctorId).role == 'doctor' && profile(doctorId).get('isApproved', true)
+        && profile(doctorId).get('accountActive', true) && request.auth.uid in [patientId, doctorId];
     }
-
-    function isSelf(uid) {
-      return signedIn() && request.auth.uid == uid;
+    function conversationPair(id) { return currentPair(id.split('_')[0], id.split('_')[1]); }
+    function consent() { return profile(request.auth.uid).get('consentVersion', '') == '2026-10-02-v1'; }
+    function readyPatient() { return active() && consent() && profile(request.auth.uid).role == 'patient' && profile(request.auth.uid).get('onboardingCompleted', false); }
+    function availableAssignment() {
+      let assignment = get(/databases/$(database)/documents/exerciseAssignments/$(request.auth.uid)).data;
+      return assignment.status in ['assigned', 'in_progress', 'paused']
+        && (assignment.get('scheduledAt', null) == null || assignment.scheduledAt <= request.time)
+        && (assignment.status != 'assigned' || assignment.get('expiresAt', null) == null || assignment.expiresAt > request.time);
     }
-
-    function myUser() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid));
-    }
-
-    function isAdmin() {
-      return signedIn() && myUser().data.role == 'admin';
-    }
-
-    function isDoctor() {
-      return signedIn() && myUser().data.role == 'doctor';
-    }
-
-    function isAssignedDoctor(patientId) {
-      return isDoctor() && (
-        get(/databases/$(database)/documents/users/$(patientId)).data.doctorId == request.auth.uid ||
-        (
-          exists(/databases/$(database)/documents/exerciseAssignments/$(patientId)) &&
-          get(/databases/$(database)/documents/exerciseAssignments/$(patientId)).data.doctorId == request.auth.uid
-        )
-      );
-    }
-
-    match /users/{userId} {
-      // Registration creates a patient or pending doctor profile. Admins may create/manage profiles.
-      allow create: if isAdmin()
-        || (isSelf(userId) && request.resource.data.role in ['patient', 'pending_doctor']);
-
-      // Patients can read themselves. Assigned doctors can read their patients.
-      // Admins can read all user profiles.
-      // Any signed-in user can read doctor profiles to discover and select clinicians.
-      allow read: if isSelf(userId) || isAdmin() || isDoctor() || (signedIn() && resource.data.role == 'doctor');
-
-      // Users can edit only their own personal profile.
-      // Cannot modify role, doctorId, uid, or security-sensitive fields.
-      // Admins have full user-management access.
-      allow update: if isAdmin()
-        || (isSelf(userId)
-            && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'doctorId', 'uid']));
-
+    match /users/{uid} {
+      allow create: if isAdmin() || (signedIn() && request.auth.uid == uid
+        && request.resource.data.role in ['patient', 'pending_doctor']
+        && request.resource.data.email.lower() == request.auth.token.email.lower()
+        && request.resource.data.get('doctorId', null) == null
+        && request.resource.data.get('accountActive', true) == true
+        && request.resource.data.consentVersion == '2026-10-02-v1'
+        && (request.resource.data.role == 'patient' || request.resource.data.isApproved == false));
+      allow get: if (signedIn() && request.auth.uid == uid) || isAdmin() || isAssignedDoctor(uid)
+        || (active() && resource.data.role == 'doctor' && profile(request.auth.uid).get('doctorId', '') == uid);
+      allow list: if isAdmin() || (isDoctor() && resource.data.role == 'patient' && resource.data.doctorId == request.auth.uid)
+        || (active() && profile(request.auth.uid).role == 'patient' && profile(request.auth.uid).get('doctorId', '') == uid);
+      allow update: if isAdmin() || (isSelf(uid) && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        'role', 'doctorId', 'uid', 'email', 'isApproved', 'accountActive', 'status', 'approvedBy', 'approvalUpdatedAt'
+      ]) && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['patientId']) || request.resource.data.patientId == 'SHP-' + uid.upper()));
       allow delete: if isAdmin();
-
-      match /assessments/{assessmentId} {
-        // Patient app creates its own assessment result.
-        allow create: if isSelf(userId);
-
-        // Patient, doctor, assigned doctor and admin can review results.
-        allow read: if isSelf(userId) || isAdmin() || isDoctor() || isAssignedDoctor(userId);
-
-        // Only an admin or assigned doctor may change a stored assessment,
-        // and a doctor may only add clinical feedback fields.
-        allow update: if isAdmin()
-          || (isAssignedDoctor(userId)
-              && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-                'doctorFeedback',
-                'doctorFeedbackBy',
-                'doctorFeedbackAt'
-              ]));
-
+      match /assessments/{id} {
+        allow create: if isSelf(uid) && readyPatient();
+        allow read: if patientAccess(uid);
+        allow update: if isAdmin() || (isAssignedDoctor(uid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['doctorFeedback', 'doctorFeedbackBy', 'doctorFeedbackAt']));
         allow delete: if isAdmin();
       }
-
-      match /messages/{messageId} {
-        // Patient or assigned doctor can create a message in this patient's thread.
-        allow create: if isSelf(userId) || isAssignedDoctor(userId) || isAdmin();
-
-        allow read: if isSelf(userId) || isAssignedDoctor(userId) || isAdmin();
-
-        // Keep message history immutable from the client except for admins.
+      match /messages/{id} {
+        allow read: if patientAccess(uid);
+        allow create: if patientAccess(uid) && request.resource.data.senderId == request.auth.uid;
         allow update, delete: if isAdmin();
       }
-
-      match /notifications/{notificationId} {
-        // User can read, update (e.g. mark read), delete their own notifications.
-        // Signed-in users (e.g. doctor or patient) can create notifications.
-        allow read, update, delete: if isSelf(userId) || isAdmin();
-        allow create: if signedIn();
+      match /notifications/{id} {
+        allow read, delete: if (signedIn() && request.auth.uid == uid) || isAdmin();
+        allow update: if isSelf(uid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+        allow create: if active() && request.resource.data.senderId == request.auth.uid && (isAdmin() || isAssignedDoctor(uid)
+          || (profile(request.auth.uid).role == 'patient' && profile(request.auth.uid).get('doctorId', '') == uid));
       }
     }
- 
-    match /doctorApplications/{userId} {
-      allow create: if signedIn() && request.auth.uid == userId;
-      allow read: if signedIn() && (request.auth.uid == userId || isAdmin());
+    match /doctorApplications/{uid} {
+      allow create: if isSelf(uid) && profile(uid).role == 'pending_doctor' && request.resource.data.isApproved == false;
+      allow read: if (signedIn() && request.auth.uid == uid) || isAdmin();
       allow update, delete: if isAdmin();
     }
-
-    match /exerciseAssignments/{patientId} {
-      // Patient, assigned doctor, and admin can read.
-      // Doctor can also query assignments where doctorId == request.auth.uid.
-      allow read: if isSelf(patientId)
-        || isAssignedDoctor(patientId)
-        || (signedIn() && resource.data.doctorId == request.auth.uid)
-        || isAdmin();
-
-      // Doctor or admin can assign exercises.
-      allow create: if isAssignedDoctor(patientId)
-        || (isDoctor() && request.resource.data.doctorId == request.auth.uid)
-        || isAdmin();
-
-      // Doctor or admin can update assignment.
-      // Patient can update status, session progress, and completion/discard timestamps.
-      // Patient cannot reset status to assigned, create assignments, or modify doctor-assigned exercises.
-      allow update: if isAssignedDoctor(patientId)
-        || (isDoctor() && resource.data.doctorId == request.auth.uid)
-        || isAdmin()
-        || (isSelf(patientId)
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-              'status',
-              'sessionId',
-              'currentExerciseIndex',
-              'currentExercise',
-              'completedCorrectReps',
-              'totalCompletedReps',
-              'progressPercentage',
-              'exerciseProgress',
-              'lastUpdatedAt',
-              'completedAt',
-              'discardedAt',
-              'updatedAt'
-            ])
-            && request.resource.data.status in ['in_progress', 'completed', 'paused', 'cancelled', 'discarded', 'abandoned']
-            && resource.data.status != 'completed');
-
+    match /adminAudit/{id} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() && request.resource.data.actorId == request.auth.uid;
+      allow update, delete: if false;
+    }
+    match /exerciseAssignments/{uid} {
+      allow get: if isSelf(uid) || isAdmin() || isAssignedDoctor(uid);
+      allow list: if isAdmin() || (isDoctor() && resource.data.doctorId == request.auth.uid);
+      allow create: if isAdmin() || (isAssignedDoctor(uid) && request.resource.data.doctorId == request.auth.uid && request.resource.data.patientId == uid);
+      allow update: if isAdmin() || (isAssignedDoctor(uid) && request.resource.data.doctorId == request.auth.uid && request.resource.data.patientId == uid)
+        || (isSelf(uid) && consent() && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status', 'sessionId', 'currentExerciseIndex', 'currentExercise', 'completedCorrectReps', 'totalCompletedReps',
+          'progressPercentage', 'exerciseProgress', 'lastUpdatedAt', 'completedAt', 'discardedAt', 'updatedAt'
+        ]) && request.resource.data.status in ['in_progress', 'completed', 'paused', 'cancelled', 'discarded', 'abandoned']
+          && resource.data.status in ['assigned', 'in_progress', 'paused']
+          && (resource.data.get('scheduledAt', null) == null || resource.data.scheduledAt <= request.time)
+          && (resource.data.status != 'assigned' || resource.data.get('expiresAt', null) == null || resource.data.expiresAt > request.time));
       allow delete: if isAdmin();
     }
-
-    match /assessmentSessions/{sessionId} {
-      // Patient, assigned doctor, or admin can read.
-      allow read: if signedIn() && (
-        resource.data.patientId == request.auth.uid ||
-        resource.data.doctorId == request.auth.uid ||
-        isAdmin()
-      );
-
-      // Patient, assigned doctor, or admin can create session document.
-      // Creator must be the patient or doctor recorded in the session document.
-      allow create: if signedIn() && (
-        request.resource.data.patientId == request.auth.uid ||
-        request.resource.data.doctorId == request.auth.uid ||
-        isAdmin()
-      );
-
-      // Patient, doctor, or admin can update session.
-      // Immutable ownership fields (patientId, sessionId) cannot be modified.
-      allow update: if signedIn() && (
-        (
-          (resource.data.patientId == request.auth.uid || resource.data.doctorId == request.auth.uid) &&
-          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['patientId', 'sessionId'])
-        ) ||
-        isAdmin()
-      );
-
+    match /exerciseScheduleSeries/{id} {
+      allow read: if isAdmin() || (isDoctor() && resource.data.doctorId == request.auth.uid);
+      allow create: if isAdmin() || (isAssignedDoctor(request.resource.data.patientId)
+        && request.resource.data.doctorId == request.auth.uid && request.resource.data.status == 'preparing'
+        && request.resource.data.occurrenceCount is int && request.resource.data.occurrenceCount > 0
+        && request.resource.data.occurrenceCount <= 4392 && request.resource.data.createdAt == request.time);
+      allow update: if isAdmin() || (isAssignedDoctor(resource.data.patientId)
+        && resource.data.doctorId == request.auth.uid && resource.data.status in ['preparing', 'ready']
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])
+        && request.resource.data.status in ['ready', 'cancelled']);
       allow delete: if isAdmin();
     }
-
-    match /conversations/{conversationId} {
-      // Patient, doctor in this conversation, or admin can read.
-      allow read: if signedIn() && (
-        resource.data.patientId == request.auth.uid ||
-        resource.data.doctorId == request.auth.uid ||
-        request.auth.uid in conversationId.split('_') ||
-        isAdmin()
-      );
-
-      // Either the patient, the doctor in this thread, or admin can create the conversation document.
-      allow create: if signedIn() && (
-        (
-          (request.resource.data.patientId == request.auth.uid || request.resource.data.doctorId == request.auth.uid) &&
-          request.auth.uid in conversationId.split('_') &&
-          request.resource.data.patientId == conversationId.split('_')[0] &&
-          request.resource.data.doctorId == conversationId.split('_')[1]
-        ) ||
-        isAdmin()
-      );
-
-      // Participants or admin can update conversation metadata (last message, unread counts, etc.).
-      // Cannot modify ownership fields (patientId, doctorId).
-      allow update: if signedIn() && (
-        (
-          (resource.data.patientId == request.auth.uid || resource.data.doctorId == request.auth.uid) &&
-          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['patientId', 'doctorId'])
-        ) ||
-        isAdmin()
-      );
-
+    match /exerciseSchedules/{id} {
+      allow read: if isAdmin() || (isDoctor() && resource.data.doctorId == request.auth.uid);
+      allow create: if isAdmin() || (isAssignedDoctor(request.resource.data.patientId) && request.resource.data.doctorId == request.auth.uid
+        && request.resource.data.status == 'scheduled' && request.resource.data.scheduledAt is timestamp
+        && request.resource.data.scheduledAt > request.time && request.resource.data.expiresAt > request.resource.data.scheduledAt
+        && request.resource.data.sessionName is string && request.resource.data.sessionName.size() > 0
+        && request.resource.data.exercises is list && request.resource.data.exercises.size() > 0 && request.resource.data.exercises.size() <= 4
+        && request.resource.data.exerciseProgress is list && request.resource.data.createdAt == request.time
+        && (request.resource.data.get('managedSeries', false) == false || (
+          get(/databases/$(database)/documents/exerciseScheduleSeries/$(request.resource.data.seriesId)).data.status == 'preparing'
+          && get(/databases/$(database)/documents/exerciseScheduleSeries/$(request.resource.data.seriesId)).data.patientId == request.resource.data.patientId
+          && get(/databases/$(database)/documents/exerciseScheduleSeries/$(request.resource.data.seriesId)).data.doctorId == request.auth.uid)));
+      allow update: if isAdmin() || (isAssignedDoctor(resource.data.patientId)
+        && resource.data.status == 'scheduled'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt']) && request.resource.data.status == 'cancelled');
       allow delete: if isAdmin();
-
+    }
+    match /assessmentSessions/{id} {
+      allow get: if isAdmin() || (signedIn() && id.matches(request.auth.uid + '_.*') && !exists(/databases/$(database)/documents/assessmentSessions/$(id)))
+        || isSelf(resource.data.patientId) || isAssignedDoctor(resource.data.patientId);
+      allow list: if isSelf(resource.data.patientId) || isAdmin() || isAssignedDoctor(resource.data.patientId);
+      allow create: if isAdmin() || (readyPatient() && isSelf(request.resource.data.patientId)
+        && id.matches(request.auth.uid + '_.*') && request.resource.data.sessionId == id
+        && currentPair(request.auth.uid, request.resource.data.doctorId)
+        && request.resource.data.recordingConsentVersion == '2026-10-02-v1' && request.resource.data.safetyConfirmedAt == request.time
+        && request.resource.data.status == 'active'
+        && (request.resource.data.get('practice', false) == true || availableAssignment()));
+      allow update: if isAdmin() || (isSelf(resource.data.patientId) && readyPatient()
+        && resource.data.status in ['active', 'in_progress', 'paused']
+        && currentPair(request.auth.uid, request.resource.data.doctorId)
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['patientId', 'sessionId', 'doctorId', 'originalDoctorId', 'report', 'reportGeneratedAt'])
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['startedAt'])
+          || (resource.data.get('startedAt', null) == null && request.resource.data.startedAt == request.time))
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['practice'])
+          || (resource.data.get('practice', null) == null && request.resource.data.practice is bool)))
+        || (isAssignedDoctor(resource.data.patientId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['doctorFeedback', 'doctorFeedbackBy', 'doctorFeedbackAt']));
+      allow delete: if isAdmin();
+    }
+    match /conversations/{id} {
+      allow read: if isAdmin() || (active() && (resource.data.patientId == request.auth.uid || (isDoctor() && resource.data.doctorId == request.auth.uid)));
+      allow create: if isAdmin() || (currentPair(request.resource.data.patientId, request.resource.data.doctorId) && id == request.resource.data.patientId + '_' + request.resource.data.doctorId);
+      allow update: if isAdmin() || (currentPair(resource.data.patientId, resource.data.doctorId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['patientId', 'doctorId']));
+      allow delete: if isAdmin();
       match /messages/{messageId} {
-        // Only the patient or doctor in this thread, or admin can read messages.
-        // request.auth.uid in conversationId.split('_') allows subcollection queries
-        // without requiring composite indexes on (patientId, createdAt).
-        allow read: if signedIn() && (
-          request.auth.uid in conversationId.split('_') ||
-          resource.data.patientId == request.auth.uid ||
-          resource.data.doctorId == request.auth.uid ||
-          isAdmin()
-        );
-
-        // Sender must be authenticated user and must be either the patient or doctor participant.
-        // Sender cannot impersonate another user and must match the conversation identity.
-        allow create: if signedIn() && (
-          (
-            request.resource.data.senderId == request.auth.uid &&
-            (request.auth.uid == request.resource.data.patientId || request.auth.uid == request.resource.data.doctorId) &&
-            request.resource.data.conversationId == conversationId &&
-            request.auth.uid in conversationId.split('_') &&
-            request.resource.data.patientId == conversationId.split('_')[0] &&
-            request.resource.data.doctorId == conversationId.split('_')[1]
-          ) ||
-          isAdmin()
-        );
-
-        // Participants can update (e.g. mark read status) or admin.
-        // Cannot modify ownership or identity fields.
-        allow update: if isAdmin() || (
-          signedIn() &&
-          request.auth.uid in conversationId.split('_') &&
-          (resource.data.patientId == request.auth.uid || resource.data.doctorId == request.auth.uid) &&
-          !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-            'patientId',
-            'doctorId',
-            'senderId',
-            'conversationId'
-          ])
-        );
-
+        allow read: if isAdmin() || conversationPair(id);
+        allow create: if (isAdmin() || conversationPair(id)) && request.resource.data.senderId == request.auth.uid && request.resource.data.conversationId == id
+          && request.resource.data.patientId == id.split('_')[0] && request.resource.data.doctorId == id.split('_')[1];
+        allow update: if isAdmin() || (conversationPair(id) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'readByPatient', 'readByDoctor']));
         allow delete: if isAdmin();
+      }
+    }
+    match /supportTickets/{id} {
+      allow read: if isAdmin() || isSelf(resource.data.userId);
+      allow create: if active() && request.resource.data.userId == request.auth.uid && request.resource.data.status == 'open';
+      allow update: if isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'closedAt']);
+      allow delete: if isAdmin();
+      match /messages/{messageId} {
+        function ticketOwner() { return getAfter(/databases/$(database)/documents/supportTickets/$(id)).data.userId; }
+        allow read: if isAdmin() || isSelf(ticketOwner());
+        allow create: if (isAdmin() || isSelf(ticketOwner())) && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 2000;
+        allow update, delete: if false;
       }
     }
   }

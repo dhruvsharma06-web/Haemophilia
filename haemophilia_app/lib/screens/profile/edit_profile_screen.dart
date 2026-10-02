@@ -1,3 +1,4 @@
+import '../../utils/firebase_errors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -90,7 +91,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not update profile: $e')),
+        SnackBar(content: Text(firebaseErrorMessage(e, fallback: 'Could not update profile. Please try again.'))),
       );
     } finally {
       if (mounted) setState(() => _saving = false);

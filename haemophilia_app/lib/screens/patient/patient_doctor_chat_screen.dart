@@ -1,3 +1,5 @@
+import '../../utils/firebase_errors.dart';
+import '../../widgets/app_text.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
@@ -93,7 +95,7 @@ class _PatientDoctorChatScreenState extends State<PatientDoctorChatScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not send message: $e')),
+        SnackBar(content: Text(firebaseErrorMessage(e, fallback: 'Could not send message. Please try again.'))),
       );
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -103,7 +105,7 @@ class _PatientDoctorChatScreenState extends State<PatientDoctorChatScreen> {
   String _time(dynamic value) {
     if (value is Timestamp) {
       final date = value.toDate().toLocal();
-      return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+      return '${date.day}/${date.month}/${date.year}  ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
     }
     return '';
   }
@@ -151,8 +153,7 @@ class _PatientDoctorChatScreenState extends State<PatientDoctorChatScreen> {
                   return Center(
                     child: Padding(
                       padding: const EdgeInsets.all(24),
-                      child: Text(
-                        'Could not load messages.\n\n${snapshot.error}',
+                      child: Text(firebaseErrorMessage(snapshot.error, fallback: 'Could not load messages.'),
                         textAlign: TextAlign.center,
                       ),
                     ),
@@ -194,7 +195,7 @@ class _PatientDoctorChatScreenState extends State<PatientDoctorChatScreen> {
                             ),
                           ),
                           const SizedBox(height: 6),
-                          Text(
+                          AppText(
                             '${tr('Send a message to')} ${widget.doctorName} ${tr('to start the conversation')}.',
                             textAlign: TextAlign.center,
                             style: const TextStyle(color: Colors.grey),
@@ -321,6 +322,7 @@ class _SessionReferenceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     final exercise = sessionContext['sessionName']?.toString() ??
         sessionContext['exercise']?.toString() ??
         'Physiotherapy Session';
@@ -378,7 +380,7 @@ class _SessionReferenceCard extends StatelessWidget {
                     color: scoreColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: Text(
+                  child: AppText(
                     '${score.toStringAsFixed(0)}/100',
                     style: TextStyle(
                       color: scoreColor,
@@ -396,7 +398,7 @@ class _SessionReferenceCard extends StatelessWidget {
               spacing: 6,
               runSpacing: 2,
               children: [
-                Text(
+                AppText(
                   '$correctReps/$reps ${tr('correct reps')}${dt != null ? ' • ${dt.day}/${dt.month}/${dt.year}' : ''}',
                   style: const TextStyle(
                     fontSize: 11,

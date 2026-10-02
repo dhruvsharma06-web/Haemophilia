@@ -1,3 +1,4 @@
+import '../app_text.dart';
 import 'package:flutter/material.dart';
 import '../../utils/app_localizations.dart';
 import '../../utils/exercise_utils.dart';
@@ -105,6 +106,7 @@ class _ExerciseDemoState extends State<ExerciseDemo>
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     if (widget.compact) {
       return _buildCompactView();
     }
@@ -218,7 +220,7 @@ class _ExerciseDemoState extends State<ExerciseDemo>
                         ),
                       ),
                       const SizedBox(width: 6),
-                      Text(
+                      AppText(
                         '${tr('Step')} ${activePhase.phaseNumber}: ${tr(activePhase.title)}',
                         style: TextStyle(
                           color: widget.isDark ? Colors.white : Colors.black87,
@@ -287,7 +289,7 @@ class _ExerciseDemoState extends State<ExerciseDemo>
                   style: TextButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 10),
                   ),
-                  child: Text(
+                  child: AppText(
                     '${_playbackSpeed}x',
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
@@ -352,8 +354,8 @@ class _ExerciseDemoState extends State<ExerciseDemo>
                             : Colors.transparent,
                       ),
                     ),
-                    child: Text(
-                      '${phase.phaseNumber}. ${phase.title}',
+                    child: AppText(
+                      '${phase.phaseNumber}. ${tr(phase.title)}',
                       style: TextStyle(
                         color: isCurrent
                             ? Colors.white
@@ -406,7 +408,7 @@ class _ExerciseDemoState extends State<ExerciseDemo>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      activePhase.title,
+                      tr(activePhase.title),
                       style: const TextStyle(
                         fontSize: 13.5,
                         fontWeight: FontWeight.w800,
@@ -414,7 +416,7 @@ class _ExerciseDemoState extends State<ExerciseDemo>
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      activePhase.description,
+                      tr(activePhase.description),
                       style: TextStyle(
                         fontSize: 12.5,
                         height: 1.4,

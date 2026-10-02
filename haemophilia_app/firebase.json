@@ -1,6 +1,7 @@
 {
   "firestore": {
-    "rules": "firebase/firestore.rules"
+    "rules": "firebase/firestore.rules",
+    "indexes": "firebase/firestore.indexes.json"
   },
   "flutter": {
     "platforms": {
@@ -22,5 +23,24 @@
         }
       }
     }
+  },
+  "functions": [
+    {
+      "source": "firebase/functions",
+      "codebase": "hemo-workflow",
+      "runtime": "python312"
+    }
+  ],
+  "storage": {
+    "rules": "firebase/storage.rules"
+  },
+  "emulators": {
+    "firestore": {
+      "port": 8089
+    },
+    "ui": {
+      "enabled": false
+    },
+    "singleProjectMode": true
   }
 }

@@ -1,3 +1,4 @@
+import '../../widgets/app_text.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -5,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../assessment/live_assessment_screen.dart';
 import '../../utils/app_localizations.dart';
 import '../../utils/exercise_utils.dart';
+import '../../utils/schedule_utils.dart';
 import '../../widgets/exercise_demo/exercise_demo_dialog.dart';
 
 class AssignedAssessmentScreen extends StatefulWidget {
@@ -98,7 +100,7 @@ class _AssignedAssessmentScreenState
 
       // 2. Verify status is active 'assigned', 'paused', or 'in_progress'
       final status = data['status']?.toString().trim().toLowerCase() ?? '';
-      if (status != 'assigned' && status != 'paused' && status != 'in_progress') {
+      if (!assignmentAvailable(data, DateTime.now())) {
         if (!mounted) return;
         setState(() {
           if (status == 'completed') {
@@ -277,24 +279,6 @@ class _AssignedAssessmentScreenState
             : DateTime.now().microsecondsSinceEpoch.toString());
 
     debugPrint('AssignedAssessment: launching session $sessionId (isPaused: $_isPaused, sessionName: $_sessionName)');
-
-    // If starting a fresh assignment, mark as in_progress in Firestore
-    if (!_isPaused && user != null) {
-      FirebaseFirestore.instance
-          .collection('exerciseAssignments')
-          .doc(user.uid)
-          .set({
-        'status': 'in_progress',
-        'sessionId': sessionId,
-        'currentExerciseIndex': 0,
-        'currentExercise': _exercises.first['exercise'].toString(),
-        'completedCorrectReps': 0,
-        'totalCompletedReps': 0,
-        'progressPercentage': 0.0,
-        'lastUpdatedAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-    }
 
     final initialIndex = _isPaused
         ? _savedExerciseIndex.clamp(0, _exercises.length - 1)
@@ -616,7 +600,7 @@ class _AssignedAssessmentScreenState
                               alignment: Alignment.center,
                               child: isDone
                                   ? const Icon(Icons.check, color: Colors.green, size: 22)
-                                  : Text(
+                                  : AppText(
                                       '${index + 1}',
                                       style: TextStyle(
                                         color: isCurrent ? Colors.amber.shade900 : primary,
@@ -630,7 +614,7 @@ class _AssignedAssessmentScreenState
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                   Text(
+                                   AppText(
                                     '${tr('Exercise')} ${index + 1}',
                                     style: TextStyle(
                                       fontSize: 11,
@@ -677,7 +661,7 @@ class _AssignedAssessmentScreenState
                                           color: Colors.green,
                                         ),
                                         const SizedBox(width: 4),
-                                        Text(
+                                        AppText(
                                           '${tr('Completed')} ($target/$target ${tr('correct reps')})',
                                           style: const TextStyle(
                                             color: Colors.green,
@@ -697,7 +681,7 @@ class _AssignedAssessmentScreenState
                                           color: Colors.amber.shade800,
                                         ),
                                         const SizedBox(width: 4),
-                                        Text(
+                                        AppText(
                                           '${tr('In Progress')} • $_savedCorrectReps/$target ${tr('correct reps')}',
                                           style: TextStyle(
                                             color: Colors.amber.shade900,
@@ -709,7 +693,7 @@ class _AssignedAssessmentScreenState
                                     ),
                                   ] else ...[
                                     const SizedBox(height: 3),
-                                    Text(
+                                    AppText(
                                       '${tr('Target')}: $target ${tr('correct reps')}',
                                       style: TextStyle(
                                         fontSize: 12,

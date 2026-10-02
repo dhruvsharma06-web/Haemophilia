@@ -1,3 +1,5 @@
+import '../../utils/firebase_errors.dart';
+import '../../widgets/app_text.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
@@ -7,11 +9,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../../widgets/session_safety_dialog.dart';
 import 'package:image/image.dart' as img;
 import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../../services/assessment_history_service.dart';
+import '../../services/backend_config.dart';
 import '../../services/notification_service.dart';
 import '../../utils/app_localizations.dart';
 import '../../utils/exercise_utils.dart';
@@ -193,8 +197,7 @@ class _LiveAssessmentScreenState
   // CONFIGURATION
   // ============================================================
 
-  static const String websocketUrl =
-      'wss://lessons-family-councils-obvious.trycloudflare.com/v1/assessments/live';
+  static final String websocketUrl = BackendConfig.liveAssessmentUri.toString();
 
   static const Duration frameInterval =
       Duration(milliseconds: 50);
@@ -275,6 +278,12 @@ class _LiveAssessmentScreenState
   bool _assignedMode = false;
   bool _switchingExercise = false;
   bool _completed = false;
+  bool _safetyAccepted = false;
+  bool _sessionStarted = false;
+  final List<Future<void>> _pendingRepWrites = [];
+  Future<void> _progressWrites = Future<void>.value();
+  bool _backgroundPaused = false;
+  Future<void> _backgroundPauseWrite = Future<void>.value();
 
   int _currentAssignedIndex = 0;
   int _currentCorrectReps = 0;
@@ -362,6 +371,12 @@ class _LiveAssessmentScreenState
       }
     }
 
+    if (!_assignedMode) {
+      _currentCorrectReps = widget.initialCorrectReps;
+      _currentTotalReps = widget.initialTotalReps;
+      _sessionRepSequence = widget.initialRepSequence;
+      _repCount = widget.initialTotalReps;
+    }
     _initialize();
   }
 
@@ -405,6 +420,12 @@ class _LiveAssessmentScreenState
 
   Future<void> _initialize() async {
     try {
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) return;
+      final accepted = await confirmSessionSafety(context);
+      if (!mounted) return;
+      if (!accepted) { await _popAssessment(); return; }
+      _safetyAccepted = true;
       await _initializeCamera();
       await _connectWebSocket();
       await _startActiveSessionInFirestore();
@@ -423,47 +444,22 @@ class _LiveAssessmentScreenState
 
       setState(() {
         _initializing = false;
-        _connectionError = e.toString();
+        _connectionError = e is StateError ? tr(e.message.toString()) : firebaseErrorMessage(e, fallback: 'Could not connect to AI. Please try again.');
       });
     }
   }
 
   Future<void> _startActiveSessionInFirestore() async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
+    if (user == null) throw StateError('Please sign in.');
     final patientId = user.uid;
     _resolvedPatientName = user.displayName ?? '';
 
-    try {
-      if (_resolvedDoctorId.isEmpty) {
-        final assignDoc = await FirebaseFirestore.instance
-            .collection('exerciseAssignments')
-            .doc(patientId)
-            .get();
-        if (assignDoc.exists) {
-          _resolvedDoctorId =
-              assignDoc.data()?['doctorId']?.toString().trim() ?? '';
-        }
-      }
-      final userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(patientId)
-          .get();
-      final userData = userDoc.data();
-      if (userData != null) {
-        if (_resolvedDoctorId.isEmpty) {
-          _resolvedDoctorId =
-              userData['doctorId']?.toString().trim() ?? '';
-        }
-        if (_resolvedPatientName.isEmpty ||
-            _resolvedPatientName == 'Patient') {
-          _resolvedPatientName =
-              userData['name']?.toString().trim() ?? 'Patient';
-        }
-      }
-    } catch (e) {
-      debugPrint('Error fetching patient/doctor info for active session: $e');
-    }
+    final userDoc = await FirebaseFirestore.instance.collection('users').doc(patientId).get();
+    final userData = userDoc.data();
+    _resolvedDoctorId = userData?['doctorId']?.toString().trim() ?? '';
+    if (_resolvedDoctorId.isEmpty || userData?['accountActive'] == false) throw StateError('An active doctor assignment is required.');
+    _resolvedPatientName = userData?['name']?.toString() ?? _resolvedPatientName;
 
     try {
       final docRef = FirebaseFirestore.instance
@@ -483,6 +479,9 @@ class _LiveAssessmentScreenState
         'exercise': _currentExerciseDisplayName(),
         'sessionName': widget.sessionName ?? _currentExerciseDisplayName(),
         'status': 'active',
+        'practice': !_assignedMode,
+        'safetyConfirmedAt': FieldValue.serverTimestamp(),
+        'recordingConsentVersion': '2026-10-02-v1',
         'currentRepCount': math.max(_repCount, _currentTotalReps),
         'currentScore': _score,
         'currentForm': _form,
@@ -495,28 +494,27 @@ class _LiveAssessmentScreenState
         sessionData['resumedAt'] = FieldValue.serverTimestamp();
       }
 
-      await docRef.set(sessionData, SetOptions(merge: true));
-
+      final batch = FirebaseFirestore.instance.batch();
+      batch.set(docRef, sessionData, SetOptions(merge: true));
       if (_assignedMode) {
-        await FirebaseFirestore.instance
-            .collection('exerciseAssignments')
-            .doc(patientId)
-            .set({
-          'status': 'in_progress',
-          'sessionId': _sessionId,
-          'lastUpdatedAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
+        batch.set(FirebaseFirestore.instance.collection('exerciseAssignments').doc(patientId), {
+          'status': 'in_progress', 'sessionId': _sessionId,
+          'lastUpdatedAt': FieldValue.serverTimestamp(), 'updatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
       }
+      await batch.commit();
+      _sessionStarted = true;
 
       debugPrint(
           'Active session initialized in Firestore: $_sessionId (resumed: $alreadyExists, doctorId: $_resolvedDoctorId)');
     } catch (e) {
       debugPrint('Error initializing active session in Firestore: $e');
+      rethrow;
     }
   }
 
   void _syncActiveSessionProgress({bool force = false}) {
+    if (_completed || _isExitingOrSaving || _backgroundPaused || !_safetyAccepted) return;
     final now = DateTime.now();
     if (!force &&
         now.difference(_lastActiveSessionSync).inMilliseconds < 1500) {
@@ -552,18 +550,11 @@ class _LiveAssessmentScreenState
       syncData['patientName'] = _resolvedPatientName;
     }
 
-    FirebaseFirestore.instance
-        .collection('assessmentSessions')
-        .doc(_sessionId)
-        .set(syncData, SetOptions(merge: true)).catchError((e) {
-      debugPrint('Error syncing active session progress: $e');
-    });
+    final batch = FirebaseFirestore.instance.batch();
+    batch.set(FirebaseFirestore.instance.collection('assessmentSessions').doc(_sessionId), syncData, SetOptions(merge: true));
 
     if (_assignedMode) {
-      FirebaseFirestore.instance
-          .collection('exerciseAssignments')
-          .doc(patientId)
-          .set({
+      batch.set(FirebaseFirestore.instance.collection('exerciseAssignments').doc(patientId), {
         'status': 'in_progress',
         'sessionId': _sessionId,
         'currentExerciseIndex': _currentAssignedIndex,
@@ -571,12 +562,11 @@ class _LiveAssessmentScreenState
         'completedCorrectReps': totalCorrect,
         'totalCompletedReps': totalReps,
         'progressPercentage': progressPct,
-        'exerciseProgress': _exerciseProgress,
+        'exerciseProgress': _exerciseProgress.map((entry) => Map<String, dynamic>.from(entry)).toList(),
         'lastUpdatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true)).catchError((e) {
-        debugPrint('Error syncing assignment progress: $e');
-      });
+      }, SetOptions(merge: true));
     }
+    _progressWrites = _progressWrites.then((_) => batch.commit()).catchError((Object e) { debugPrint('Could not sync session progress: $e'); });
   }
 
   // ============================================================
@@ -725,7 +715,7 @@ class _LiveAssessmentScreenState
       if (mounted) {
         setState(() {
           _connectionStatus = 'AI Connection Failed';
-          _connectionError = e.toString();
+          _connectionError = e is StateError ? tr(e.message.toString()) : firebaseErrorMessage(e, fallback: 'Could not connect to AI. Please try again.');
         });
       }
     }
@@ -804,6 +794,8 @@ class _LiveAssessmentScreenState
         _lastBackendState = backendState;
       }
 
+      if (_isExitingOrSaving || _backgroundPaused || _completed) return;
+
       // Handle completed rep immediately and synchronously
       if (hasCompletedRep) {
         final form = completedRep['form']?.toString().toLowerCase() ??
@@ -826,6 +818,7 @@ class _LiveAssessmentScreenState
         debugPrint('[REP DEBUG] total=$_currentTotalReps');
         debugPrint('[REP DEBUG] correct=$_currentCorrectReps');
 
+        final completedExercise = _currentExerciseDisplayName();
         // Assignment progress is based on completed correct repetitions
         if (_assignedMode && !_switchingExercise && !_completed) {
           if (_currentAssignedIndex < _exerciseProgress.length) {
@@ -850,12 +843,15 @@ class _LiveAssessmentScreenState
         _sessionRepSequence++;
         final normalizedRepNumber = _sessionRepSequence;
         rep['rep_number'] = normalizedRepNumber;
+        rep['exercise'] = completedExercise;
 
         final repSignature =
             '${_currentExerciseDisplayName()}_rep_${normalizedRepNumber}_${_sessionId}_${rep['score']}';
         if (repSignature != _lastSavedRepSignature) {
           _lastSavedRepSignature = repSignature;
-          unawaited(_saveCompletedRepToHistory(rep));
+          final write = _saveCompletedRepToHistory(rep);
+          _pendingRepWrites.add(write);
+          unawaited(write);
         }
 
         _lastCompletedRep = rep;
@@ -1026,6 +1022,8 @@ class _LiveAssessmentScreenState
     }
     _channel = null;
     _socketConnected = false;
+    await Future.wait(_pendingRepWrites);
+    await _progressWrites;
 
     final user = FirebaseAuth.instance.currentUser;
     final patientId = user?.uid;
@@ -1038,26 +1036,21 @@ class _LiveAssessmentScreenState
         final totalReps = _assignedMode ? _totalCompletedReps : math.max(_repCount, _currentTotalReps);
         final finalScoreVal = _score;
 
+        final batch = FirebaseFirestore.instance.batch();
         // Update exerciseAssignments to completed so patient cannot re-start it
-        await FirebaseFirestore.instance
-            .collection('exerciseAssignments')
-            .doc(patientId)
-            .set({
+        batch.set(FirebaseFirestore.instance.collection('exerciseAssignments').doc(patientId), {
           'status': 'completed',
           'completedCorrectReps': totalCorrect,
           'totalCompletedReps': totalReps,
           'progressPercentage': 100.0,
-          'exerciseProgress': _exerciseProgress,
+          'exerciseProgress': _exerciseProgress.map((entry) => Map<String, dynamic>.from(entry)).toList(),
           'completedAt': FieldValue.serverTimestamp(),
           'lastUpdatedAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
 
         // Create / update assessmentSessions
-        await FirebaseFirestore.instance
-            .collection('assessmentSessions')
-            .doc(_sessionId)
-            .set({
+        batch.set(FirebaseFirestore.instance.collection('assessmentSessions').doc(_sessionId), {
           'sessionId': _sessionId,
           'patientId': patientId,
           'patientName': _resolvedPatientName.isNotEmpty
@@ -1087,6 +1080,7 @@ class _LiveAssessmentScreenState
             'status': 'completed',
           }).toList(),
         }, SetOptions(merge: true));
+        await batch.commit();
 
         debugPrint('LiveAssessment: Session completed. sessionId=$_sessionId, finalRepCount=$totalReps, finalScore=$finalScoreVal');
 
@@ -1103,6 +1097,7 @@ class _LiveAssessmentScreenState
             data: {
               'type': 'session_completed',
               'patientId': patientId,
+              'doctorId': _resolvedDoctorId,
               'sessionId': _sessionId,
               'sessionName': sessionName,
             },
@@ -1110,6 +1105,15 @@ class _LiveAssessmentScreenState
         }
       } catch (e) {
         debugPrint('Error saving completed session to Firestore: $e');
+        if (mounted) {
+          final retry = await showDialog<bool>(context:context,barrierDismissible:false,builder:(dialogContext)=>AlertDialog(
+            title:Text(tr('Could not save. Please try again.')),
+            content:Text(tr('Your progress is still on this screen. Restore your connection, then retry saving.')),
+            actions:[TextButton(onPressed:()=>Navigator.pop(dialogContext,false),child:Text(tr('Save and exit'))),FilledButton(onPressed:()=>Navigator.pop(dialogContext,true),child:Text(tr('Try Again')))]));
+          _completed=false;
+          if (retry==true) { await _completeAssignedSession(); } else { await _saveAndExit(); }
+        }
+        return;
       }
     }
 
@@ -1133,7 +1137,7 @@ class _LiveAssessmentScreenState
             tr('Session Completed!'),
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
-          content: Text(
+          content: AppText(
             '${tr('Great job! You have completed all exercises for')} '
             '"$sessionName". ${tr('Your progress has been saved.')}',
             textAlign: TextAlign.center,
@@ -1143,7 +1147,7 @@ class _LiveAssessmentScreenState
             FilledButton(
               onPressed: () {
                 Navigator.pop(context); // Close dialog
-                Navigator.pop(this.context); // Pop LiveAssessmentScreen
+                unawaited(_popAssessment());
               },
               child: Text(tr('Done')),
             ),
@@ -1163,7 +1167,7 @@ class _LiveAssessmentScreenState
       );
 
       await _historyService.saveCompletedRep(
-        exercise: _currentExerciseDisplayName(),
+        exercise: rep['exercise']?.toString() ?? _currentExerciseDisplayName(),
         sessionId: _sessionId,
         rep: rep,
         sessionName: widget.sessionName,
@@ -1176,7 +1180,7 @@ class _LiveAssessmentScreenState
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Assessment result could not be saved: $e'),
+            content: Text(firebaseErrorMessage(e, fallback: 'Could not save. Please try again.')),
             duration: const Duration(seconds: 5),
           ),
         );
@@ -1405,28 +1409,48 @@ class _LiveAssessmentScreenState
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
-      if (!_completed && !_isExitingOrSaving) {
-        unawaited(_autoPauseStateInBackground());
+      if (_safetyAccepted && !_initializing && !_completed && !_isExitingOrSaving && !_backgroundPaused) {
+        _backgroundPauseWrite = _autoPauseStateInBackground();
+        unawaited(_backgroundPauseWrite);
       }
+    } else if (state == AppLifecycleState.resumed && _backgroundPaused && !_completed && !_isExitingOrSaving) {
+      unawaited(_resumeFromBackground());
     }
   }
 
+  Future<void> _resumeFromBackground() async {
+    await _backgroundPauseWrite;
+    if (!mounted) return;
+    final accepted = await confirmSessionSafety(context);
+    if (!mounted) return;
+    if (!accepted) { await _saveAndExit(); return; }
+    try {
+      if (!_socketConnected) await _connectWebSocket();
+      await _startActiveSessionInFirestore();
+      _backgroundPaused = false;
+      await _startImageStream();
+    } catch (e) { if(mounted) setState(() => _connectionError = e.toString()); }
+  }
+
   Future<void> _autoPauseStateInBackground() async {
+    _backgroundPaused = true;
+    try { if (_controller?.value.isStreamingImages == true) await _controller!.stopImageStream(); } catch (_) {}
+    _streaming = false;
+    await _progressWrites;
+    await Future.wait(_pendingRepWrites);
     final user = FirebaseAuth.instance.currentUser;
     final patientId = user?.uid;
     if (patientId == null) return;
 
     try {
+      final batch = FirebaseFirestore.instance.batch();
       final progressPct = _progressPercentage;
       final totalCorrect = _assignedMode ? _totalCompletedCorrectReps : _currentCorrectReps;
       final totalReps = _assignedMode ? _totalCompletedReps : math.max(_repCount, _currentTotalReps);
       final targetReps = _assignedMode ? _totalTargetCorrectReps : 0;
 
       if (_assignedMode) {
-        await FirebaseFirestore.instance
-            .collection('exerciseAssignments')
-            .doc(patientId)
-            .set({
+        batch.set(FirebaseFirestore.instance.collection('exerciseAssignments').doc(patientId), {
           'status': 'paused',
           'sessionId': _sessionId,
           'currentExerciseIndex': _currentAssignedIndex,
@@ -1434,16 +1458,13 @@ class _LiveAssessmentScreenState
           'completedCorrectReps': totalCorrect,
           'totalCompletedReps': totalReps,
           'progressPercentage': progressPct,
-          'exerciseProgress': _exerciseProgress,
+          'exerciseProgress': _exerciseProgress.map((entry) => Map<String, dynamic>.from(entry)).toList(),
           'lastUpdatedAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
       }
 
-      await FirebaseFirestore.instance
-          .collection('assessmentSessions')
-          .doc(_sessionId)
-          .set({
+      batch.set(FirebaseFirestore.instance.collection('assessmentSessions').doc(_sessionId), {
         'sessionId': _sessionId,
         'assignmentId': _assignedMode ? patientId : null,
         'patientId': patientId,
@@ -1476,6 +1497,7 @@ class _LiveAssessmentScreenState
         'lastUpdatedAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
+        await batch.commit();
     } catch (e) {
       debugPrint('Error auto-pausing session in background: $e');
     }
@@ -1486,6 +1508,7 @@ class _LiveAssessmentScreenState
   // ============================================================
 
   Future<void> _saveAndExit() async {
+    if (!_safetyAccepted || !_sessionStarted) { await _popAssessment(); return; }
     if (_isExitingOrSaving) return;
     _isExitingOrSaving = true;
 
@@ -1503,6 +1526,8 @@ class _LiveAssessmentScreenState
     } catch (_) {}
     _channel = null;
     _socketConnected = false;
+    await Future.wait(_pendingRepWrites);
+    await _progressWrites;
 
     final user = FirebaseAuth.instance.currentUser;
     final patientId = user?.uid;
@@ -1520,16 +1545,14 @@ class _LiveAssessmentScreenState
 
     if (patientId != null) {
       try {
+        final batch = FirebaseFirestore.instance.batch();
         final progressPct = _progressPercentage;
         final totalCorrect = _assignedMode ? _totalCompletedCorrectReps : _currentCorrectReps;
         final totalReps = _assignedMode ? _totalCompletedReps : math.max(_repCount, _currentTotalReps);
         final targetReps = _assignedMode ? _totalTargetCorrectReps : 0;
 
         if (_assignedMode) {
-          await FirebaseFirestore.instance
-              .collection('exerciseAssignments')
-              .doc(patientId)
-              .set({
+          batch.set(FirebaseFirestore.instance.collection('exerciseAssignments').doc(patientId), {
             'status': 'paused',
             'sessionId': _sessionId,
             'currentExerciseIndex': _currentAssignedIndex,
@@ -1537,16 +1560,13 @@ class _LiveAssessmentScreenState
             'completedCorrectReps': totalCorrect,
             'totalCompletedReps': totalReps,
             'progressPercentage': progressPct,
-            'exerciseProgress': _exerciseProgress,
+            'exerciseProgress': _exerciseProgress.map((entry) => Map<String, dynamic>.from(entry)).toList(),
             'lastUpdatedAt': FieldValue.serverTimestamp(),
             'updatedAt': FieldValue.serverTimestamp(),
           }, SetOptions(merge: true));
         }
 
-        await FirebaseFirestore.instance
-            .collection('assessmentSessions')
-            .doc(_sessionId)
-            .set({
+        batch.set(FirebaseFirestore.instance.collection('assessmentSessions').doc(_sessionId), {
           'sessionId': _sessionId,
           'assignmentId': _assignedMode ? patientId : null,
           'patientId': patientId,
@@ -1579,16 +1599,17 @@ class _LiveAssessmentScreenState
           'lastUpdatedAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
+        await batch.commit();
 
         debugPrint('Session $_sessionId saved and paused successfully.');
       } catch (e) {
         debugPrint('Error saving paused session to Firestore: $e');
+        if (mounted) { setState(()=>_isExitingOrSaving=false); ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('Could not save. Please try again.')))); }
+        return;
       }
     }
 
-    if (mounted) {
-      Navigator.pop(context);
-    }
+    await _popAssessment();
   }
 
   Future<void> _discardAndExit() async {
@@ -1645,6 +1666,8 @@ class _LiveAssessmentScreenState
     } catch (_) {}
     _channel = null;
     _socketConnected = false;
+    await Future.wait(_pendingRepWrites);
+    await _progressWrites;
 
     final user = FirebaseAuth.instance.currentUser;
     final patientId = user?.uid;
@@ -1693,7 +1716,7 @@ class _LiveAssessmentScreenState
             'completedCorrectReps': accumulatedCorrectReps,
             'totalCompletedReps': accumulatedTotalReps,
             'progressPercentage': progressPct,
-            'exerciseProgress': _exerciseProgress,
+            'exerciseProgress': _exerciseProgress.map((entry) => Map<String, dynamic>.from(entry)).toList(),
             'discardedAt': FieldValue.serverTimestamp(),
             'lastUpdatedAt': FieldValue.serverTimestamp(),
             'updatedAt': FieldValue.serverTimestamp(),
@@ -1749,9 +1772,14 @@ class _LiveAssessmentScreenState
       }
     }
 
-    if (mounted) {
-      Navigator.pop(context);
-    }
+    await _popAssessment();
+  }
+
+  Future<void> _popAssessment() async {
+    if (!mounted) return;
+    setState(() => _isExitingOrSaving = true);
+    await WidgetsBinding.instance.endOfFrame;
+    if (mounted) Navigator.pop(context);
   }
 
   Future<void> _handleExitAttempt() async {
@@ -1792,7 +1820,7 @@ class _LiveAssessmentScreenState
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
-                Text(
+                AppText(
                   '${tr('You have not completed all exercises for')} "${widget.sessionName ?? tr('this session')}". ${tr('What would you like to do?')}',
                   style: const TextStyle(
                     fontSize: 14,
@@ -1908,32 +1936,31 @@ class _LiveAssessmentScreenState
 
     switch (value) {
       case 'RIGHT_ARM_LOW':
-        return 'RIGHT ARM TOO LOW';
+        return tr('RIGHT ARM TOO LOW');
       case 'LEFT_ARM_LOW':
-        return 'LEFT ARM TOO LOW';
+        return tr('LEFT ARM TOO LOW');
       case 'ARM_ASYMMETRY':
-        return 'ARMS NOT SYMMETRIC';
+        return tr('ARMS NOT SYMMETRIC');
       case 'BODY_TILT':
-        return 'BODY TILT DETECTED';
+        return tr('BODY TILT DETECTED');
       case 'ELBOW_FLARE_DETECTED':
       case 'ELBOW_FLARE':
-        return 'ELBOW FLARE DETECTED';
+        return tr('ELBOW FLARE DETECTED');
       case 'TORSO_ROTATION_DETECTED':
       case 'TORSO_ROTATION':
-        return 'TORSO ROTATION DETECTED';
+        return tr('TORSO ROTATION DETECTED');
       case 'INSUFFICIENT_FLEXION':
-        return 'INSUFFICIENT ELBOW FLEXION';
+        return tr('INSUFFICIENT ELBOW FLEXION');
       case 'INSUFFICIENT_ROM':
-        return 'LIMITED RANGE OF MOTION';
+        return tr('LIMITED RANGE OF MOTION');
       case 'GENERAL_FORM_ERROR':
-        return 'GENERAL FORM ERROR';
+        return tr('GENERAL FORM ERROR');
       default:
         return value.replaceAll('_', ' ').toUpperCase();
     }
   }
 
-  static const String errorFrameBaseUrl =
-      'https://lessons-family-councils-obvious.trycloudflare.com/v1/assets/error-frames/';
+  static final String errorFrameBaseUrl = BackendConfig.errorFrameBaseUrl;
 
   String? _errorFrameUrl(Map<String, dynamic> rep) {
     // Support all versions of the backend payload so the image keeps working
@@ -2103,7 +2130,7 @@ class _LiveAssessmentScreenState
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: Text(
+              child: AppText(
                 'REP ${rep['rep_number'] ?? _repCount} ${form.toUpperCase()}'
                 '${incorrect && error.isNotEmpty ? ' — ${_errorLabel(error)}' : ' • Score: ${score.toStringAsFixed(0)} • ROM: ${rom.toStringAsFixed(0)}°'}',
                 maxLines: 1,
@@ -2137,7 +2164,7 @@ class _LiveAssessmentScreenState
                         size: 14,
                       ),
                       SizedBox(width: 3),
-                      Text(
+                      AppText(
                         'View Error',
                         style: TextStyle(
                           color: Colors.white,
@@ -2193,7 +2220,7 @@ class _LiveAssessmentScreenState
               ),
               const SizedBox(width: 6),
               Expanded(
-                child: Text(
+                child: AppText(
                   'REP ${rep['rep_number'] ?? _repCount} — '
                   '${form.toUpperCase()}',
                   style: const TextStyle(
@@ -2338,6 +2365,7 @@ class _LiveAssessmentScreenState
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     final isWip = isWorkInProgressExercise(_currentAssignedExercise());
 
     return PopScope(
@@ -2750,7 +2778,7 @@ class _LiveAssessmentScreenState
               ],
               const Spacer(),
               if (_assignedMode) ...[
-                Text(
+                AppText(
                   '$_currentCorrectReps/${_currentAssignedTarget()} Correct',
                   style: const TextStyle(
                     color: Colors.greenAccent,
@@ -2760,7 +2788,7 @@ class _LiveAssessmentScreenState
                   ),
                 ),
                 const SizedBox(width: 6),
-                Text(
+                AppText(
                   '(Ex ${_currentAssignedIndex + 1}/${_assignedExercises.length})',
                   style: const TextStyle(
                     color: Colors.white70,
@@ -2776,7 +2804,7 @@ class _LiveAssessmentScreenState
                   color: Colors.white.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: Text(
+                child: AppText(
                   'REP $_repCount',
                   style: const TextStyle(
                     color: Colors.white,
@@ -2883,8 +2911,8 @@ class _LiveAssessmentScreenState
             Expanded(
               child: Text(
                 _errorType.isNotEmpty
-                    ? '${_errorLabel(_errorType)}: $_feedback'
-                    : _feedback,
+                    ? '${_errorLabel(_errorType)}: ${tr(_feedback)}'
+                    : tr(_feedback),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -2933,7 +2961,7 @@ class _LiveAssessmentScreenState
                   const SizedBox(height: 2),
                 ],
                 Text(
-                  _feedback,
+                  tr(_feedback),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -2964,7 +2992,7 @@ class _LiveAssessmentScreenState
               size: 64,
             ),
             const SizedBox(height: 16),
-            const Text(
+            const AppText(
               'Live Assessment Error',
               style: TextStyle(
                 color: Colors.white,
@@ -2986,7 +3014,7 @@ class _LiveAssessmentScreenState
               onPressed: () {
                 Navigator.pop(context);
               },
-              child: const Text('Go Back'),
+              child: const AppText('Go Back'),
             ),
           ],
         ),
@@ -3230,6 +3258,7 @@ class _ErrorFrameViewerDialogState extends State<_ErrorFrameViewerDialog> {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     final screenSize = MediaQuery.sizeOf(context);
 
     if (_isFullscreen) {
@@ -3250,7 +3279,7 @@ class _ErrorFrameViewerDialogState extends State<_ErrorFrameViewerDialog> {
                       fit: BoxFit.contain,
                       errorBuilder: (context, error, stackTrace) {
                         return const Center(
-                          child: Text(
+                          child: AppText(
                             'Error frame unavailable.',
                             style: TextStyle(color: Colors.white70),
                           ),
@@ -3283,7 +3312,7 @@ class _ErrorFrameViewerDialogState extends State<_ErrorFrameViewerDialog> {
                       ),
                       const SizedBox(width: 8),
                       const Expanded(
-                        child: Text(
+                        child: AppText(
                           'WHERE THE FORM WENT WRONG',
                           style: TextStyle(
                             color: Colors.white,
@@ -3293,7 +3322,7 @@ class _ErrorFrameViewerDialogState extends State<_ErrorFrameViewerDialog> {
                         ),
                       ),
                       IconButton(
-                        tooltip: 'Reset Zoom',
+                        tooltip: tr('Reset Zoom'),
                         icon: const Icon(
                           Icons.refresh_rounded,
                           color: Colors.white70,
@@ -3302,7 +3331,7 @@ class _ErrorFrameViewerDialogState extends State<_ErrorFrameViewerDialog> {
                         onPressed: _resetZoom,
                       ),
                       IconButton(
-                        tooltip: 'Minimize',
+                        tooltip: tr('Minimize'),
                         icon: const Icon(
                           Icons.fullscreen_exit_rounded,
                           color: Colors.white,
@@ -3315,7 +3344,7 @@ class _ErrorFrameViewerDialogState extends State<_ErrorFrameViewerDialog> {
                         },
                       ),
                       IconButton(
-                        tooltip: 'Close',
+                        tooltip: tr('Close'),
                         icon: const Icon(
                           Icons.close_rounded,
                           color: Colors.white70,
@@ -3341,7 +3370,7 @@ class _ErrorFrameViewerDialogState extends State<_ErrorFrameViewerDialog> {
                       color: Colors.black.withValues(alpha: 0.6),
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    child: const Text(
+                    child: const AppText(
                       'Pinch or drag to zoom and inspect form error',
                       style: TextStyle(color: Colors.white60, fontSize: 11),
                     ),
@@ -3383,7 +3412,7 @@ class _ErrorFrameViewerDialogState extends State<_ErrorFrameViewerDialog> {
                   ),
                   const SizedBox(width: 8),
                   const Expanded(
-                    child: Text(
+                    child: AppText(
                       'WHERE THE FORM WENT WRONG',
                       style: TextStyle(
                         color: Colors.white,
@@ -3393,7 +3422,7 @@ class _ErrorFrameViewerDialogState extends State<_ErrorFrameViewerDialog> {
                     ),
                   ),
                   IconButton(
-                    tooltip: 'Maximize to Fullscreen',
+                    tooltip: tr('Maximize to Fullscreen'),
                     icon: const Icon(
                       Icons.fullscreen_rounded,
                       color: Colors.white,
@@ -3406,7 +3435,7 @@ class _ErrorFrameViewerDialogState extends State<_ErrorFrameViewerDialog> {
                     },
                   ),
                   IconButton(
-                    tooltip: 'Close',
+                    tooltip: tr('Close'),
                     icon: const Icon(
                       Icons.close_rounded,
                       color: Colors.white70,
@@ -3438,7 +3467,7 @@ class _ErrorFrameViewerDialogState extends State<_ErrorFrameViewerDialog> {
                       errorBuilder: (context, error, stackTrace) {
                         return const Padding(
                           padding: EdgeInsets.all(32),
-                          child: Text(
+                          child: AppText(
                             'Error frame unavailable.',
                             style: TextStyle(color: Colors.white70),
                           ),
@@ -3464,7 +3493,7 @@ class _ErrorFrameViewerDialogState extends State<_ErrorFrameViewerDialog> {
                   ),
                   const SizedBox(width: 6),
                   const Expanded(
-                    child: Text(
+                    child: AppText(
                       'Pinch to zoom • Tap maximize for fullscreen',
                       style: TextStyle(color: Colors.white54, fontSize: 11),
                     ),
@@ -3475,7 +3504,7 @@ class _ErrorFrameViewerDialogState extends State<_ErrorFrameViewerDialog> {
                       visualDensity: VisualDensity.compact,
                     ),
                     onPressed: _resetZoom,
-                    child: const Text('Reset Zoom',
+                    child: const AppText('Reset Zoom',
                         style: TextStyle(fontSize: 12)),
                   ),
                   const SizedBox(width: 4),
@@ -3486,7 +3515,7 @@ class _ErrorFrameViewerDialogState extends State<_ErrorFrameViewerDialog> {
                       visualDensity: VisualDensity.compact,
                     ),
                     onPressed: () => Navigator.pop(context),
-                    child: const Text('Done',
+                    child: const AppText('Done',
                         style: TextStyle(fontSize: 12)),
                   ),
                 ],

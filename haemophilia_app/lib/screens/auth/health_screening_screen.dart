@@ -1,12 +1,14 @@
+import '../../widgets/app_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../services/api_service.dart';
 import '../../utils/app_localizations.dart';
 
-/// Interactive, safe, unauthenticated Health Risk Screening Chatbot
-/// adapted directly from Physio-Project's calibrated 16-feature screening model.
+/// Post-login screening using the existing 15-question, 16-feature model.
+/// Results are informational and are saved only after the patient continues.
 class HealthScreeningScreen extends StatefulWidget {
-  const HealthScreeningScreen({super.key});
+  final Future<void> Function(Map<String, dynamic>, Map<String, dynamic>)? onComplete;
+  const HealthScreeningScreen({super.key, this.onComplete});
 
   @override
   State<HealthScreeningScreen> createState() => _HealthScreeningScreenState();
@@ -17,7 +19,9 @@ class _HealthScreeningScreenState extends State<HealthScreeningScreen> {
   final TextEditingController _ageController = TextEditingController();
 
   int _currentStep = 0;
+  final Set<String> _answered = {};
   bool _isLoading = false;
+  bool _savingResult = false;
   String? _errorMessage;
   Map<String, dynamic>? _screeningResult;
 
@@ -189,13 +193,41 @@ class _HealthScreeningScreenState extends State<HealthScreeningScreen> {
     }
   }
 
+  Future<void> _complete() async {
+    if (_savingResult) return;
+    setState(() => _savingResult = true);
+    try {
+      if (widget.onComplete != null) {
+        await widget.onComplete!(Map<String, dynamic>.from(_answers), _screeningResult!);
+      } else if (mounted) {
+        Navigator.pop(context);
+      }
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('Could not save. Please try again.'))));
+    } finally { if (mounted) setState(() => _savingResult = false); }
+  }
+
   void _nextStep() {
     FocusScope.of(context).unfocus();
     if (_currentStep == 0) {
-      final parsedAge = int.tryParse(_ageController.text.trim()) ?? 25;
-      _answers['age'] = parsedAge.clamp(1, 120);
+      final parsedAge = int.tryParse(_ageController.text.trim());
+      if (parsedAge == null || parsedAge < 1 || parsedAge > 120) {
+        setState(()=>_errorMessage=tr('Please enter an age from 1 to 120.'));
+        return;
+      }
+      _answers['age'] = parsedAge;
+      if (!_answered.contains('sex')) {
+        setState(()=>_errorMessage=tr('Please answer the question above before proceeding.'));
+        return;
+      }
     }
+    _errorMessage=null;
 
+    final question = _questions[_currentStep];
+    if (question.type != _QuestionType.demographics && !_answered.contains(question.key)) {
+      setState(()=>_errorMessage=tr('Please answer the question above before proceeding.'));
+      return;
+    }
     if (_currentStep < _questions.length - 1) {
       setState(() => _currentStep++);
     } else {
@@ -257,7 +289,7 @@ class _HealthScreeningScreenState extends State<HealthScreeningScreen> {
             const CircularProgressIndicator(strokeWidth: 3),
             const SizedBox(height: 20),
             Text(
-              tr('Analyzing your responses with the clinical screening model...'),
+              tr('Analyzing your responses...'),
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14.5,
@@ -290,7 +322,7 @@ class _HealthScreeningScreenState extends State<HealthScreeningScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Flexible(
-                child: Text(
+                child: AppText(
                   '${tr('Step')} ${_currentStep + 1} ${tr('of')} $totalSteps',
                   style: TextStyle(
                     fontSize: 12,
@@ -498,16 +530,16 @@ class _HealthScreeningScreenState extends State<HealthScreeningScreen> {
                 Expanded(
                   child: _buildChoiceChip(
                     label: tr('Male'),
-                    selected: _answers['sex'] == 'male',
-                    onTap: () => setState(() => _answers['sex'] = 'male'),
+                    selected: _answered.contains('sex') && _answers['sex'] == 'male',
+                    onTap: () => setState(() { _answers['sex'] = 'male'; _answered.add('sex'); _errorMessage=null; }),
                   ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: _buildChoiceChip(
                     label: tr('Female'),
-                    selected: _answers['sex'] == 'female',
-                    onTap: () => setState(() => _answers['sex'] = 'female'),
+                    selected: _answered.contains('sex') && _answers['sex'] == 'female',
+                    onTap: () => setState(() { _answers['sex'] = 'female'; _answered.add('sex'); _errorMessage=null; }),
                   ),
                 ),
               ],
@@ -516,38 +548,38 @@ class _HealthScreeningScreenState extends State<HealthScreeningScreen> {
         );
 
       case _QuestionType.frequency:
-        final currentVal = _answers[q.key] ?? 'never';
+        final currentVal = _answered.contains(q.key) ? _answers[q.key] : null;
         return Column(
           children: [
             _buildChoiceChip(
               label: tr('Never'),
               selected: currentVal == 'never',
-              onTap: () => setState(() => _answers[q.key] = 'never'),
+              onTap: () => setState(() { _answers[q.key] = 'never'; _answered.add(q.key); _errorMessage=null; }),
             ),
             const SizedBox(height: 8),
             _buildChoiceChip(
               label: tr('Sometimes'),
               selected: currentVal == 'sometimes',
-              onTap: () => setState(() => _answers[q.key] = 'sometimes'),
+              onTap: () => setState(() { _answers[q.key] = 'sometimes'; _answered.add(q.key); _errorMessage=null; }),
             ),
             const SizedBox(height: 8),
             _buildChoiceChip(
               label: tr('Often'),
               selected: currentVal == 'often',
-              onTap: () => setState(() => _answers[q.key] = 'often'),
+              onTap: () => setState(() { _answers[q.key] = 'often'; _answered.add(q.key); _errorMessage=null; }),
             ),
           ],
         );
 
       case _QuestionType.binary:
-        final currentVal = _answers[q.key] ?? 'no';
+        final currentVal = _answered.contains(q.key) ? _answers[q.key] : null;
         return Row(
           children: [
             Expanded(
               child: _buildChoiceChip(
                 label: tr('Yes'),
                 selected: currentVal == 'yes',
-                onTap: () => setState(() => _answers[q.key] = 'yes'),
+                onTap: () => setState(() { _answers[q.key] = 'yes'; _answered.add(q.key); _errorMessage=null; }),
               ),
             ),
             const SizedBox(width: 12),
@@ -555,7 +587,7 @@ class _HealthScreeningScreenState extends State<HealthScreeningScreen> {
               child: _buildChoiceChip(
                 label: tr('No'),
                 selected: currentVal == 'no',
-                onTap: () => setState(() => _answers[q.key] = 'no'),
+                onTap: () => setState(() { _answers[q.key] = 'no'; _answered.add(q.key); _errorMessage=null; }),
               ),
             ),
           ],
@@ -670,7 +702,7 @@ class _HealthScreeningScreenState extends State<HealthScreeningScreen> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    displayLabel,
+                    tr(displayLabel),
                     style: TextStyle(
                       fontSize: 26,
                       fontWeight: FontWeight.w900,
@@ -687,7 +719,7 @@ class _HealthScreeningScreenState extends State<HealthScreeningScreen> {
                       color: statusColor.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Text(
+                    child: AppText(
                       '${tr('Screening Confidence')}: $confPercent%',
                       style: TextStyle(
                         fontSize: 12,
@@ -809,14 +841,14 @@ class _HealthScreeningScreenState extends State<HealthScreeningScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: FilledButton(
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: _savingResult ? null : _complete,
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
                   ),
-                  child: Text(tr('Done')),
+                  child: Text(tr('Continue to app')),
                 ),
               ),
             ],

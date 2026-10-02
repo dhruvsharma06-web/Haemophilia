@@ -1,3 +1,4 @@
+import '../../widgets/app_text.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/user_model.dart';
@@ -90,7 +91,7 @@ class DoctorSessionDetail extends StatelessWidget {
           ),
           if (isWorkInProgressExercise(session.exercise)) ...[
             const SizedBox(height: 4),
-            Text(
+            AppText(
               '${getExerciseDisplayName(session.exercise)} • In progress',
               style: TextStyle(
                 color: Colors.amber.shade900,
@@ -102,7 +103,7 @@ class DoctorSessionDetail extends StatelessWidget {
 
           const SizedBox(height: 4),
 
-          Text(
+          AppText(
             '${patient.name} • ${_date(session.date)}',
             style: TextStyle(
               color: Colors.grey.shade600,
@@ -221,6 +222,7 @@ class _RepReview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     final d = rep;
 
     final form =
@@ -257,7 +259,7 @@ class _RepReview extends StatelessWidget {
                 const SizedBox(width: 9),
 
                 Expanded(
-                  child: Text(
+                  child: AppText(
                     '${tr('Rep')} $number • ${tr(form)}',
                     style: const TextStyle(
                       fontWeight: FontWeight.w800,
@@ -266,7 +268,7 @@ class _RepReview extends StatelessWidget {
                   ),
                 ),
 
-                Text(
+                AppText(
                   '${_num(d['score']).toStringAsFixed(0)}/100',
                   style: TextStyle(
                     color: incorrect
@@ -320,7 +322,7 @@ class _RepReview extends StatelessWidget {
                               return const Padding(
                                 padding:
                                     EdgeInsets.all(30),
-                                child: Text(
+                                child: AppText(
                                   'Error image unavailable.',
                                 ),
                               );
@@ -343,7 +345,7 @@ class _RepReview extends StatelessWidget {
                             Colors.grey.shade100,
                         alignment:
                             Alignment.center,
-                        child: const Text(
+                        child: const AppText(
                           'Error image unavailable.',
                         ),
                       );
@@ -406,6 +408,7 @@ class _M extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     return Expanded(
       child: Column(
         crossAxisAlignment:
@@ -449,6 +452,7 @@ class _Stat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     final screenWidth = MediaQuery.sizeOf(context).width;
     final statWidth = screenWidth < 380
         ? (screenWidth - 48) / 2

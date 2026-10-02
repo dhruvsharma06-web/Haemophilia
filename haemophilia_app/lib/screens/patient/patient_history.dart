@@ -1,3 +1,5 @@
+import '../../utils/firebase_errors.dart';
+import '../../widgets/app_text.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
@@ -40,8 +42,7 @@ class PatientHistory extends StatelessWidget {
               return Center(
                 child: Padding(
                   padding: const EdgeInsets.all(24),
-                  child: Text(
-                    'Could not load your session history.\n\n${snapshot.error}',
+                  child: Text(firebaseErrorMessage(snapshot.error, fallback: 'Could not load your session history.'),
                     textAlign: TextAlign.center,
                   ),
                 ),
@@ -245,7 +246,7 @@ class SessionDetails extends StatelessWidget {
             ),
             if (isWorkInProgressExercise(session.exercise)) ...[
               const SizedBox(height: 3),
-              Text(
+              AppText(
                 '${tr(getExerciseDisplayName(session.exercise))} • ${tr('Work in progress')}',
                 style: TextStyle(
                   color: Colors.amber.shade900,
@@ -278,7 +279,7 @@ class SessionDetails extends StatelessWidget {
                     ),
                   ),
                 ),
-                Text(
+                AppText(
                   '${session.reps} ${tr('reps')}',
                   style: TextStyle(
                     color: primary,
@@ -506,6 +507,7 @@ class _HistoryStatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     final primary = Theme.of(context).colorScheme.primary;
 
     return Card(
@@ -578,6 +580,7 @@ class _SessionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     final primary = Theme.of(context).colorScheme.primary;
 
     final correctRate = session.reps == 0
@@ -752,7 +755,7 @@ class _SessionCard extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 2),
-                          Text(
+                          AppText(
                             '${session.correctReps}/${session.reps} (${correctRate.toStringAsFixed(0)}%)',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -789,7 +792,7 @@ class _SessionCard extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 2),
-                          Text(
+                          AppText(
                             '${session.averageScore.toStringAsFixed(0)}/100',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -828,6 +831,7 @@ class _SessionStatsGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -919,7 +923,7 @@ class _SessionStatsGrid extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      AppText(
                         '${tr('AI Pose Confidence')}: ${session.averageConfidence.toStringAsFixed(1)}%',
                         style: const TextStyle(
                           fontSize: 12.5,
@@ -928,7 +932,7 @@ class _SessionStatsGrid extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 3),
-                      const Text(
+                      const AppText(
                         'Pose landmarks detected by real-time MediaPipe model.',
                         style: TextStyle(fontSize: 11.5, color: Colors.grey),
                       ),
@@ -955,6 +959,7 @@ class _StatTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     final primary = Theme.of(context).colorScheme.primary;
 
     return Container(
@@ -1019,6 +1024,7 @@ class _RepCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     final primary = Theme.of(context).colorScheme.primary;
 
     final form = data['form']?.toString() ?? 'Unknown';
@@ -1060,7 +1066,7 @@ class _RepCard extends StatelessWidget {
                 Expanded(
                   child: Row(
                     children: [
-                      Text(
+                      AppText(
                         '${tr('Rep')} $repNumber',
                         style: const TextStyle(fontWeight: FontWeight.w800),
                       ),
@@ -1089,7 +1095,7 @@ class _RepCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                Text(
+                AppText(
                   '${score.toStringAsFixed(0)}/100',
                   style: TextStyle(
                     color: incorrect ? Colors.red.shade700 : primary,
@@ -1181,7 +1187,7 @@ class _RepCard extends StatelessWidget {
                     ],
                     if (confidence > 0) ...[
                       const SizedBox(height: 6),
-                      Text(
+                      AppText(
                         'Assessment consistency: ${confidence.toStringAsFixed(0)}%',
                         style: TextStyle(
                           color: Colors.grey.shade500,
@@ -1192,7 +1198,7 @@ class _RepCard extends StatelessWidget {
                     if ((data['doctorFeedback']?.toString() ?? '')
                         .isNotEmpty) ...[
                       const SizedBox(height: 10),
-                      Text(
+                      AppText(
                         'Doctor feedback',
                         style: TextStyle(
                           color: Theme.of(context).colorScheme.primary,
@@ -1233,6 +1239,7 @@ class _RepMetric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     return Expanded(
       child: Column(
         crossAxisAlignment:
@@ -1267,6 +1274,7 @@ class _HistoryEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     final primary =
         Theme.of(context).colorScheme.primary;
 

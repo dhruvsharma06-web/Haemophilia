@@ -1,3 +1,4 @@
+import '../../widgets/app_text.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -6,6 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
+import '../../services/backend_config.dart';
 
 class AssignedAssessmentScreen extends StatefulWidget {
   const AssignedAssessmentScreen({
@@ -85,14 +87,9 @@ class _AssignedAssessmentScreenState
   }
 
   String get _websocketUrl {
-    final exercise =
-        Uri.encodeQueryComponent(
-      _currentExercise,
-    );
-
-    return 'wss://lessons-family-councils-obvious.trycloudflare.com'
-        '/v1/assessments/live'
-        '?exercise=$exercise';
+    return BackendConfig.liveAssessmentUri.replace(
+      queryParameters: {'exercise': _currentExercise},
+    ).toString();
   }
 
   @override
@@ -578,10 +575,10 @@ class _AssignedAssessmentScreenState
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text(
+          title: const AppText(
             'End assessment?',
           ),
-          content: const Text(
+          content: const AppText(
             'Your current progress will be saved. '
             'Exercises that have not reached their '
             'correct-repetition target will be marked incomplete.',
@@ -593,7 +590,7 @@ class _AssignedAssessmentScreenState
                 context,
                 false,
               ),
-              child: const Text(
+              child: const AppText(
                 'Continue',
               ),
             ),
@@ -603,7 +600,7 @@ class _AssignedAssessmentScreenState
                 context,
                 true,
               ),
-              child: const Text(
+              child: const AppText(
                 'End Assessment',
               ),
             ),
@@ -655,7 +652,7 @@ class _AssignedAssessmentScreenState
         context,
       ).showSnackBar(
         SnackBar(
-          content: Text(
+          content: AppText(
             'Could not end assessment: $e',
           ),
         ),
@@ -694,7 +691,7 @@ class _AssignedAssessmentScreenState
                   true,
                 );
               },
-              child: const Text(
+              child: const AppText(
                 'Done',
               ),
             ),
@@ -728,7 +725,7 @@ class _AssignedAssessmentScreenState
     if (_error != null) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text(
+          title: const AppText(
             'Assessment',
           ),
         ),
@@ -749,7 +746,7 @@ class _AssignedAssessmentScreenState
     if (_exercises.isEmpty) {
       return const Scaffold(
         body: Center(
-          child: Text(
+          child: AppText(
             'No exercises assigned.',
           ),
         ),
@@ -772,7 +769,7 @@ class _AssignedAssessmentScreenState
 
             Expanded(
               child: Center(
-                child: Text(
+                child: AppText(
                   'Camera assessment is active.\n'
                   'Use the live camera area here.',
                   textAlign:
@@ -834,7 +831,7 @@ class _AssignedAssessmentScreenState
         crossAxisAlignment:
             CrossAxisAlignment.start,
         children: [
-          Text(
+          AppText(
             'Exercise ${_currentIndex + 1} '
             'of ${_exercises.length}',
             style: const TextStyle(
@@ -855,7 +852,7 @@ class _AssignedAssessmentScreenState
           const SizedBox(height: 10),
           Row(
             children: [
-              Text(
+              AppText(
                 '$_currentCorrectReps/'
                 '$_currentTarget correct',
                 style: const TextStyle(
@@ -865,7 +862,7 @@ class _AssignedAssessmentScreenState
                 ),
               ),
               const Spacer(),
-              Text(
+              AppText(
                 'Total reps: '
                 '$_currentTotalReps',
                 style: const TextStyle(

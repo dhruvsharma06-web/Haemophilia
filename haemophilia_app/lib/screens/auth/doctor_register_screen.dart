@@ -1,3 +1,5 @@
+import '../../widgets/app_text.dart';
+import '../../widgets/consent_form.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -85,7 +87,7 @@ class _DoctorRegisterScreenState extends State<DoctorRegisterScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             behavior: SnackBarBehavior.floating,
-            content: Text('${tr('Error selecting file:')} $e'),
+            content: AppText('${tr('Error selecting file:')} $e'),
           ),
         );
       }
@@ -190,6 +192,8 @@ class _DoctorRegisterScreenState extends State<DoctorRegisterScreen> {
   Future<void> _submit() async {
     if (!_validateStep(3)) return;
 
+    final researchConsent = await requestRegistrationConsent(context, patient: false);
+    if (researchConsent == null || !mounted) return;
     setState(() => _loading = true);
 
     try {
@@ -197,6 +201,8 @@ class _DoctorRegisterScreenState extends State<DoctorRegisterScreen> {
         fullName: _fullNameController.text.trim(),
         email: _emailController.text.trim(),
         password: _passwordController.text,
+        consentAccepted: true,
+        researchConsent: researchConsent,
         mobileNumber: _mobileController.text.trim(),
         country: _countryController.text.trim(),
         state: _stateController.text.trim(),
@@ -269,8 +275,8 @@ class _DoctorRegisterScreenState extends State<DoctorRegisterScreen> {
                   ),
                   const SizedBox(height: 10),
                   Center(
-                    child: Text(
-                      'Somaiya HaemoPhysio',
+                    child: AppText(
+                      'Somaiya HemoPhysio',
                       style: TextStyle(
                         fontSize: compact ? 20 : 23,
                         fontWeight: FontWeight.w900,
@@ -432,7 +438,7 @@ class _DoctorRegisterScreenState extends State<DoctorRegisterScreen> {
                                   size: 16,
                                   color: Colors.white,
                                 )
-                              : Text(
+                              : AppText(
                                   '${index + 1}',
                                   style: TextStyle(
                                     color: (isCurrent || isPast)
@@ -988,7 +994,7 @@ class _DoctorRegisterScreenState extends State<DoctorRegisterScreen> {
           Expanded(
             flex: 3,
             child: Text(
-              value.isEmpty ? '—' : value,
+              value.isEmpty ? 'â€”' : value,
               style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,

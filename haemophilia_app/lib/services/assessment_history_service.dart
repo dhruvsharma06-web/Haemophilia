@@ -164,7 +164,12 @@ class AssessmentHistoryService {
       'createdAtMillis': DateTime.now().millisecondsSinceEpoch,
     };
 
-    final document = await _collection(uid).add(data);
+    final number = _number(rep['rep_number'])?.toInt();
+    final document = number == null ? _collection(uid).doc() : _collection(uid).doc('${sessionId}_rep_$number');
+    await _firestore.runTransaction((transaction) async {
+      final existing = await transaction.get(document);
+      if (!existing.exists) transaction.set(document, data);
+    });
     debugPrint(
       'Assessment history saved: users/$uid/assessments/${document.id} '
       '(session: $sessionId)',

@@ -27,6 +27,7 @@ class UserModel {
   final String? registrationNumber;
   final String? specialization;
   final String? hospital;
+  String get patientId => 'SHP-${uid.toUpperCase()}';
 
   UserModel({
     required this.uid,

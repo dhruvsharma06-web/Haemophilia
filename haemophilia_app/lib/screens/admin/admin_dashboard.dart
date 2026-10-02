@@ -1,10 +1,16 @@
+import '../../widgets/app_text.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/user_model.dart';
 import '../../services/auth_service.dart';
+import '../../services/admin_service.dart';
+import '../../widgets/patient_screening_card.dart';
+import '../../utils/firebase_errors.dart';
+import '../support/help_screen.dart';
 import '../../services/clinical_data_service.dart';
 import '../../utils/app_localizations.dart';
+import 'add_doctor_screen.dart';
 
 class AdminDashboard extends StatefulWidget {
   final UserModel user;
@@ -17,6 +23,7 @@ class AdminDashboard extends StatefulWidget {
 
 class _AdminDashboardState extends State<AdminDashboard> {
   bool _isLoggingOut = false;
+  int _section = 0;
 
   Future<void> _logout() async {
     if (_isLoggingOut) return;
@@ -51,11 +58,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    'Somaiya HaemoPhysio ${tr('Admin')}',
+                  child: AppText(
+                    '${tr('Somaiya HemoPhysio')} ${tr('Admin')}',
                     style: const TextStyle(
                       fontSize: 18,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -64,6 +71,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
             ),
         actions: [
           const LanguageToggleButton(),
+          IconButton(tooltip: tr('Add doctor'), icon: const Icon(Icons.person_add_alt_1), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddDoctorScreen()))),
+          IconButton(tooltip: tr('Grievances'), icon: const Icon(Icons.support_agent), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HelpScreen(admin: true)))),
           IconButton(
             tooltip: tr('Log out'),
             onPressed: _isLoggingOut ? null : _logout,
@@ -78,15 +87,19 @@ class _AdminDashboardState extends State<AdminDashboard> {
           const SizedBox(width: 8),
         ],
       ),
-      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      bottomNavigationBar: NavigationBar(selectedIndex:_section,onDestinationSelected:(value)=>setState(()=>_section=value),destinations:[
+        NavigationDestination(icon:const Icon(Icons.manage_accounts_outlined),label:tr('Manage Users')),
+        NavigationDestination(icon:const Icon(Icons.how_to_reg),label:tr('Doctor approvals')),
+        NavigationDestination(icon:const Icon(Icons.support_agent),label:tr('Grievances')),
+      ]),
+      body: _section == 2 ? const HelpScreen(admin:true) : StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
         stream: service.watchAllUsers(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
             return Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
-                child: Text(
-                  'Could not load users.\n\n${snapshot.error}',
+                child: Text(firebaseErrorMessage(snapshot.error, fallback: 'Could not load users.'),
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -98,7 +111,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final docs = snapshot.data?.docs ?? [];
+          final allDocs = snapshot.data?.docs ?? [];
+          final docs = _section == 1 ? allDocs.where((doc)=>doc.data()['role']=='pending_doctor' || (doc.data()['role']=='doctor' && doc.data()['isApproved']==false)).toList() : allDocs;
           final doctors =
               docs.where((doc) => doc.data()['role'] == 'doctor').length;
           final patients =
@@ -162,7 +176,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               const SizedBox(height: 28),
               Text(
                 tr('Manage Users'),
-                style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800),
+                style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 4),
               Text(
@@ -198,6 +212,7 @@ class _UserCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     final data = doc.data();
     final role = data['role']?.toString() ?? 'patient';
     final primary = Theme.of(context).colorScheme.primary;
@@ -216,7 +231,7 @@ class _UserCard extends StatelessWidget {
                     : 'U',
                 style: TextStyle(
                   color: primary,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
@@ -227,7 +242,7 @@ class _UserCard extends StatelessWidget {
                 children: [
                   Text(
                     data['name']?.toString() ?? 'User',
-                    style: const TextStyle(fontWeight: FontWeight.w800),
+                    style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 2),
                   Text(
@@ -248,10 +263,10 @@ class _UserCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      role.toUpperCase(),
+                      tr(role),
                       style: TextStyle(
                         fontSize: 9,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                         color: primary,
                       ),
                     ),
@@ -261,7 +276,7 @@ class _UserCard extends StatelessWidget {
             ),
             if (doc.id != currentAdminId)
               IconButton(
-                tooltip: 'Manage',
+                tooltip: tr('Manage'),
                 onPressed: () => _manage(context, doc),
                 icon: const Icon(Icons.tune_rounded),
               ),
@@ -279,9 +294,19 @@ class _UserCard extends StatelessWidget {
     final data = doc.data();
 
     var role = data['role']?.toString() ?? 'patient';
+    if (!['patient','pending_doctor','doctor','admin'].contains(role)) role='patient';
     String? doctorId = data['doctorId']?.toString();
+    var active = data['accountActive'] != false;
+    var saving = false;
 
-    final doctors = await service.getDoctors();
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> doctors;
+    try {
+      doctors = await service.getDoctors();
+    } catch (error) {
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(firebaseErrorMessage(error, fallback: 'Could not load doctors.'))));
+      return;
+    }
+    if (doctorId != null && !doctors.any((doc)=>doc.id==doctorId)) doctorId=null;
     if (!context.mounted) return;
 
     await showDialog<void>(
@@ -289,10 +314,11 @@ class _UserCard extends StatelessWidget {
       builder: (dialogContext) {
         return StatefulBuilder(
           builder: (dialogContext, setDialogState) {
+            AppLocaleScope.of(dialogContext);
             final doctorItems = <DropdownMenuItem<String?>>[
               const DropdownMenuItem<String?>(
                 value: null,
-                child: Text('Unassigned'),
+                child: AppText('Unassigned'),
               ),
               ...doctors.map(
                 (doctor) => DropdownMenuItem<String?>(
@@ -308,17 +334,17 @@ class _UserCard extends StatelessWidget {
               title: Text(data['name']?.toString() ?? 'User'),
               content: SizedBox(
                 width: 420,
-                child: Column(
+                child: SingleChildScrollView(child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     DropdownButtonFormField<String>(
                       initialValue: role,
-                      decoration: const InputDecoration(labelText: 'Role'),
-                      items: const ['patient', 'doctor', 'admin']
+                      decoration: InputDecoration(labelText: tr('Role')),
+                      items: const ['patient', 'pending_doctor', 'doctor', 'admin']
                           .map(
                             (value) => DropdownMenuItem<String>(
                               value: value,
-                              child: Text(value),
+                              child: Text(tr(value)),
                             ),
                           )
                           .toList(),
@@ -328,14 +354,21 @@ class _UserCard extends StatelessWidget {
                         }
                       },
                     ),
+                    SwitchListTile(title: Text(tr('Account active')), value: active, onChanged: saving ? null : (v) => setDialogState(() => active = v)),
+                    Text(tr('Set the role to Doctor to approve an application. Disable account access to remove a doctor while retaining records.')),
+                    if (data['registrationNumber'] != null) AppText('${tr('Medical Registration Number')}: ${data['registrationNumber']}'),
+                    if (data['qualification'] != null) AppText('${tr('Qualification')}: ${data['qualification']}'),
+                    if (data['specialization'] != null) AppText('${tr('Specialization')}: ${data['specialization']}'),
+                    if (data['hospital'] != null) AppText('${tr('Hospital / Clinic')}: ${data['hospital']}'),
+                    if (role == 'patient') PatientScreeningCard(data: data),
                     const SizedBox(height: 14),
                     if (role == 'patient')
                       DropdownButtonFormField<String?>(
                         initialValue: doctors.any((d) => d.id == doctorId)
                             ? doctorId
                             : null,
-                        decoration: const InputDecoration(
-                          labelText: 'Assigned doctor',
+                        decoration: InputDecoration(
+                          labelText: tr('Assigned doctor'),
                         ),
                         items: doctorItems,
                         onChanged: (value) {
@@ -343,50 +376,37 @@ class _UserCard extends StatelessWidget {
                         },
                       ),
                   ],
-                ),
+                )),
               ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(dialogContext),
-                  child: const Text('Cancel'),
+                  child: const AppText('Cancel'),
                 ),
                 FilledButton(
-                  onPressed: () async {
+                  onPressed: saving ? null : () async {
                     try {
-                      await service.updateUserRole(
-                        uid: doc.id,
-                        role: role,
-                      );
-
-                      if (role == 'patient') {
-                        await service.assignDoctor(
-                          patientId: doc.id,
-                          doctorId: doctorId,
-                        );
-                      } else {
-                        await service.assignDoctor(
-                          patientId: doc.id,
-                          doctorId: null,
-                        );
-                      }
+                      setDialogState(() => saving = true);
+                      await AdminService().manageUser(uid: doc.id, role: role, active: active, doctorId: role == 'patient' ? doctorId : null);
 
                       if (!dialogContext.mounted) return;
                       Navigator.pop(dialogContext);
 
                       if (!context.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('User updated.')),
+                        const SnackBar(content: AppText('User updated.')),
                       );
                     } catch (e) {
+                      if (dialogContext.mounted) setDialogState(() => saving = false);
                       if (!context.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text('Could not update user: $e'),
+                          content: Text(e is StateError ? tr(e.message.toString()) : firebaseErrorMessage(e, fallback: 'Could not update user. Please try again.')),
                         ),
                       );
                     }
                   },
-                  child: const Text('Save'),
+                  child: const AppText('Save'),
                 ),
               ],
             );
@@ -405,17 +425,13 @@ class _Hero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     final primary = Theme.of(context).colorScheme.primary;
 
     return Container(
       padding: const EdgeInsets.all(21),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            primary,
-            Color.lerp(primary, const Color(0xFF63B4E8), .45)!,
-          ],
-        ),
+        color: primary,
         borderRadius: BorderRadius.circular(24),
       ),
       child: Column(
@@ -426,7 +442,7 @@ class _Hero extends StatelessWidget {
             style: const TextStyle(
               color: Colors.white,
               fontSize: 24,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 7),
@@ -452,6 +468,7 @@ class _Metric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     final primary = Theme.of(context).colorScheme.primary;
 
     return Card(
@@ -466,7 +483,7 @@ class _Metric extends StatelessWidget {
               value,
               style: const TextStyle(
                 fontSize: 21,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
               ),
             ),
             Text(
@@ -488,11 +505,12 @@ class _Empty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(28),
         child: Center(
-          child: Text(
+          child: AppText(
             'No users found.',
             style: TextStyle(color: Colors.grey.shade600),
           ),

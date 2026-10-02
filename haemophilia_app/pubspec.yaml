@@ -10,6 +10,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
 
   cupertino_icons: ^1.0.8
   http: ^1.6.0
@@ -18,7 +20,7 @@ dependencies:
 
   firebase_core: ^4.14.0
   firebase_auth: ^6.6.1
-  google_sign_in: 6.2.2
+  google_sign_in: 6.3.0
   cloud_firestore: ^6.9.0
   firebase_storage: ^13.5.0
   firebase_messaging: ^16.7.0

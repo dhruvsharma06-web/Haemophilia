@@ -1,3 +1,4 @@
+import '../../widgets/app_text.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
@@ -59,7 +60,7 @@ class _DoctorPendingApprovalScreenState
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             behavior: SnackBarBehavior.floating,
-            content: Text('${tr('Error checking status:')} $e'),
+            content: AppText('${tr('Error checking status:')} $e'),
           ),
         );
       }
@@ -112,8 +113,8 @@ class _DoctorPendingApprovalScreenState
                   ),
                   const SizedBox(height: 16),
                   Center(
-                    child: Text(
-                      'Somaiya HaemoPhysio',
+                    child: AppText(
+                      'Somaiya HemoPhysio',
                       style: TextStyle(
                         fontSize: compact ? 22 : 25,
                         fontWeight: FontWeight.w900,
