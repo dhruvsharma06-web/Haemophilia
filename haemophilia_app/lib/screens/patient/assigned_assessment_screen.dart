@@ -643,7 +643,7 @@ class _AssignedAssessmentScreenState
                                   if (isWip) ...[
                                     const SizedBox(height: 3),
                                     Text(
-                                      tr('Work in progress'),
+                                      tr('Preview exercise'),
                                       style: TextStyle(
                                         color: Colors.amber.shade900,
                                         fontSize: 11,
@@ -661,14 +661,15 @@ class _AssignedAssessmentScreenState
                                           color: Colors.green,
                                         ),
                                         const SizedBox(width: 4),
-                                        AppText(
+                                        Expanded(child: AppText(
                                           '${tr('Completed')} ($target/$target ${tr('correct reps')})',
+                                          softWrap: true,
                                           style: const TextStyle(
                                             color: Colors.green,
                                             fontSize: 11.5,
                                             fontWeight: FontWeight.bold,
                                           ),
-                                        ),
+                                        )),
                                       ],
                                     ),
                                   ] else if (isCurrent) ...[
@@ -681,14 +682,15 @@ class _AssignedAssessmentScreenState
                                           color: Colors.amber.shade800,
                                         ),
                                         const SizedBox(width: 4),
-                                        AppText(
+                                        Expanded(child: AppText(
                                           '${tr('In Progress')} • $_savedCorrectReps/$target ${tr('correct reps')}',
+                                          softWrap: true,
                                           style: TextStyle(
                                             color: Colors.amber.shade900,
                                             fontSize: 11.5,
                                             fontWeight: FontWeight.bold,
                                           ),
-                                        ),
+                                        )),
                                       ],
                                     ),
                                   ] else ...[
@@ -738,6 +740,8 @@ class _AssignedAssessmentScreenState
                               ),
                             ),
                             IconButton(
+                              constraints: const BoxConstraints(minWidth: 36, minHeight: 40),
+                              padding: EdgeInsets.zero,
                               onPressed: () {
                                 showExerciseDemoDialog(
                                   context,

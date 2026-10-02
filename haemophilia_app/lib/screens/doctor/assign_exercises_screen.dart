@@ -570,7 +570,7 @@ class _AssignExercisesScreenState extends State<AssignExercisesScreen> {
                       if (isWorkInProgressExercise(exercise)) ...[
                         const SizedBox(height: 3),
                         Text(
-                          tr('Work in progress'),
+                          tr('Preview exercise'),
                           style: TextStyle(
                             color: Colors.amber.shade900,
                             fontSize: 11,

@@ -1,12 +1,14 @@
 import '../../utils/firebase_errors.dart';
 import '../../widgets/app_text.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../services/assessment_history_service.dart';
 import '../../utils/app_localizations.dart';
 import '../../utils/exercise_utils.dart';
 import '../../widgets/session_analytics_chart.dart';
+import 'session_reports_screen.dart';
 
 class PatientHistory extends StatelessWidget {
   final String? userId;
@@ -172,12 +174,19 @@ class PatientHistory extends StatelessWidget {
                     padding: const EdgeInsets.only(bottom: 12),
                     child: _SessionCard(
                       session: session,
+                      onReport: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SessionReportDetail(
+                        patientId: userId ?? FirebaseAuth.instance.currentUser?.uid ?? '',
+                        sessionId: session.id,
+                        fallbackSession: {'sessionName': session.sessionName, 'exercise': session.exercise},
+                        fallbackReps: session.repsData,
+                      ))),
                       onTap: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (_) => SessionDetails(
                               session: session,
+                              patientId: userId ?? FirebaseAuth.instance.currentUser?.uid,
                             ),
                           ),
                         );
@@ -196,10 +205,12 @@ class PatientHistory extends StatelessWidget {
 
 class SessionDetails extends StatelessWidget {
   final AssessmentSession session;
+  final String? patientId;
 
   const SessionDetails({
     super.key,
     required this.session,
+    this.patientId,
   });
 
   @override
@@ -247,7 +258,7 @@ class SessionDetails extends StatelessWidget {
             if (isWorkInProgressExercise(session.exercise)) ...[
               const SizedBox(height: 3),
               AppText(
-                '${tr(getExerciseDisplayName(session.exercise))} • ${tr('Work in progress')}',
+                '${tr(getExerciseDisplayName(session.exercise))} • ${tr('Preview exercise')}',
                 style: TextStyle(
                   color: Colors.amber.shade900,
                   fontSize: 12,
@@ -297,6 +308,17 @@ class SessionDetails extends StatelessWidget {
                   fallbackRepNumber: entry.key + 1,
                 ),
               ),
+            ),
+            const SizedBox(height: 12),
+            if (patientId != null && patientId!.isNotEmpty) OutlinedButton.icon(
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SessionReportDetail(
+                patientId: patientId!,
+                sessionId: session.id,
+                fallbackSession: {'sessionName': session.sessionName, 'exercise': session.exercise},
+                fallbackReps: session.repsData,
+              ))),
+              icon: const Icon(Icons.description_outlined),
+              label: Text(tr('View report')),
             ),
           ],
         ),
@@ -572,10 +594,12 @@ class _HistoryStatCard extends StatelessWidget {
 class _SessionCard extends StatelessWidget {
   final AssessmentSession session;
   final VoidCallback onTap;
+  final VoidCallback onReport;
 
   const _SessionCard({
     required this.session,
     required this.onTap,
+    required this.onReport,
   });
 
   @override
@@ -806,6 +830,14 @@ class _SessionCard extends StatelessWidget {
                       ),
                     ),
                   ],
+                ),
+              ),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: onReport,
+                  icon: const Icon(Icons.description_outlined),
+                  label: Text(tr('View report')),
                 ),
               ),
             ],

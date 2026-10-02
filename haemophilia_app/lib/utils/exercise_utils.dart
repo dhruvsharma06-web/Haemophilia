@@ -51,7 +51,7 @@ const List<ExerciseMetadata> kAllExercises = [
     description: 'Bilateral internal and external rotation with elbows flexed 90° pinned to torso.',
     icon: Icons.rotate_right_rounded,
     isWorkInProgress: true,
-    statusLabel: 'Work in Progress',
+    statusLabel: 'Exercise demo available',
   ),
   ExerciseMetadata(
     id: kAssistedElbowFlexion,
@@ -159,7 +159,7 @@ IconData getExerciseIcon(String? exercise) {
   }
 }
 
-/// Reusable "WORK IN PROGRESS" badge widget
+/// Reusable preview badge widget.
 Widget buildWipBadge({
   bool isDark = false,
   bool compact = false,
@@ -195,13 +195,13 @@ Widget buildWipBadge({
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Icon(
-          Icons.construction_rounded,
+          Icons.play_circle_outline_rounded,
           size: compact ? 11 : 13,
           color: iconColor,
         ),
         SizedBox(width: compact ? 3 : 5),
         Text(
-          tr('WORK IN PROGRESS'),
+          tr('Preview exercise'),
           style: TextStyle(
             color: textColor,
             fontSize: compact ? 9.5 : 11,

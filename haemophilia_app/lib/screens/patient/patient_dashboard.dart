@@ -301,9 +301,10 @@ class _PatientDashboardState extends State<PatientDashboard> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _WelcomeHeader(firstName: firstName, compact: compact),
-
-                  const SizedBox(height: 24),
+                      if (_section == 0) ...[
+                        _WelcomeHeader(firstName: firstName, compact: compact),
+                        const SizedBox(height: 24),
+                      ],
 
                   if (_section == 0) ...[
                   // --------------------------------------------------
@@ -944,7 +945,7 @@ class _ActiveSessionCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 5),
                       AppText(
-                        'Assigned session by your doctor with $exerciseCount exercise${exerciseCount == 1 ? '' : 's'}. Complete all correct reps to finish.',
+                        '${tr('Assigned session by your doctor with')} $exerciseCount ${tr(exerciseCount == 1 ? 'exercise. Complete all correct reps to finish.' : 'exercises. Complete all correct reps to finish.')}',
                         style: TextStyle(
                           color: Colors.grey.shade700,
                           fontSize: 13,
@@ -2039,4 +2040,3 @@ class _ExerciseLibraryCard extends StatelessWidget {
     );
   }
 }
-
