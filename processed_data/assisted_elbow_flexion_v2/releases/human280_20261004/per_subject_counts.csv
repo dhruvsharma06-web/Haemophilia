@@ -1,0 +1,6 @@
+subject_id,subject_status,total,Correct,Incorrect,Left,Right,Left_Correct,Left_Incorrect,Right_Correct,Right_Incorrect
+person1,inherited_not_independently_verified,59,39,20,29,30,21,8,18,12
+person2,inherited_not_independently_verified,70,44,26,35,35,21,14,23,12
+person3,inherited_not_independently_verified,52,36,16,25,27,18,7,18,9
+person4,inherited_not_independently_verified,60,44,16,34,26,25,9,19,7
+person5,inherited_not_independently_verified,39,20,19,20,19,10,10,10,9

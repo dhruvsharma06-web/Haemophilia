@@ -1,0 +1,89 @@
+ M backend/app/api/routes/exercises.py
+ M backend/app/api/routes/live.py
+ M backend/app/main.py
+ M haemophilia_app/android/app/build.gradle.kts
+ M haemophilia_app/android/app/src/main/AndroidManifest.xml
+ D haemophilia_app/android/app/src/main/kotlin/com/example/haemophilia_app/MainActivity.kt
+ M haemophilia_app/lib/screens/assessment/assigned_assessment_screen.dart
+ M haemophilia_app/lib/screens/assessment/live_assessment_screen.dart
+ M haemophilia_app/lib/screens/auth/login_screen.dart
+ M haemophilia_app/lib/services/api_service.dart
+ M haemophilia_app/lib/services/notification_service.dart
+ M haemophilia_app/linux/flutter/generated_plugin_registrant.cc
+ M haemophilia_app/linux/flutter/generated_plugin_registrant.h
+ M haemophilia_app/linux/flutter/generated_plugins.cmake
+ M haemophilia_app/macos/Flutter/GeneratedPluginRegistrant.swift
+ M haemophilia_app/pubspec.lock
+ M haemophilia_app/pubspec.yaml
+ M haemophilia_app/windows/flutter/generated_plugin_registrant.cc
+ M haemophilia_app/windows/flutter/generated_plugin_registrant.h
+ M haemophilia_app/windows/flutter/generated_plugins.cmake
+ M src/features/assisted_elbow_features.py
+ M src/training/train_assisted_elbow_v2_expanded.py
+?? backend/app/static/live.html
+?? cloudflared.exe
+?? haemophilia_app/android/app/src/main/java/com/example/haemophilia_app/MainActivity.java
+?? live_elbow_camera.py
+?? models/assisted_elbow_v2_biomech_augmented.pth
+?? models/assisted_elbow_v2_biomech_augmented_metrics.json
+?? models/assisted_elbow_v2_clean_baseline.pth
+?? models/assisted_elbow_v2_clean_baseline_metrics.json
+?? models/assisted_elbow_v2_duration_minangle.pth
+?? models/assisted_elbow_v2_duration_minangle_metrics.json
+?? research/assisted_elbow_flexion_v2/common.py
+?? research/assisted_elbow_flexion_v2/config.json
+?? research/assisted_elbow_flexion_v2/initialize.py
+?? research/assisted_elbow_flexion_v2/preprocessing/extract_landmarks.py
+?? research/assisted_elbow_flexion_v2/provenance/environment.json
+?? research/assisted_elbow_flexion_v2/provenance/phase1_user_authorization.txt
+?? research/assisted_elbow_flexion_v2/provenance/pip_freeze.txt
+?? research/assisted_elbow_flexion_v2/provenance/protected_files_before.json
+?? research/assisted_elbow_flexion_v2/reports/CODE_AUDIT.md
+?? research/assisted_elbow_flexion_v2/splits/fold_assignments.csv
+?? research/assisted_elbow_flexion_v2/splits/fold_composition.csv
+?? research/assisted_elbow_flexion_v2/splits/leakage_audit.json
+?? scratch/assisted_elbow_v2_ls005_deployment.pth
+?? scratch/attention_experiment.pth
+?? scratch/audit_feature_overlap.py
+?? scratch/bilstm_attention_experiment.pth
+?? scratch/bilstm_experiment.pth
+?? scratch/build_deployment_package.py
+?? scratch/compute_feature_stats.py
+?? scratch/evaluate_true_combinations.py
+?? scratch/feature_overlap_audit_report.txt
+?? scratch/find_matching_clips.py
+?? scratch/find_test_reps.py
+?? scratch/genuinely_new_features_results.json
+?? scratch/inspect_diffs.py
+?? scratch/inspect_mix_reps.py
+?? scratch/inspect_phase_turnaround.py
+?? scratch/live_elbow_camera_v2.py
+?? scratch/live_motion_evaluator.py
+?? scratch/loss_focal.pth
+?? scratch/loss_function_experiment_report.txt
+?? scratch/loss_function_experiment_results.json
+?? scratch/loss_label_smoothing_005.pth
+?? scratch/loss_label_smoothing_010.pth
+?? scratch/loss_weighted_focal.pth
+?? scratch/parse_combination_results.py
+?? scratch/phase_compact_stats_experiment.pth
+?? scratch/phase_gated_temporal_report.txt
+?? scratch/phase_gated_temporal_results.json
+?? scratch/phase_gated_weighting_experiment.pth
+?? scratch/phase_max_pooling_experiment.pth
+?? scratch/phase_mean_pooling_experiment.pth
+?? scratch/print_inspection_table.py
+?? scratch/regenerate_bilateral_sequences.py
+?? scratch/run_biomech_feature_experiment.py
+?? scratch/run_focused_feature_combinations.py
+?? scratch/run_genuinely_new_feature_experiment.py
+?? scratch/run_loss_function_experiments.py
+?? scratch/run_phase_gated_temporal_experiments.py
+?? scratch/run_temporal_architecture_experiments.py
+?? scratch/select_test_clips.py
+?? scratch/summarize_experiment.py
+?? scratch/temporal_architecture_experiment_results.json
+?? scratch/test_live_route.py
+?? scratch/verify_clean_loso.py
+?? scratch/verify_live_feature_pipeline.py
+?? src/training/train_assisted_elbow_v2_clean_baseline.py

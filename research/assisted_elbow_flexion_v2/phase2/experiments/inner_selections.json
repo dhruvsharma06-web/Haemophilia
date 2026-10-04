@@ -1,0 +1,532 @@
+[
+  {
+    "outer_fold": 0,
+    "chosen_only_from_inner_grouped_predictions": "BalancedSVM",
+    "eligible_inner_candidates": [
+      "VelocityP95",
+      "BalancedSVM"
+    ],
+    "inner_metrics": {
+      "FrozenPhase1SVM": {
+        "n": 242,
+        "accuracy": 0.7768595041322314,
+        "balanced_accuracy": 0.672940797940798,
+        "macro_f1": 0.6901849217638691,
+        "correct_recall": 0.9404761904761905,
+        "incorrect_recall": 0.40540540540540543,
+        "confusion_matrix": [
+          [
+            158,
+            10
+          ],
+          [
+            44,
+            30
+          ]
+        ],
+        "source_std": 0.29729404788320524
+      },
+      "VelocityP95": {
+        "n": 242,
+        "accuracy": 0.7768595041322314,
+        "balanced_accuracy": 0.6767213642213642,
+        "macro_f1": 0.6938718140929535,
+        "correct_recall": 0.9345238095238095,
+        "incorrect_recall": 0.4189189189189189,
+        "confusion_matrix": [
+          [
+            157,
+            11
+          ],
+          [
+            43,
+            31
+          ]
+        ],
+        "source_std": 0.2889770075581462
+      },
+      "WithoutViewProxies": {
+        "n": 242,
+        "accuracy": 0.743801652892562,
+        "balanced_accuracy": 0.6415701415701416,
+        "macro_f1": 0.6525886820413078,
+        "correct_recall": 0.9047619047619048,
+        "incorrect_recall": 0.3783783783783784,
+        "confusion_matrix": [
+          [
+            152,
+            16
+          ],
+          [
+            46,
+            28
+          ]
+        ],
+        "source_std": 0.31501421461331436
+      },
+      "BalancedSVM": {
+        "n": 242,
+        "accuracy": 0.8636363636363636,
+        "balanced_accuracy": 0.8337355212355213,
+        "macro_f1": 0.8375343301800426,
+        "correct_recall": 0.9107142857142857,
+        "incorrect_recall": 0.7567567567567568,
+        "confusion_matrix": [
+          [
+            153,
+            15
+          ],
+          [
+            18,
+            56
+          ]
+        ],
+        "source_std": 0.14812478842348456
+      },
+      "RobustScalerSVM": {
+        "n": 242,
+        "accuracy": 0.7396694214876033,
+        "balanced_accuracy": 0.6348133848133848,
+        "macro_f1": 0.644938168098931,
+        "correct_recall": 0.9047619047619048,
+        "incorrect_recall": 0.36486486486486486,
+        "confusion_matrix": [
+          [
+            152,
+            16
+          ],
+          [
+            47,
+            27
+          ]
+        ],
+        "source_std": 0.311645535783304
+      }
+    },
+    "outer_validation_sources_used_for_selection": false
+  },
+  {
+    "outer_fold": 1,
+    "chosen_only_from_inner_grouped_predictions": "VelocityP95",
+    "eligible_inner_candidates": [
+      "VelocityP95"
+    ],
+    "inner_metrics": {
+      "FrozenPhase1SVM": {
+        "n": 213,
+        "accuracy": 0.8169014084507042,
+        "balanced_accuracy": 0.7801418439716312,
+        "macro_f1": 0.7885452462772051,
+        "correct_recall": 0.8936170212765957,
+        "incorrect_recall": 0.6666666666666666,
+        "confusion_matrix": [
+          [
+            126,
+            15
+          ],
+          [
+            24,
+            48
+          ]
+        ],
+        "source_std": 0.21110579930782733
+      },
+      "VelocityP95": {
+        "n": 213,
+        "accuracy": 0.8169014084507042,
+        "balanced_accuracy": 0.7801418439716312,
+        "macro_f1": 0.7885452462772051,
+        "correct_recall": 0.8936170212765957,
+        "incorrect_recall": 0.6666666666666666,
+        "confusion_matrix": [
+          [
+            126,
+            15
+          ],
+          [
+            24,
+            48
+          ]
+        ],
+        "source_std": 0.21745918206574372
+      },
+      "WithoutViewProxies": {
+        "n": 213,
+        "accuracy": 0.7605633802816901,
+        "balanced_accuracy": 0.710401891252955,
+        "macro_f1": 0.71890283348428,
+        "correct_recall": 0.8652482269503546,
+        "incorrect_recall": 0.5555555555555556,
+        "confusion_matrix": [
+          [
+            122,
+            19
+          ],
+          [
+            32,
+            40
+          ]
+        ],
+        "source_std": 0.2778487260618589
+      },
+      "BalancedSVM": {
+        "n": 213,
+        "accuracy": 0.8169014084507042,
+        "balanced_accuracy": 0.8073286052009456,
+        "macro_f1": 0.799951836243227,
+        "correct_recall": 0.8368794326241135,
+        "incorrect_recall": 0.7777777777777778,
+        "confusion_matrix": [
+          [
+            118,
+            23
+          ],
+          [
+            16,
+            56
+          ]
+        ],
+        "source_std": 0.24718808377954496
+      },
+      "RobustScalerSVM": {
+        "n": 213,
+        "accuracy": 0.7605633802816901,
+        "balanced_accuracy": 0.720596926713948,
+        "macro_f1": 0.7256333190210391,
+        "correct_recall": 0.8439716312056738,
+        "incorrect_recall": 0.5972222222222222,
+        "confusion_matrix": [
+          [
+            119,
+            22
+          ],
+          [
+            29,
+            43
+          ]
+        ],
+        "source_std": 0.28579456668132086
+      }
+    },
+    "outer_validation_sources_used_for_selection": false
+  },
+  {
+    "outer_fold": 2,
+    "chosen_only_from_inner_grouped_predictions": "BalancedSVM",
+    "eligible_inner_candidates": [
+      "VelocityP95",
+      "WithoutViewProxies",
+      "BalancedSVM"
+    ],
+    "inner_metrics": {
+      "FrozenPhase1SVM": {
+        "n": 219,
+        "accuracy": 0.7579908675799086,
+        "balanced_accuracy": 0.7005845323741007,
+        "macro_f1": 0.7113907054230798,
+        "correct_recall": 0.9136690647482014,
+        "incorrect_recall": 0.4875,
+        "confusion_matrix": [
+          [
+            127,
+            12
+          ],
+          [
+            41,
+            39
+          ]
+        ],
+        "source_std": 0.2908656473286122
+      },
+      "VelocityP95": {
+        "n": 219,
+        "accuracy": 0.7625570776255708,
+        "balanced_accuracy": 0.7094874100719424,
+        "macro_f1": 0.7204438334642577,
+        "correct_recall": 0.9064748201438849,
+        "incorrect_recall": 0.5125,
+        "confusion_matrix": [
+          [
+            126,
+            13
+          ],
+          [
+            39,
+            41
+          ]
+        ],
+        "source_std": 0.2728624093494331
+      },
+      "WithoutViewProxies": {
+        "n": 219,
+        "accuracy": 0.7671232876712328,
+        "balanced_accuracy": 0.7236960431654677,
+        "macro_f1": 0.7332903503116269,
+        "correct_recall": 0.8848920863309353,
+        "incorrect_recall": 0.5625,
+        "confusion_matrix": [
+          [
+            123,
+            16
+          ],
+          [
+            35,
+            45
+          ]
+        ],
+        "source_std": 0.2423989492497512
+      },
+      "BalancedSVM": {
+        "n": 219,
+        "accuracy": 0.776255707762557,
+        "balanced_accuracy": 0.7388489208633093,
+        "macro_f1": 0.7474167353183476,
+        "correct_recall": 0.8776978417266187,
+        "incorrect_recall": 0.6,
+        "confusion_matrix": [
+          [
+            122,
+            17
+          ],
+          [
+            32,
+            48
+          ]
+        ],
+        "source_std": 0.22328389386398242
+      },
+      "RobustScalerSVM": {
+        "n": 219,
+        "accuracy": 0.726027397260274,
+        "balanced_accuracy": 0.6621402877697842,
+        "macro_f1": 0.6688508064516129,
+        "correct_recall": 0.8992805755395683,
+        "incorrect_recall": 0.425,
+        "confusion_matrix": [
+          [
+            125,
+            14
+          ],
+          [
+            46,
+            34
+          ]
+        ],
+        "source_std": 0.30742901554634533
+      }
+    },
+    "outer_validation_sources_used_for_selection": false
+  },
+  {
+    "outer_fold": 3,
+    "chosen_only_from_inner_grouped_predictions": "BalancedSVM",
+    "eligible_inner_candidates": [
+      "VelocityP95",
+      "BalancedSVM"
+    ],
+    "inner_metrics": {
+      "FrozenPhase1SVM": {
+        "n": 227,
+        "accuracy": 0.8502202643171806,
+        "balanced_accuracy": 0.8263546798029557,
+        "macro_f1": 0.8359268707482993,
+        "correct_recall": 0.9285714285714286,
+        "incorrect_recall": 0.7241379310344828,
+        "confusion_matrix": [
+          [
+            130,
+            10
+          ],
+          [
+            24,
+            63
+          ]
+        ],
+        "source_std": 0.19107174002496818
+      },
+      "VelocityP95": {
+        "n": 227,
+        "accuracy": 0.8502202643171806,
+        "balanced_accuracy": 0.8263546798029557,
+        "macro_f1": 0.8359268707482993,
+        "correct_recall": 0.9285714285714286,
+        "incorrect_recall": 0.7241379310344828,
+        "confusion_matrix": [
+          [
+            130,
+            10
+          ],
+          [
+            24,
+            63
+          ]
+        ],
+        "source_std": 0.19141644846825914
+      },
+      "WithoutViewProxies": {
+        "n": 227,
+        "accuracy": 0.8105726872246696,
+        "balanced_accuracy": 0.7811576354679803,
+        "macro_f1": 0.7906667524501919,
+        "correct_recall": 0.9071428571428571,
+        "incorrect_recall": 0.6551724137931034,
+        "confusion_matrix": [
+          [
+            127,
+            13
+          ],
+          [
+            30,
+            57
+          ]
+        ],
+        "source_std": 0.23582165987027032
+      },
+      "BalancedSVM": {
+        "n": 227,
+        "accuracy": 0.8634361233480177,
+        "balanced_accuracy": 0.8457717569786535,
+        "macro_f1": 0.8524273880675265,
+        "correct_recall": 0.9214285714285714,
+        "incorrect_recall": 0.7701149425287356,
+        "confusion_matrix": [
+          [
+            129,
+            11
+          ],
+          [
+            20,
+            67
+          ]
+        ],
+        "source_std": 0.18359406947961776
+      },
+      "RobustScalerSVM": {
+        "n": 227,
+        "accuracy": 0.775330396475771,
+        "balanced_accuracy": 0.7308292282430213,
+        "macro_f1": 0.7416136591898226,
+        "correct_recall": 0.9214285714285714,
+        "incorrect_recall": 0.5402298850574713,
+        "confusion_matrix": [
+          [
+            129,
+            11
+          ],
+          [
+            40,
+            47
+          ]
+        ],
+        "source_std": 0.2519403088891296
+      }
+    },
+    "outer_validation_sources_used_for_selection": false
+  },
+  {
+    "outer_fold": 4,
+    "chosen_only_from_inner_grouped_predictions": "BalancedSVM",
+    "eligible_inner_candidates": [
+      "VelocityP95",
+      "BalancedSVM"
+    ],
+    "inner_metrics": {
+      "FrozenPhase1SVM": {
+        "n": 219,
+        "accuracy": 0.8356164383561644,
+        "balanced_accuracy": 0.7951388888888888,
+        "macro_f1": 0.8080444098169068,
+        "correct_recall": 0.9236111111111112,
+        "incorrect_recall": 0.6666666666666666,
+        "confusion_matrix": [
+          [
+            133,
+            11
+          ],
+          [
+            25,
+            50
+          ]
+        ],
+        "source_std": 0.21533515334479672
+      },
+      "VelocityP95": {
+        "n": 219,
+        "accuracy": 0.8447488584474886,
+        "balanced_accuracy": 0.8116666666666666,
+        "macro_f1": 0.8215244487056568,
+        "correct_recall": 0.9166666666666666,
+        "incorrect_recall": 0.7066666666666667,
+        "confusion_matrix": [
+          [
+            132,
+            12
+          ],
+          [
+            22,
+            53
+          ]
+        ],
+        "source_std": 0.20883416698713364
+      },
+      "WithoutViewProxies": {
+        "n": 219,
+        "accuracy": 0.817351598173516,
+        "balanced_accuracy": 0.7748611111111111,
+        "macro_f1": 0.7867160109076743,
+        "correct_recall": 0.9097222222222222,
+        "incorrect_recall": 0.64,
+        "confusion_matrix": [
+          [
+            131,
+            13
+          ],
+          [
+            27,
+            48
+          ]
+        ],
+        "source_std": 0.23479034361013498
+      },
+      "BalancedSVM": {
+        "n": 219,
+        "accuracy": 0.8356164383561644,
+        "balanced_accuracy": 0.8238888888888889,
+        "macro_f1": 0.8197366014267422,
+        "correct_recall": 0.8611111111111112,
+        "incorrect_recall": 0.7866666666666666,
+        "confusion_matrix": [
+          [
+            124,
+            20
+          ],
+          [
+            16,
+            59
+          ]
+        ],
+        "source_std": 0.20472482881467943
+      },
+      "RobustScalerSVM": {
+        "n": 219,
+        "accuracy": 0.8401826484018264,
+        "balanced_accuracy": 0.7922222222222222,
+        "macro_f1": 0.8094089564114677,
+        "correct_recall": 0.9444444444444444,
+        "incorrect_recall": 0.64,
+        "confusion_matrix": [
+          [
+            136,
+            8
+          ],
+          [
+            27,
+            48
+          ]
+        ],
+        "source_std": 0.2161273845658587
+      }
+    },
+    "outer_validation_sources_used_for_selection": false
+  }
+]

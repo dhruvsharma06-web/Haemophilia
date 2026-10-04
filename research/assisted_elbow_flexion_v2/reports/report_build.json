@@ -1,0 +1,12 @@
+{
+  "descriptive_best_balanced_accuracy_model": "SVM",
+  "all_models": [
+    "LogisticRegression",
+    "RandomForest",
+    "HistGradientBoosting",
+    "SVM",
+    "UniLSTM"
+  ],
+  "phase1_complete": true,
+  "script_sha256": "6f7d468485f52a37ac8821e995c55de6892b811f8b5f39c68f4a33d113002b7f"
+}

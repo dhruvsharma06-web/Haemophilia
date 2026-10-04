@@ -1,0 +1,26 @@
+{
+  "pooled": {
+    "n": 280,
+    "accuracy": 0.8464285714285714,
+    "balanced_accuracy": 0.8098416990592079,
+    "macro_f1": 0.8223953032113407,
+    "correct_recall": 0.9289617486338798,
+    "incorrect_recall": 0.6907216494845361,
+    "confusion_matrix": [
+      [
+        170,
+        13
+      ],
+      [
+        30,
+        67
+      ]
+    ]
+  },
+  "source_accuracy_mean": 0.8463085764809901,
+  "source_accuracy_sample_std": 0.20338322320523788,
+  "prediction_changes_from_frozen_five_fold": 11,
+  "partitions": 29,
+  "model_specification": "Unchanged original SVM; fresh 28-source diagnostic fits, no model selection",
+  "independent_test": false
+}

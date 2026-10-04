@@ -1,0 +1,8 @@
+{
+  "source_label_cramers_v": 0.9010706162095339,
+  "mixed_class_sources": 5,
+  "mixed_repetitions": 56,
+  "within_video_majority_purity_mixed_descriptive_oracle_only": 0.625,
+  "supplemental_diagnostics_influenced_experiments_or_selection": false,
+  "script_sha256": "ea13ff9b2fc4c15829c63dad962d25aa01b6d5d09182573b1584d7db29a86c5a"
+}

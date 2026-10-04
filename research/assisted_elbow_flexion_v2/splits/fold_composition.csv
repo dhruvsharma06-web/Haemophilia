@@ -1,0 +1,6 @@
+fold,train_n,validation_n,train_sources,validation_sources,Correct,Incorrect,Left,Right
+0,242,38,24,5,15,23,20,18
+1,213,67,23,6,42,25,31,36
+2,219,61,23,6,44,17,34,27
+3,227,53,23,6,43,10,38,15
+4,219,61,23,6,39,22,20,41

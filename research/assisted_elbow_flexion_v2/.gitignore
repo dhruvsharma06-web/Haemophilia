@@ -1,0 +1,9 @@
+# Hard Data Invariant: Never commit raw arrays, video media, or joblib checkpoints
+*.npz
+*.npy
+*.joblib
+*.pth
+*.mp4
+*.avi
+__pycache__/
+*.pyc

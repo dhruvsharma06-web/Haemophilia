@@ -1,0 +1,37 @@
+{
+  "phase": 6,
+  "pipeline_scope": "Real-World Recorded Webcam Segmentation Validation",
+  "recommended_strategy": {
+    "name": "Strategy 2: Pre-Roll & Post-Roll Circular Buffers",
+    "class_name": "Strategy2Segmenter",
+    "parameters": {
+      "flexion_start_threshold_deg": 135.0,
+      "turnaround_reversal_deg": 12.0,
+      "extension_finish_threshold_deg": 135.0,
+      "pre_roll_frames": 20,
+      "post_roll_frames": 20,
+      "min_rom_deg": 16.0,
+      "min_frames": 15,
+      "min_duration_sec": 0.8
+    },
+    "real_webcam_validation_metrics": {
+      "total_repetitions_evaluated": 82,
+      "development_repetitions": 63,
+      "heldout_validation_repetitions": 19,
+      "completion_rate_pct": 80.48780487804879,
+      "mean_iou": 0.6319809408088374,
+      "median_iou": 0.7617216117216117,
+      "median_start_frame_error": 1.5,
+      "median_end_frame_error": -11.5,
+      "median_duration_error_sec": -0.1999230000000003,
+      "p90_boundary_error_frames": 264.9,
+      "secondary_svm_accuracy_pct": 64.63414634146342,
+      "secondary_svm_balanced_accuracy_pct": 65.2511961722488
+    }
+  },
+  "frozen_model": {
+    "name": "BalancedSVM",
+    "status": "Strictly Frozen",
+    "modifications": "NONE"
+  }
+}

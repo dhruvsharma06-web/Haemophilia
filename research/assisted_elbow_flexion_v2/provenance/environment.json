@@ -1,0 +1,20 @@
+{
+  "python": "3.10.11 (tags/v3.10.11:7d4cc5a, Apr  5 2023, 00:38:17) [MSC v.1929 64 bit (AMD64)]",
+  "platform": "Windows-10-10.0.26300-SP0",
+  "executable": "C:\\Python310\\python.exe",
+  "packages": {
+    "numpy": "2.2.6",
+    "pandas": "2.3.3",
+    "cv2": "5.0.0",
+    "scipy": "1.15.3",
+    "sklearn": "1.7.2",
+    "torch": "2.5.1+cu121",
+    "mediapipe": "0.10.14"
+  },
+  "cuda_available": true,
+  "ffmpeg": "ffmpeg version 8.0-essentials_build-www.gyan.dev Copyright (c) 2000-2025 the FFmpeg developers",
+  "mediapipe_model_assets": {
+    "C:\\Python310\\lib\\site-packages\\mediapipe\\modules\\pose_detection\\pose_detection.tflite": "9ba9dd3d42efaaba86b4ff0122b06f29c4122e756b329d89dca1e297fd8f866c",
+    "C:\\Python310\\lib\\site-packages\\mediapipe\\modules\\pose_landmark\\pose_landmark_full.tflite": "e9a5c5cb17f736fafd4c2ec1da3b3d331d6edbe8a0d32395855aeb2cdfd64b9f"
+  }
+}

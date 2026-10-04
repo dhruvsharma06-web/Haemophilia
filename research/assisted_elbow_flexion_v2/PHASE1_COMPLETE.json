@@ -1,0 +1,26 @@
+{
+  "completed_at_utc": "2026-10-04T15:41:34.001861+00:00",
+  "release_id": "human280_20261004",
+  "canonical_examples": 280,
+  "classes": {
+    "Correct": 183,
+    "Incorrect": 97
+  },
+  "hands": {
+    "Left": 143,
+    "Right": 137
+  },
+  "sources": 29,
+  "fresh_extraction_success": 280,
+  "fresh_extraction_failed": 0,
+  "fully_supported_representations": 278,
+  "partial_fold_imputation_representations": 2,
+  "feature_version": "world_kinematics_v1_2",
+  "manifest_sha256": "bb4669ec492ac26cbf5b064c89390e43cac207f9785c3a5cd0003cea3c587262",
+  "config_sha256": "c3634559d2761fed585d18532160f376dd606fa11603c04cbcb6cd8c3fc13c19",
+  "fold_sha256": "931f660046c3684da4988b1bf8f0f3709b27d2b8bc8f6b45a70fc24b6d513e6b",
+  "report_sha256": "0e9a02b884c912e43595849eaf1331a17f2fedbe023317cd06b7adcacbc780dd",
+  "protected_files_unchanged": 2032,
+  "stop_condition_reached": true,
+  "phase2_or_production_integration_performed": false
+}

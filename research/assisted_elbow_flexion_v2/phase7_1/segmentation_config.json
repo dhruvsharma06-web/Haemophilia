@@ -1,0 +1,25 @@
+{
+  "phase": "7.1",
+  "pipeline_scope": "Segmentation Audit, Baseline Reconciliation, & Boundary Sensitivity Analysis",
+  "reconciliation_finding": {
+    "discrepancy_root_cause": "Phase 7 Strategy 2 runner did not clear pre_buffer on hand switch, dragging start frames back across arms.",
+    "corrected_strategy2_metrics": {
+      "all_completion_rate_pct": 80.49,
+      "all_median_iou": 0.7617,
+      "all_median_start_frame_error": 1.5,
+      "all_median_end_frame_error": -11.5,
+      "all_median_duration_error_sec": -0.1999
+    }
+  },
+  "boundary_sensitivity_finding": {
+    "most_harmful_perturbation": "both_inward_20f (20-frame truncation at both boundaries)",
+    "highest_prediction_flip_rate_pct": 11.11111111111111,
+    "mean_abs_score_delta_under_truncation": 0.44545434991563015,
+    "conclusion": "Truncating boundaries inflates apparent velocity and compresses duration, shifting negative decision scores across threshold into Incorrect."
+  },
+  "frozen_model": {
+    "name": "BalancedSVM",
+    "status": "Strictly Frozen",
+    "modifications": "NONE"
+  }
+}

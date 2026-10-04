@@ -1,0 +1,88 @@
+{
+  "model_identity": "Assisted_Elbow_Flexion_V2_Phase9_RBF_SVM",
+  "version": "2.0.0-phase9",
+  "created_at": "2026-10-05T00:15:00Z",
+  "dataset_release": "human280_20261004",
+  "canonical_manifest_sha256": "bb4669ec492ac26cbf5b064c89390e43cac207f9785c3a5cd0003cea3c587262",
+  "canonical_examples_count": 280,
+  "source_group_count": 29,
+  "training_class_distribution": {
+    "Correct": 183,
+    "Incorrect": 97
+  },
+  "apparent_training_metrics": {
+    "n": 280,
+    "accuracy": 0.9928571428571429,
+    "balanced_accuracy": 0.9921131203875838,
+    "macro_f1": 0.9921131203875838,
+    "correct_recall": 0.994535519125683,
+    "incorrect_recall": 0.9896907216494846,
+    "confusion_matrix": [
+      [
+        182,
+        1
+      ],
+      [
+        1,
+        96
+      ]
+    ]
+  },
+  "cross_validation_performance": {
+    "5fold_source_grouped_balanced_accuracy": 0.8765421666384993,
+    "5fold_source_grouped_accuracy": 0.8892857142857142,
+    "5fold_source_grouped_macro_f1": 0.8774547867459164,
+    "5fold_source_grouped_correct_recall": 0.9180327868852459,
+    "5fold_source_grouped_incorrect_recall": 0.8350515463917526,
+    "fold_mean_balanced_accuracy": 0.875033525922124,
+    "fold_std_balanced_accuracy": 0.05491236229164842,
+    "baseline_balanced_accuracy": 0.8662328882879837,
+    "apparent_gain_over_baseline": 0.010309278350515538,
+    "nested_cv_balanced_accuracy": 0.8538110528984283,
+    "nested_gain_over_baseline": -0.012421835389555436
+  },
+  "feature_dimension": 34,
+  "feature_list": [
+    "active_min_angle",
+    "active_max_angle",
+    "active_rom",
+    "opposing_min_angle",
+    "opposing_max_angle",
+    "opposing_rom",
+    "duration",
+    "active_peak_abs_velocity",
+    "active_mean_abs_velocity",
+    "opposing_peak_abs_velocity",
+    "opposing_mean_abs_velocity",
+    "active_mean_flare",
+    "active_max_flare",
+    "opposing_mean_flare",
+    "opposing_max_flare",
+    "mean_angle_asymmetry",
+    "max_angle_asymmetry",
+    "mean_flare_asymmetry",
+    "max_flare_asymmetry",
+    "mean_torso_lean",
+    "max_torso_lean",
+    "range_torso_lean",
+    "mean_shoulder_depth_ratio",
+    "max_shoulder_depth_ratio",
+    "range_shoulder_depth_ratio",
+    "flexion_duration",
+    "extension_duration",
+    "flexion_fraction",
+    "active_start_angle",
+    "active_end_angle",
+    "flexion_excursion",
+    "extension_excursion",
+    "flexion_net_speed",
+    "extension_net_speed"
+  ],
+  "preprocessing": "Pipeline B",
+  "decision_rule": "decision_score > 0.0 => Incorrect; decision_score <= 0.0 => Correct",
+  "final_decision": "B \u2014 No Meaningful Improvement",
+  "sklearn_version": "1.7.2",
+  "python_version": "3.10.11",
+  "status": "research_model_optimization_completed",
+  "deployment_warning": "Model optimization performed on 280-repetition canonical development set. Grouped internal validation only; NOT external validation."
+}

@@ -1,0 +1,132 @@
+{
+  "release_id": "human280_20261004",
+  "manifest_sha256": "bb4669ec492ac26cbf5b064c89390e43cac207f9785c3a5cd0003cea3c587262",
+  "feature_version": "world_kinematics_v1_2",
+  "seed": 42,
+  "authorization": "Explicit user authorization on 2026-10-04 for Phase 1 only; archived release authorization flag reflects earlier finalization stage. Canonical contract remains immutable.",
+  "target": {
+    "Correct": 0,
+    "Incorrect": 1
+  },
+  "group_key": "source_sha256",
+  "pose": {
+    "model_complexity": 1,
+    "smooth_landmarks": false,
+    "static_image_mode": false,
+    "enable_segmentation": false,
+    "min_detection_confidence": 0.5,
+    "min_tracking_confidence": 0.5
+  },
+  "decode": {
+    "width": 640,
+    "frame_policy": "Every original decoded presentation frame in union of inclusive canonical ranges; reset graph at each gap. No fps conversion.",
+    "workers": 3
+  },
+  "quality": {
+    "minimum_joint_visibility": 0.5,
+    "max_internal_gap_seconds": 0.5,
+    "minimum_valid_fraction": 0.8,
+    "max_endpoint_hold_seconds": 0.1,
+    "smoothing": "None; raw estimated angles, explicit interpolation only."
+  },
+  "representation": {
+    "temporal_length": 128,
+    "base_channels": [
+      "active_angle",
+      "opposing_angle",
+      "active_flare",
+      "opposing_flare",
+      "torso_lean",
+      "shoulder_depth_ratio"
+    ],
+    "extra_channels": [
+      "active_velocity",
+      "opposing_velocity",
+      "angle_asymmetry",
+      "flare_asymmetry",
+      "elapsed_seconds"
+    ],
+    "units": [
+      "deg",
+      "deg",
+      "ratio",
+      "ratio",
+      "deg",
+      "ratio",
+      "deg/s",
+      "deg/s",
+      "deg",
+      "ratio",
+      "s"
+    ],
+    "scalar_summary": "34 predeclared scalar summaries in features/build_features.py; no hand/subject/source/folder or QC flags as predictors."
+  },
+  "folds": {
+    "type": "StratifiedGroupKFold",
+    "n_splits": 5,
+    "shuffle": true,
+    "random_state": 42
+  },
+  "models": {
+    "LogisticRegression": {
+      "C": 1.0,
+      "max_iter": 3000,
+      "solver": "lbfgs",
+      "class_weight": null,
+      "random_state": 42
+    },
+    "RandomForest": {
+      "n_estimators": 500,
+      "max_depth": null,
+      "min_samples_leaf": 2,
+      "max_features": "sqrt",
+      "class_weight": null,
+      "random_state": 42,
+      "n_jobs": 4
+    },
+    "HistGradientBoosting": {
+      "max_iter": 100,
+      "learning_rate": 0.1,
+      "max_leaf_nodes": 7,
+      "min_samples_leaf": 10,
+      "l2_regularization": 1.0,
+      "early_stopping": false,
+      "random_state": 42
+    },
+    "SVM": {
+      "C": 1.0,
+      "kernel": "rbf",
+      "gamma": "scale",
+      "class_weight": null,
+      "probability": false
+    },
+    "UniLSTM": {
+      "hidden_size": 32,
+      "num_layers": 1,
+      "bidirectional": false,
+      "dropout": 0.0,
+      "epochs": 60,
+      "batch_size": 32,
+      "learning_rate": 0.001,
+      "weight_decay": 0.0,
+      "gradient_clip": 1.0,
+      "optimizer": "Adam",
+      "loss": "unweighted CrossEntropyLoss",
+      "device": "cpu",
+      "seed_policy": "42 + fold",
+      "checkpoint": "Final fixed epoch only; no validation monitoring or selection"
+    }
+  },
+  "scaling": "StandardScaler fit exclusively on outer training rows (temporal: training rows and timesteps). Tree models unscaled.",
+  "selection": "No parameter/feature search, no threshold tuning, no inner split needed for fixed training schedule; no repeated outer evaluation for model changes.",
+  "failure_policy": "Preserve raw missing values and bounded recorded repairs. Unsupported intervals and dependent summaries remain NaN; retain all canonical repetitions with training-fold mean imputation. Decode/provenance corruption still halts training. Never silently drop examples.",
+  "class_balance": "Original 183/97; no weights or resampling",
+  "stop": "After Phase 1 report; no production model, no full-data deployment fit, no Phase 2.",
+  "fold_imputation": {
+    "strategy": "mean",
+    "fit": "Outer training repetitions only; temporal uses training timesteps only",
+    "add_indicator": false,
+    "keep_empty_features": true,
+    "finite_model_input_required": true
+  }
+}

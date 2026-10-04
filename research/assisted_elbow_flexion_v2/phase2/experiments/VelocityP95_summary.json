@@ -1,0 +1,76 @@
+{
+  "name": "VelocityP95",
+  "pooled": {
+    "n": 280,
+    "accuracy": 0.8642857142857143,
+    "balanced_accuracy": 0.8331924961973973,
+    "macro_f1": 0.8444444444444444,
+    "correct_recall": 0.9344262295081968,
+    "incorrect_recall": 0.7319587628865979,
+    "confusion_matrix": [
+      [
+        171,
+        12
+      ],
+      [
+        26,
+        71
+      ]
+    ]
+  },
+  "fold_mean": {
+    "accuracy": 0.8554444554864176,
+    "balanced_accuracy": 0.8116027435757406,
+    "macro_f1": 0.8114377396986093,
+    "correct_recall": 0.9419797257006559,
+    "incorrect_recall": 0.6812257614508253
+  },
+  "fold_sample_std": {
+    "accuracy": 0.06364984281430859,
+    "balanced_accuracy": 0.10929824417188515,
+    "macro_f1": 0.1054473791007412,
+    "correct_recall": 0.0689683041744409,
+    "incorrect_recall": 0.24680469564812796
+  },
+  "source_accuracy_mean": 0.8604142983453329,
+  "source_accuracy_sample_std": 0.19853394906260297,
+  "source_accuracy_min": 0.3,
+  "hand": {
+    "Left": {
+      "n": 143,
+      "accuracy": 0.8811188811188811,
+      "balanced_accuracy": 0.8332236842105263,
+      "macro_f1": 0.8557184402635172,
+      "correct_recall": 0.9789473684210527,
+      "incorrect_recall": 0.6875,
+      "confusion_matrix": [
+        [
+          93,
+          2
+        ],
+        [
+          15,
+          33
+        ]
+      ]
+    },
+    "Right": {
+      "n": 137,
+      "accuracy": 0.8467153284671532,
+      "balanced_accuracy": 0.8309369202226344,
+      "macro_f1": 0.8324305434212825,
+      "correct_recall": 0.8863636363636364,
+      "incorrect_recall": 0.7755102040816326,
+      "confusion_matrix": [
+        [
+          78,
+          10
+        ],
+        [
+          11,
+          38
+        ]
+      ]
+    }
+  }
+}

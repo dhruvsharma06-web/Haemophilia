@@ -1,0 +1,53 @@
+{
+  "canonical_examples": 280,
+  "errors": 36,
+  "source_count": 29,
+  "both_class_sources": 5,
+  "only_correct_sources": 16,
+  "only_incorrect_sources": 8,
+  "error_repaired_count": 4,
+  "error_partial_count": 0,
+  "near_svm_margin_errors": 13,
+  "error_endpoint_or_unavailable_phase_count": 0,
+  "active_peak_to_p95_ratio_median": 1.713339147856134,
+  "active_peak_to_p95_ratio_max": 9.220945031750373,
+  "view_feature_source_eta_squared": [
+    {
+      "feature": "mean_torso_lean",
+      "source_eta_squared": 0.9328355632731061,
+      "source_eta_squared_after_class_mean_subtraction": 0.9327130744358144
+    },
+    {
+      "feature": "max_torso_lean",
+      "source_eta_squared": 0.823593071933889,
+      "source_eta_squared_after_class_mean_subtraction": 0.8225581098889843
+    },
+    {
+      "feature": "range_torso_lean",
+      "source_eta_squared": 0.6900771842715655,
+      "source_eta_squared_after_class_mean_subtraction": 0.6876884598221473
+    },
+    {
+      "feature": "mean_shoulder_depth_ratio",
+      "source_eta_squared": 0.48721520364992194,
+      "source_eta_squared_after_class_mean_subtraction": 0.44690979120180147
+    },
+    {
+      "feature": "max_shoulder_depth_ratio",
+      "source_eta_squared": 0.5773328250917724,
+      "source_eta_squared_after_class_mean_subtraction": 0.5713266388560988
+    },
+    {
+      "feature": "range_shoulder_depth_ratio",
+      "source_eta_squared": 0.5756772881922093,
+      "source_eta_squared_after_class_mean_subtraction": 0.5732349341047877
+    }
+  ],
+  "audit_script_sha256": "140ee41ea3f0c0825a0518f20e9698bb7a49964643b3b749dd0280098822fdd3",
+  "audit_outputs_hashes": {
+    "error_analysis.csv": "b0645350b783f824c1359d0d7371a17aa249fdcc291e01f93b4283039ebd0280",
+    "source_failure_analysis.csv": "c8e931a4fbb066dc4210653c26aed6337d3b1e70f2e7ebe2ea40aaea35db4afe",
+    "feature_robustness.csv": "1b926fd12d253ef00f28b8a9d1cf6d94127a0a8c44f43398151b36460323375a",
+    "audits\\repetition_diagnostics.csv": "fe6a25523879f1f4b8daabdbc2132e5f64b6472cbe4dec0cc3cedaaff8924ad2"
+  }
+}

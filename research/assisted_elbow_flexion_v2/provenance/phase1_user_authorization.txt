@@ -1,0 +1,320 @@
+We are now authorized to begin the NEW Assisted Elbow Flexion V2 training phase.
+
+The canonical dataset is finalized and approved:
+
+`C:\dev\Haemophilia\processed_data\assisted_elbow_flexion_v2\releases\human280_20261004`
+
+Canonical supervised examples:
+- 280 total
+- 183 Correct
+- 97 Incorrect
+- 143 Left
+- 137 Right
+
+The canonical manifest is:
+
+`releases/human280_20261004/canonical_manifest.csv`
+
+The canonical contract/policy in the release must be treated as authoritative.
+
+## HARD DATASET RULE
+
+Use ONLY the 280 canonical human-reviewed repetitions.
+
+Do NOT use:
+- the 22 excluded candidates;
+- old 153/195/296 datasets as additional samples;
+- old historical normalized arrays as new canonical training data;
+- rule-generated labels;
+- folder-derived labels;
+- assistant-inferred quality labels;
+- any other repetitions not present in the canonical 280 release.
+
+The supervised target is EXACTLY:
+
+`Correct` vs `Incorrect`
+
+Hand is metadata only:
+
+`Left` / `Right`
+
+Do NOT create four classes.
+
+## IMPORTANT: FRESH PROCESSING
+
+The canonical release contains manually reviewed frame-range revisions. Therefore, do NOT blindly reuse historical feature arrays.
+
+Build a fresh processing path from the canonical source videos and canonical frame ranges:
+
+canonical_manifest.csv
+→ source video + canonical start/end frames
+→ fresh landmark extraction
+→ fresh feature extraction
+→ feature validation
+→ model-ready dataset
+
+Preserve the canonical manifest as immutable source truth.
+
+Do not modify raw videos, historical datasets, old checkpoints, or the production/live/frontend/backend code.
+
+## STEP 1 — AUDIT THE EXISTING CODE
+
+Before writing new processing code:
+
+Inspect the repository and identify:
+- existing MediaPipe/pose landmark extraction code;
+- existing Assisted Elbow Flexion feature extraction code;
+- old training scripts;
+- reusable utilities;
+- coordinate conventions;
+- left/right landmark indices;
+- normalization approaches;
+- frame-rate handling;
+- any existing temporal resampling.
+
+Do not modify production code merely to reuse it.
+
+Clearly report:
+1. what can safely be reused;
+2. what is stale because of the new canonical ranges;
+3. what must be newly implemented.
+
+## STEP 2 — FRESH LANDMARK EXTRACTION
+
+For all 280 canonical repetitions:
+
+- decode the original source video;
+- use the exact canonical frame ranges;
+- extract pose landmarks from the source frames;
+- retain the original source grouping;
+- handle video FPS correctly;
+- preserve temporal ordering;
+- record extraction failures explicitly.
+
+The pipeline must be deterministic/reproducible.
+
+Do not silently interpolate or repair missing landmarks without recording the operation.
+
+Produce an extraction audit containing:
+- total canonical repetitions;
+- successfully processed repetitions;
+- failed repetitions;
+- frames per repetition;
+- landmark availability/visibility statistics;
+- any problematic videos/ranges.
+
+Do not claim raw-landmark validation unless raw landmarks are actually available and explicitly audited.
+
+## STEP 3 — FRESH FEATURE REPRESENTATIONS
+
+Create a clean V2 feature representation from the fresh landmarks.
+
+Start with interpretable biomechanical features based on the established elbow kinematics, including where valid:
+
+- elbow angle;
+- ROM;
+- minimum elbow angle;
+- maximum elbow angle;
+- duration;
+- peak angular velocity;
+- mean angular velocity;
+- flare-related measurements;
+- bilateral asymmetry;
+- torso compensation measures;
+- phase/flexion-extension dynamics.
+
+Use hand metadata only to correctly identify the exercised arm and opposing arm.
+
+The representation must not encode the hand as the class.
+
+Do not assume every historical feature is automatically valid. Audit each feature's definition and units.
+
+Produce:
+- feature definitions;
+- feature dimensionality;
+- units/normalization;
+- missing-value policy;
+- per-feature distributions;
+- outlier statistics;
+- NaN/Inf checks.
+
+## STEP 4 — DATASET LEAKAGE RULE
+
+Validation MUST be source-grouped.
+
+The immutable grouping key is:
+
+`source_sha256`
+
+All repetitions from the same source video must remain in the same fold.
+
+Never perform a random repetition-level train/test split.
+
+Before training, explicitly verify:
+
+`intersection(train source_sha256, validation source_sha256) = empty`
+
+For future subject-level validation, preserve subject grouping when verified identity evidence supports it.
+
+## STEP 5 — ESTABLISH BASELINES BEFORE DEEP LEARNING
+
+Do NOT begin with architecture experimentation.
+
+Benchmark simple models first using the fresh feature representation:
+
+A. Logistic Regression
+B. Random Forest
+C. Gradient-boosted tree model available in the repository/environment
+D. SVM or another compact classical classifier if practical
+
+Use the SAME source-grouped folds for every model so comparisons are fair.
+
+For each model report:
+
+- Accuracy
+- Balanced Accuracy
+- Macro-F1
+- Correct Recall
+- Incorrect Recall
+- confusion matrix
+- fold-by-fold metrics
+- mean ± standard deviation
+- per-source performance
+- per-hand performance as descriptive analysis only
+
+Do not tune on the held-out fold.
+
+All normalization/scaling must be fit ONLY on the training portion of each fold.
+
+## STEP 6 — TEMPORAL BASELINE
+
+After the classical baselines are established, build ONE clean temporal baseline using the same fresh landmark-derived representation.
+
+A compact UniLSTM baseline is sufficient initially.
+
+Do NOT test:
+- BiLSTM
+- attention
+- large transformers
+- complicated fusion architectures
+- extensive hyperparameter searches
+
+until the baseline results are understood.
+
+The purpose of this phase is to answer:
+
+1. Does fresh processing improve over our historical results?
+2. Are simple biomechanical features competitive with deep temporal modeling?
+3. Is the bottleneck feature representation or model architecture?
+4. How large is the source-to-source generalization gap?
+
+## STEP 7 — NO TEST-SET CONTAMINATION
+
+Do NOT use the held-out fold for:
+- feature selection;
+- threshold tuning;
+- calibration;
+- class-weight tuning;
+- model selection based on repeated inspection.
+
+All such decisions must be performed inside the training folds.
+
+If a nested or inner validation procedure is needed, implement it explicitly.
+
+## STEP 8 — CLASS IMBALANCE
+
+Do NOT artificially rebalance the 280 examples initially.
+
+Start with the real distribution:
+
+- Correct = 183
+- Incorrect = 97
+
+Report class distribution and evaluate balanced metrics.
+
+Only introduce weighting/resampling as a later controlled experiment if the baseline results justify it.
+
+## STEP 9 — REPRODUCIBILITY
+
+Create scripts/configuration so the full Phase 1 experiment can be reproduced from the canonical release.
+
+Record:
+- dataset release identifier;
+- source manifest hash;
+- feature definitions/version;
+- fold assignments;
+- random seeds;
+- preprocessing/scaler parameters;
+- model hyperparameters;
+- software/environment versions where practical.
+
+Every result must be traceable to the exact canonical dataset and fold definition.
+
+## STEP 10 — OUTPUTS
+
+Create a NEW V2 training workspace, separate from historical experiments.
+
+Recommended structure:
+
+`research/assisted_elbow_flexion_v2/`
+
+with clearly separated:
+- preprocessing/
+- features/
+- splits/
+- baselines/
+- reports/
+- checkpoints/
+
+Do not overwrite old experiments.
+
+## FINAL REPORT
+
+At the end of Phase 1, provide:
+
+### Dataset
+- canonical examples processed
+- successful/failed extraction count
+- Correct/Incorrect
+- Left/Right
+- source-video count
+
+### Feature pipeline
+- exact features
+- dimensionality
+- normalization
+- extraction validity
+- missing/outlier statistics
+
+### Validation
+- exact grouped-fold strategy
+- source-group leakage verification
+- fold composition
+
+### Classical baselines
+Comparison table for every model.
+
+### Temporal baseline
+Results and comparison with classical models.
+
+### Interpretation
+Explain:
+- which representation/model performed best;
+- whether performance is stable across source videos;
+- whether performance is dominated by source-video effects;
+- where the model fails;
+- whether further temporal modeling is justified.
+
+Do NOT claim clinical validation.
+
+Do NOT modify the production/live model.
+
+Do NOT integrate anything into Flutter/backend/live inference yet.
+
+## STOP CONDITION
+
+After completing fresh processing, baseline experiments, evaluation, and the Phase 1 report:
+
+STOP.
+
+Do not proceed into architecture optimization or production integration until I explicitly approve Phase 2.

@@ -1,0 +1,31 @@
+{
+  "phase": 7,
+  "status": "VERIFIED_PASSED",
+  "recommended_strategy": "Causal Cycle Segmenter",
+  "total_webcam_sessions_evaluated": 7,
+  "total_annotated_repetitions": 82,
+  "development_repetitions": 63,
+  "heldout_validation_repetitions": 19,
+  "overall_median_iou": 0.8097184065934067,
+  "heldout_median_iou": 0.8737373737373737,
+  "live_test_accuracy_pct": 66.66666666666666,
+  "replay_parity_max_delta": 0.0,
+  "protected_files_checked": 2514,
+  "protected_files_unchanged": true,
+  "file_hashes": {
+    "PHASE7_REPORT.md": "d6a3de85abec58ba3582c225e719e182de7bc62fdb1b69ad73c6d0cdc6065c37",
+    "strategy_design.md": "6d228506da569aabc070095839a986f1adce656d58f437d610f270346b7c816b",
+    "causal_cycle_segmenter.py": "f17aa1c531395a0bd8e6a02e2d439cf00e0ccd6ed8e8eb00a7bc21b2510490bc",
+    "segmentation_benchmark.csv": "7a5a0a909ce46b64b61c25df96848919b0a862af9107cda6eed26f8db71e0bf3",
+    "development_results.csv": "4a2111b0d2f5e9cac6c4ffe1f3a4645bd8fa1c606f070fd207c082a2715782bf",
+    "heldout_results.csv": "9934a8471bbedecbf039bb53e716b36a8b0bbd751265466d4fad5e1d5a67bd28",
+    "failure_analysis.csv": "31b01494433d2a116b6f5d493570b5f854e5a479bd3870e4dd095e1c87c2336f",
+    "live_results.csv": "2a9d76a330b5472afe874ecc94a7c6a30ba7f08430da756f822b492ec3d63695",
+    "live_offline_parity.csv": "a499eb2cc5155590d9addc56e934268035e63d70dbe6b839ebe05575566175f3",
+    "segmentation_config.json": "297132bf4ad7d7f6610956a8c4c1223ff5974c88d754bcfd951cbdab2f2965ec",
+    "plots/cycle_vs_strategy2_benchmark.png": "5469105eb411c5871cb31e73f1cd5f1819e7dbbdb6f70b30b7f7f517a83af6b4",
+    "plots/cycle_boundary_error_distributions.png": "d1bc8a6875b2308d8404a1a0ce322c4217ae032d48913161636381812f38d6b3",
+    "plots/cycle_failure_attribution.png": "23d783a6f1b5a23119847ccf14c815917468085f231de784425af899b3cbb7fe",
+    "plots/cycle_svm_diagnostic.png": "88f77a2135e28b2bc9e067baf06e925020992ea6b41cfc8abd68a185aae773ef"
+  }
+}

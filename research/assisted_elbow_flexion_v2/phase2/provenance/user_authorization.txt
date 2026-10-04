@@ -1,0 +1,308 @@
+Phase 1 is complete.
+
+Canonical dataset:
+`C:\dev\Haemophilia\processed_data\assisted_elbow_flexion_v2\releases\human280_20261004`
+
+Phase 1 workspace:
+`C:\dev\Haemophilia\research\assisted_elbow_flexion_v2`
+
+Use ONLY the canonical 280 human-reviewed repetitions.
+
+Do NOT use the 22 excluded repetitions.
+Do NOT add historical 153/195/296 samples.
+Do NOT use historical normalized arrays as new training data.
+Do NOT modify production/live/frontend/backend/Flutter code.
+Do NOT replace or modify production checkpoints.
+
+## Current Phase 1 baseline
+
+The strongest observed model is the fresh-feature RBF SVM:
+
+- Accuracy: 87.14%
+- Balanced Accuracy: 83.87%
+- Macro-F1: 85.18%
+- Correct Recall: 94.54%
+- Incorrect Recall: 73.20%
+
+Confusion matrix:
+`[[173, 10], [26, 71]]`
+
+However, DO NOT treat this as a selected production model.
+
+Major warning:
+
+- 24/29 source videos contain only one quality class.
+- Source-video/label Cramer's V = 0.9011.
+- SVM source accuracy ranges from 30% to 100%.
+- Source-level effects may still dominate generalization.
+- Validation is source-grouped, not verified subject-held-out.
+
+The purpose of Phase 2 is therefore NOT immediate optimization.
+
+The purpose is to determine whether the current performance reflects genuine movement-quality information and to identify the main failure mechanisms.
+
+# PHASE 2A — REPRODUCIBLE ERROR AUDIT
+
+Use the frozen Phase 1 SVM OOF predictions.
+
+Do not retrain or modify the SVM yet.
+
+Analyze all 36 SVM errors individually.
+
+For every error, report:
+
+- repetition_id
+- source video
+- source SHA-256
+- inherited subject ID
+- hand
+- human label
+- predicted label
+- decision score/probability if available
+- all major feature values
+- QC/repair flags
+- phase/QC information
+- frame count/duration
+- whether the error is near a biomechanical decision boundary
+
+Group the 36 errors by likely failure mechanism, but do NOT make unsupported clinical claims.
+
+Potential descriptive categories include:
+
+- insufficient flexion
+- excessive flare
+- poor control
+- torso compensation
+- phase segmentation issue
+- pose jitter
+- occlusion/visibility
+- unusual movement pattern
+- ambiguous/weak biomechanical signal
+- source-specific appearance/setup
+
+Use the actual data to determine whether these categories are supported.
+
+# PHASE 2B — SOURCE FAILURE ANALYSIS
+
+Analyze the strongest and weakest source videos for the SVM.
+
+For every source, report:
+
+- number of repetitions
+- class distribution
+- SVM accuracy
+- SVM balanced accuracy where defined
+- confusion matrix
+- mean feature profile
+- important deviations from the global dataset
+- QC/visibility statistics
+- repair frequency
+- duration distribution
+- angular velocity distribution
+- flare distribution
+- torso/shoulder proxy distributions
+
+Specifically investigate the worst sources:
+
+- 30%
+- 37.5%
+- 50%
+- 71.43%
+
+and compare them with the strongest sources.
+
+Determine whether the failures appear associated with:
+
+- recording setup
+- pose scale
+- camera/view angle
+- participant characteristics
+- labeling composition
+- movement execution
+- feature measurement instability
+
+Do not infer causality when the data cannot establish it.
+
+# PHASE 2C — FEATURE ROBUSTNESS AUDIT
+
+Audit every Phase 1 feature for susceptibility to source-specific artifacts.
+
+Pay particular attention to:
+
+- peak velocity
+- mean velocity
+- flare
+- torso lean
+- shoulder depth ratio
+- phase duration
+- start/end angle
+- phase-derived speed
+- bilateral asymmetry
+
+For each feature determine:
+
+1. physical interpretation;
+2. units;
+3. expected invariance to camera/view;
+4. sensitivity to pose jitter;
+5. sensitivity to missing landmarks;
+6. sensitivity to repetition duration;
+7. source-level distribution shift;
+8. whether it could act as a recording-style proxy.
+
+Do NOT remove features merely because they have outliers.
+
+Recommend changes only where there is evidence of instability or source dependence.
+
+# PHASE 2D — SOURCE-ROBUST FEATURE EXPERIMENTS
+
+Only after the audit above, test a SMALL number of scientifically justified feature variants.
+
+Do NOT perform a broad hyperparameter sweep.
+
+Candidate ideas may include, only where justified by the audit:
+
+- robust velocity statistics rather than peak velocity;
+- normalized/relative angular dynamics;
+- percentile-based velocity instead of extreme peaks;
+- jitter-resistant summaries;
+- robust phase features;
+- camera/view-normalized quantities;
+- removal or downweighting of highly view-sensitive proxies.
+
+For every candidate representation:
+
+- use the SAME canonical 280 examples;
+- use the SAME frozen source-grouped folds;
+- fit preprocessing only on the training fold;
+- preserve all leakage controls;
+- compare directly with the frozen Phase 1 SVM baseline.
+
+Do not select a representation based on a single favorable fold.
+
+# PHASE 2E — CLASSICAL MODEL ROBUSTNESS
+
+Keep the Phase 1 SVM as the frozen reference.
+
+Test only a small, justified set of changes such as:
+
+- SVM class weighting;
+- conservative C/gamma variations;
+- robust scaling if justified;
+- calibrated output only as a diagnostic, not as a production claim.
+
+Do not conduct a large blind hyperparameter search.
+
+Do not tune using the pooled held-out predictions.
+
+Any model selection decision must respect the source-grouped validation protocol.
+
+# PHASE 2F — STRONGER GENERALIZATION CHECK
+
+Because source-video/label association is extremely strong, add a stricter evaluation analysis.
+
+Where computationally practical, perform a source-level leave-one-source-out evaluation as a diagnostic.
+
+The goal is to determine how sensitive results are to the exact five-fold partition.
+
+Do NOT mix source groups between train and validation.
+
+Also explicitly report:
+
+- number of source videos containing both classes;
+- number containing only Correct;
+- number containing only Incorrect;
+- number of repetitions per source.
+
+Do not present source-level results as independent clinical samples.
+
+# PHASE 2G — HAND ANALYSIS
+
+Hand remains metadata only.
+
+Do not use hand as a target.
+
+Do not create four classes.
+
+Perform descriptive analysis of the SVM and the best Phase 2 candidates on:
+
+- Left
+- Right
+
+Check whether important feature distributions or errors differ materially between hands.
+
+Do not conclude that the model is hand-invariant based only on pooled metrics.
+
+# PHASE 2H — NO NEW DATA CREATION YET
+
+Do not add synthetic repetitions.
+
+Do not augment the dataset.
+
+Do not relabel anything.
+
+Do not use the 22 excluded repetitions.
+
+Do not generate artificial incorrect examples.
+
+Do not change human labels.
+
+The objective is understanding and robustness, not inflating sample count.
+
+# OUTPUTS
+
+Create:
+
+`C:\dev\Haemophilia\research\assisted_elbow_flexion_v2\phase2\`
+
+Keep this completely separate from production.
+
+Produce:
+
+- `PHASE2_REPORT.md`
+- `error_analysis.csv`
+- `source_failure_analysis.csv`
+- `feature_robustness.csv`
+- `feature_experiment_results.csv`
+- `model_robustness_results.csv`
+- `source_leave_one_out_results.csv` if feasible
+- plots necessary to understand source shift/errors
+- exact experiment configs and hashes
+
+The report must clearly separate:
+
+1. Frozen Phase 1 baseline
+2. Diagnostic analyses
+3. Controlled feature experiments
+4. Controlled model experiments
+5. Any observed improvement
+6. Whether improvement is stable across source groups
+7. Remaining generalization risks
+
+## IMPORTANT DECISION RULE
+
+Do not declare a Phase 2 winner merely because it improves pooled accuracy.
+
+A candidate is interesting only if it improves or maintains:
+
+- balanced accuracy;
+- Macro-F1;
+- Incorrect recall;
+
+while also showing acceptable stability across source groups.
+
+A model with higher pooled accuracy but worse source stability should NOT automatically replace the SVM baseline.
+
+Do not claim clinical validity or deployment readiness.
+
+## STOP CONDITION
+
+Complete Phase 2 analysis and controlled experiments, then STOP.
+
+Do NOT integrate anything into live inference.
+Do NOT modify Flutter.
+Do NOT modify backend.
+Do NOT replace production models.
+Do NOT create a deployment checkpoint.
+
+Wait for explicit approval before Phase 3.

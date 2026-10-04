@@ -139,16 +139,18 @@ def map_canonical_features(
             "fallback_used": raw.get("fallback_used", 0.0),
         }
     else:
-        # Both hand assisted: symmetric bilateral exercise
+        # Both hand assisted: bilateral exercise with genuine measured kinematics.
+        # Preserves real bilateral measurements (left vs right arm) rather than
+        # artificial averaging, preventing zero-asymmetry leakage.
         return {
-            "active_elbow_angle": (raw["left_angle"] + raw["right_angle"]) / 2.0,
-            "assisting_elbow_angle": (raw["left_angle"] + raw["right_angle"]) / 2.0,
+            "active_elbow_angle": raw["left_angle"],
+            "assisting_elbow_angle": raw["right_angle"],
             "active_arm_visibility": (raw["left_vis"] + raw["right_vis"]) / 2.0,
             "assisting_arm_visibility": (raw["left_vis"] + raw["right_vis"]) / 2.0,
             "torso_tilt": raw["torso_tilt"],
             "torso_rotation": raw["torso_rotation"],
-            "active_elbow_flare": max(raw["left_flare"], raw["right_flare"]),
-            "assisting_elbow_flare": min(raw["left_flare"], raw["right_flare"]),
+            "active_elbow_flare": raw["left_flare"],
+            "assisting_elbow_flare": raw["right_flare"],
             "fallback_used": raw.get("fallback_used", 0.0),
         }
 

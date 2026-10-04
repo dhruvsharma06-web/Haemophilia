@@ -1,0 +1,16 @@
+VelocityP95 {'n': 280, 'accuracy': 0.8642857142857143, 'balanced_accuracy': 0.8331924961973973, 'macro_f1': 0.8444444444444444, 'correct_recall': 0.9344262295081968, 'incorrect_recall': 0.7319587628865979, 'confusion_matrix': [[171, 12], [26, 71]]}
+WithoutViewProxies {'n': 280, 'accuracy': 0.8285714285714286, 'balanced_accuracy': 0.7840685031829193, 'macro_f1': 0.798609446175977, 'correct_recall': 0.9289617486338798, 'incorrect_recall': 0.6391752577319587, 'confusion_matrix': [[170, 13], [35, 62]]}
+BalancedSVM {'n': 280, 'accuracy': 0.8821428571428571, 'balanced_accuracy': 0.8662328882879837, 'macro_f1': 0.8688971182905546, 'correct_recall': 0.9180327868852459, 'incorrect_recall': 0.8144329896907216, 'confusion_matrix': [[168, 15], [18, 79]]}
+RobustScalerSVM {'n': 280, 'accuracy': 0.8392857142857143, 'balanced_accuracy': 0.7922652244943946, 'macro_f1': 0.8093191482921958, 'correct_recall': 0.9453551912568307, 'incorrect_recall': 0.6391752577319587, 'confusion_matrix': [[173, 10], [35, 62]]}
+Inner selection fold 0 BalancedSVM
+Inner selection fold 1 VelocityP95
+Inner selection fold 2 BalancedSVM
+Inner selection fold 3 BalancedSVM
+Inner selection fold 4 BalancedSVM
+                 model  accuracy  balanced_accuracy  macro_f1  incorrect_recall  source_accuracy_sample_std  descriptive_interesting_not_winner
+       FrozenPhase1SVM  0.871429           0.838657  0.851756          0.731959                    0.192663                                True
+           VelocityP95  0.864286           0.833192  0.844444          0.731959                    0.198534                               False
+    WithoutViewProxies  0.828571           0.784069  0.798609          0.639175                    0.243340                               False
+           BalancedSVM  0.882143           0.866233  0.868897          0.814433                    0.169238                                True
+       RobustScalerSVM  0.839286           0.792265  0.809319          0.639175                    0.220223                               False
+InnerSelectedProcedure  0.878571           0.861078  0.864580          0.804124                    0.167598                                True

@@ -1,0 +1,55 @@
+{
+  "phase": 4,
+  "project": "Assisted Elbow Flexion V2",
+  "pipeline_scope": "Research deployment adapter, offline numerical parity, live timing fix, shadow validation",
+  "authoritative_model": {
+    "name": "BalancedSVM",
+    "algorithm": "sklearn.svm.SVC(kernel='rbf', C=1.0, gamma='scale', class_weight='balanced', probability=False)",
+    "effective_gamma": 0.029411764705882346,
+    "class_weights": {
+      "Correct": 0.7650273224043715,
+      "Incorrect": 1.443298969072165
+    },
+    "intercept": 0.7300757860973132,
+    "support_vectors_count": 147,
+    "feature_dimension": 34,
+    "decision_rule": "decision_function > 0 -> Incorrect; decision_function <= 0 -> Correct",
+    "parameters_checkpoint": "research/assisted_elbow_flexion_v2/phase3/checkpoints/final_model_v2_parameters.json",
+    "metadata": "research/assisted_elbow_flexion_v2/phase3/final_model_metadata.json"
+  },
+  "canonical_dataset": {
+    "path": "processed_data/assisted_elbow_flexion_v2/releases/human280_20261004",
+    "examples_count": 280,
+    "classes": {
+      "Correct": 183,
+      "Incorrect": 97
+    },
+    "hands": {
+      "Left": 143,
+      "Right": 137
+    },
+    "sources_count": 29
+  },
+  "live_runner": {
+    "script": "research/assisted_elbow_flexion_v2/phase4/live_elbow_camera_v2.py",
+    "timing_source": "time.perf_counter (strictly monotonic)",
+    "timing_invariants": "end_time > start_time, duration > 0, end_frame > start_frame",
+    "active_hand_semantics": "Exercised arm; explicit user-selected 'Left' or 'Right'",
+    "segmentation_thresholds": {
+      "flexion_start_deg": 135.0,
+      "turnaround_reversal_deg": 12.0,
+      "extension_finish_deg": 135.0,
+      "min_rom_deg": 25.0,
+      "min_frames": 15,
+      "min_duration_sec": 0.8
+    }
+  },
+  "restrictions": {
+    "production_files_modified": false,
+    "flutter_modified": false,
+    "backend_modified": false,
+    "models_root_modified": false,
+    "retrained": false,
+    "feature_selection": false
+  }
+}

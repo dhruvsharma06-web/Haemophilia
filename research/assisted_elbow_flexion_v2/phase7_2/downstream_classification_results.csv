@@ -1,0 +1,19 @@
+strategy,split,total_reps,segmented_reps,correctly_classified_reps,conditioned_accuracy_pct,conditioned_balanced_acc_pct,correct_recall_pct,incorrect_recall_pct,end_to_end_correct_rate_pct
+Strategy 2 (Phase 5 Baseline),Overall (82 reps),82,62,55,88.71,88.98,84.85,93.1,67.07
+Strategy 2 (Phase 5 Baseline),Development (63 reps),63,50,43,86.0,86.63,84.38,88.89,68.25
+Strategy 2 (Phase 5 Baseline),Held-Out (19 reps),19,12,12,100.0,100.0,100.0,100.0,63.16
+Causal Cycle (Phase 7: 15 pre / 10 post),Overall (82 reps),82,74,64,86.49,86.62,85.37,87.88,78.05
+Causal Cycle (Phase 7: 15 pre / 10 post),Development (63 reps),63,58,48,82.76,82.37,83.78,80.95,76.19
+Causal Cycle (Phase 7: 15 pre / 10 post),Held-Out (19 reps),19,16,16,100.0,100.0,100.0,100.0,84.21
+Causal + 10 pre / 15 post,Overall (82 reps),82,70,60,85.71,85.86,84.21,87.5,73.17
+Causal + 10 pre / 15 post,Development (63 reps),63,56,47,83.93,84.29,82.86,85.71,74.6
+Causal + 10 pre / 15 post,Held-Out (19 reps),19,14,13,92.86,95.45,100.0,90.91,68.42
+Causal + 10 pre / 20 post,Overall (82 reps),82,63,53,84.13,84.39,78.79,90.0,64.63
+Causal + 10 pre / 20 post,Development (63 reps),63,51,42,82.35,83.8,78.12,89.47,66.67
+Causal + 10 pre / 20 post,Held-Out (19 reps),19,12,11,91.67,95.45,100.0,90.91,57.89
+Causal + 15 pre / 15 post,Overall (82 reps),82,70,60,85.71,85.86,84.21,87.5,73.17
+Causal + 15 pre / 15 post,Development (63 reps),63,56,47,83.93,84.29,82.86,85.71,74.6
+Causal + 15 pre / 15 post,Held-Out (19 reps),19,14,13,92.86,95.45,100.0,90.91,68.42
+Causal + 15 pre / 20 post,Overall (82 reps),82,63,53,84.13,84.39,78.79,90.0,64.63
+Causal + 15 pre / 20 post,Development (63 reps),63,51,42,82.35,83.8,78.12,89.47,66.67
+Causal + 15 pre / 20 post,Held-Out (19 reps),19,12,11,91.67,95.45,100.0,90.91,57.89

@@ -1,0 +1,25 @@
+{
+  "phase": "7.1",
+  "status": "VERIFIED_PASSED",
+  "reconciled_repetitions": 82,
+  "discrepancies_identified": 30,
+  "canonical_benchmark_strategies": 4,
+  "live_errors_audited": 10,
+  "sensitivity_evaluations": 819,
+  "highest_prediction_flip_rate_pct": 11.11111111111111,
+  "protected_files_checked": 2514,
+  "protected_files_unchanged": true,
+  "file_hashes": {
+    "PHASE7_1_REPORT.md": "c4a3cb6b985503d1e6f6c74e1f360f46ab77bd93ce98c721750c5a5a69f169d8",
+    "strategy2_reconciliation.csv": "71c2bf6797eecc654c09d7729fc6a5cbe9c347b3f74cda547df016520c165c54",
+    "canonical_segmentation_benchmark.csv": "a66f81a16eefa75bd2f91cf17888e57cb5c9fdae6efd7b50b8f07627b0d9c39b",
+    "live_classification_failure_audit.csv": "addba8fe3ee02b5fa99dbfb3ed7c984f73829d35f18c1e066a1d172c23671843",
+    "boundary_sensitivity_analysis.csv": "b22b637b0de119acc5cc160cf64e180a84d999bdefc9e75aea79278e1c2d947f",
+    "boundary_sensitivity_summary.csv": "4b8ecb47f05697eb42c8b7f83b93284fd7e5ce4fe70aad7ef41e3e0814302968",
+    "segmentation_config.json": "7b1255b30418a3c58f6b54064272987baaedec8a0cec3a7c1427420919154f93",
+    "plots/strategy2_reconciliation_diffs.png": "aaab47545392cc8a0f6e95da2748829d96e6b4070a8da67752cf331e824ab802",
+    "plots/canonical_strategy_benchmark.png": "fb5178b459af32eaa6faf7fddbde6430468c32b22bbf62211d1a0285a7635c9b",
+    "plots/boundary_sensitivity_scores.png": "d194317aa00fa374e63b11612584347c9fa56a0e4e5915d5b1f436d02d5f4dee",
+    "plots/feature_distortion_profiles.png": "cec1bf24141e28d2770ac524ac278a22775984a0def2e44b7340584cbcc809ce"
+  }
+}

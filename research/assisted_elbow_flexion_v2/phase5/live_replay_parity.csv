@@ -1,0 +1,3 @@
+repetition_index,live_predicted_label,replay_predicted_label,live_decision_score,replay_decision_score,score_difference,live_duration_sec,replay_duration_sec,duration_difference,max_feature_difference,parity_verified
+1,Incorrect,Incorrect,0.9251165245220007,0.9251165245220007,0.0,1.3327550000000001,1.3327550000000001,0.0,0.0,True
+2,Correct,Correct,-0.8906112787295465,-0.8906112787295465,0.0,3.7817220000000002,3.7817220000000002,0.0,0.0,True

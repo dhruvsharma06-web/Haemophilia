@@ -1,0 +1,1098 @@
+[
+  {
+    "video_id": "vid_03222b4845d8ef2c",
+    "requested_zero_based_frame": 600,
+    "decoder_position_after_read": 601.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_1f4a610c3defe53722_0.jpg",
+    "sha256": "8d4617e90952808e6d7ae734d9bb453a0d9fcb20f6972ffba69f8bf7476e9e11",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_03222b4845d8ef2c",
+    "requested_zero_based_frame": 653,
+    "decoder_position_after_read": 654.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_1f4a610c3defe53722_1.jpg",
+    "sha256": "5f294b7b23a0f613d4dacbf38916477659819e56520b23997a260d73da22e741",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_03222b4845d8ef2c",
+    "requested_zero_based_frame": 762,
+    "decoder_position_after_read": 763.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_1f4a610c3defe53722_2.jpg",
+    "sha256": "f71aa25be94ae4b98670c96d53659ea23e9763c255a94d739871e56609719bab",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_03222b4845d8ef2c",
+    "requested_zero_based_frame": 912,
+    "decoder_position_after_read": 913.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_52a2c5c414944694f1_0.jpg",
+    "sha256": "699d68ca0e6efb4044d4a11973581e5c6dfab6b22da585bd2a135f2641b8b5a8",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_03222b4845d8ef2c",
+    "requested_zero_based_frame": 989,
+    "decoder_position_after_read": 990.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_52a2c5c414944694f1_1.jpg",
+    "sha256": "904b8eeeaa641ea42d997cb79ebe3777ea1d26a6fb964cb67b47aee07e17fa08",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_03222b4845d8ef2c",
+    "requested_zero_based_frame": 1056,
+    "decoder_position_after_read": 1057.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_52a2c5c414944694f1_2.jpg",
+    "sha256": "2283f2fba4714de7bb6924d5a6e9771ea04531067ca3666bc49bd472c4919fc7",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_03222b4845d8ef2c",
+    "requested_zero_based_frame": 1206,
+    "decoder_position_after_read": 1207.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_ac1e97d62d5c2b56a0_0.jpg",
+    "sha256": "ea35c86f7a770e606e05f12eff4318f1d46f74c6f9a445a52980194df5339fa9",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_03222b4845d8ef2c",
+    "requested_zero_based_frame": 1294,
+    "decoder_position_after_read": 1295.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_ac1e97d62d5c2b56a0_1.jpg",
+    "sha256": "1b80374a4d13d174a37fc06f282113370967bf38e2e5bb9d50ccd365c4fa3f68",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_03222b4845d8ef2c",
+    "requested_zero_based_frame": 1354,
+    "decoder_position_after_read": 1355.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_29323d0780eb56b21d_0.jpg",
+    "sha256": "50a6ea432672ae980559b38f374f30991541a915f2d7c7a3cd7a94f1aa2f175b",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_03222b4845d8ef2c",
+    "requested_zero_based_frame": 1354,
+    "decoder_position_after_read": 1355.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_ac1e97d62d5c2b56a0_2.jpg",
+    "sha256": "50a6ea432672ae980559b38f374f30991541a915f2d7c7a3cd7a94f1aa2f175b",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_03222b4845d8ef2c",
+    "requested_zero_based_frame": 1393,
+    "decoder_position_after_read": 1394.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_29323d0780eb56b21d_1.jpg",
+    "sha256": "306ea40c678968775f82f09f6d354b50c6cd7f27b903573a0fe82f28e26f5008",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_03222b4845d8ef2c",
+    "requested_zero_based_frame": 1423,
+    "decoder_position_after_read": 1424.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\vid_03222b4845d8ef2c.jpg",
+    "sha256": "d766fa3bcd89b33909d7661a2b90bd8116ad55d2532cc92d4c3bd7348ee14a1d",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_03222b4845d8ef2c",
+    "requested_zero_based_frame": 1492,
+    "decoder_position_after_read": 1493.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_29323d0780eb56b21d_2.jpg",
+    "sha256": "cd5f152219202939451cbfe1600ec7e934fa0fb06e9113bb17b775bb5cc7ddba",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_03222b4845d8ef2c",
+    "requested_zero_based_frame": 1492,
+    "decoder_position_after_read": 1493.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_59893c3e996fee9c34_0.jpg",
+    "sha256": "cd5f152219202939451cbfe1600ec7e934fa0fb06e9113bb17b775bb5cc7ddba",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_03222b4845d8ef2c",
+    "requested_zero_based_frame": 1574,
+    "decoder_position_after_read": 1575.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_59893c3e996fee9c34_1.jpg",
+    "sha256": "655f18d84643e8de36a81ea812df46ed31bf82341d446f4be8e1792c8202d8a0",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_03222b4845d8ef2c",
+    "requested_zero_based_frame": 1600,
+    "decoder_position_after_read": 1601.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_59893c3e996fee9c34_2.jpg",
+    "sha256": "29a08e3dd16d6a8a61d0f42632b29679ff846901d4a98eaeffd0a6a21f9f1bc2",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_03222b4845d8ef2c",
+    "requested_zero_based_frame": 1766,
+    "decoder_position_after_read": 1767.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_2b168be9071d57530d_0.jpg",
+    "sha256": "a5697bb8a71fbb242b16078d317e976f53dea7eef955961558d1b6e3e1379b6f",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_03222b4845d8ef2c",
+    "requested_zero_based_frame": 1855,
+    "decoder_position_after_read": 1856.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_2b168be9071d57530d_1.jpg",
+    "sha256": "105c09e13a33295c0d758834e0cd0a149faa4111389e5fbc669c419581f09203",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_03222b4845d8ef2c",
+    "requested_zero_based_frame": 1900,
+    "decoder_position_after_read": 1901.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_2b168be9071d57530d_2.jpg",
+    "sha256": "ca1ec13c75adab60631709782a52cc762d6f1ddaf362b2df141309c352296f91",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_03222b4845d8ef2c",
+    "requested_zero_based_frame": 2050,
+    "decoder_position_after_read": 2051.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_6ccabad19ce4f7ab3f_0.jpg",
+    "sha256": "8c2b5b3c39ba28bb24c7ed297be4e8ef1c72bde9d0c6afa34d3e6ab52740a8bf",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_03222b4845d8ef2c",
+    "requested_zero_based_frame": 2104,
+    "decoder_position_after_read": 2105.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_6ccabad19ce4f7ab3f_1.jpg",
+    "sha256": "24f964f0cd6e9e6e60c9aff18f11bf0503175ffa4ec86a0f667a54291f365ac3",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_03222b4845d8ef2c",
+    "requested_zero_based_frame": 2200,
+    "decoder_position_after_read": 2201.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_6ccabad19ce4f7ab3f_2.jpg",
+    "sha256": "ba8e61fa0acaa4b2032c6a932a70d4b7e83453dd5482a6477a1f195ad6b038c7",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_0c264aade3d23621",
+    "requested_zero_based_frame": 4,
+    "decoder_position_after_read": 5.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_fb0c2f97d90ea5de5a_0.jpg",
+    "sha256": "bcb276d9cf748fd6636becc2fb736d41ced17030ca41428f1780b32963728d33",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_0c264aade3d23621",
+    "requested_zero_based_frame": 223,
+    "decoder_position_after_read": 224.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_fb0c2f97d90ea5de5a_1.jpg",
+    "sha256": "323f95bedcec0a4b58c18eec828faa93f602c0f45105736116285f87924490b5",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_0c264aade3d23621",
+    "requested_zero_based_frame": 350,
+    "decoder_position_after_read": 351.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_fb0c2f97d90ea5de5a_2.jpg",
+    "sha256": "8e0ae5529fa4b8b90398436759678dfb44533fe13d979b4b3d847f7f9e283edd",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_0c264aade3d23621",
+    "requested_zero_based_frame": 1907,
+    "decoder_position_after_read": 1908.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\vid_0c264aade3d23621.jpg",
+    "sha256": "d023de5899a271f038f09c06012e170eb67227470e96955ba7719871cbbf1886",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_1334a563691c2170",
+    "requested_zero_based_frame": 640,
+    "decoder_position_after_read": 641.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_df6be1b0d78003c9ac_0.jpg",
+    "sha256": "049a74b63860ae98befb845425e0fdd0347de741a49fc45df1a725b45179230e",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_1334a563691c2170",
+    "requested_zero_based_frame": 741,
+    "decoder_position_after_read": 742.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_df6be1b0d78003c9ac_1.jpg",
+    "sha256": "8cdd4828fe6eebd63546053ae0ad1890df1de5bd211ebfded2e4e2e1cb1afb61",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_1334a563691c2170",
+    "requested_zero_based_frame": 800,
+    "decoder_position_after_read": 801.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_df6be1b0d78003c9ac_2.jpg",
+    "sha256": "2d3a3400978e940b4fd46cd33670f687af46f654ca48a70c93d66d8592842837",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_1334a563691c2170",
+    "requested_zero_based_frame": 1070,
+    "decoder_position_after_read": 1071.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\vid_1334a563691c2170.jpg",
+    "sha256": "ed10a2d6442176c6e69625c64dd1ebcdf06ddc2b2656686768cb8f39dd7532f8",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_1334a563691c2170",
+    "requested_zero_based_frame": 1508,
+    "decoder_position_after_read": 1509.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_496c495105f1f840b1_0.jpg",
+    "sha256": "b226bb6aca848470e96a17ab07e0d3bec0f83d792bca3728c818760f212234d9",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_1334a563691c2170",
+    "requested_zero_based_frame": 1557,
+    "decoder_position_after_read": 1558.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_496c495105f1f840b1_1.jpg",
+    "sha256": "464705b1dbc8fa4130dcc3118bceb1ecfba90b1ac1bae2cfa465bca6552746c6",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_1334a563691c2170",
+    "requested_zero_based_frame": 1650,
+    "decoder_position_after_read": 1651.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_496c495105f1f840b1_2.jpg",
+    "sha256": "5ad4dc6cdb8dff5f1e97cbcd6a7d6b6c35d2492b6c5e1d69dac97df6352de8e1",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_1334a563691c2170",
+    "requested_zero_based_frame": 1800,
+    "decoder_position_after_read": 1801.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_27f29611af9d868d70_0.jpg",
+    "sha256": "2557924efddab6c4c786bdfcdcb6c96f7117e6e274341b5127d03fc71a0f1894",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_1334a563691c2170",
+    "requested_zero_based_frame": 1870,
+    "decoder_position_after_read": 1871.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_27f29611af9d868d70_1.jpg",
+    "sha256": "3c6f2f4be097747d367bd48062b1f2cb55fa04991233024c4b760d0ab96e0592",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_1334a563691c2170",
+    "requested_zero_based_frame": 1964,
+    "decoder_position_after_read": 1965.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_27f29611af9d868d70_2.jpg",
+    "sha256": "0d6c5fc10ee47331cf0273062c6b65040e13a3b5b47e3f0108e0cd1501e526a3",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_1ac0cd5b45de866a",
+    "requested_zero_based_frame": 1150,
+    "decoder_position_after_read": 1151.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_bb9858d2e8e9c3549c_0.jpg",
+    "sha256": "5799d08dd940b53248973ff4ff1b4a1ea572f2131879523e559989f67c562d4d",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_1ac0cd5b45de866a",
+    "requested_zero_based_frame": 1243,
+    "decoder_position_after_read": 1244.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_bb9858d2e8e9c3549c_1.jpg",
+    "sha256": "08a081b3c604fcf388b1674d96c5702fea0de6b344e56a3f891bb160c4a5764f",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_1ac0cd5b45de866a",
+    "requested_zero_based_frame": 1332,
+    "decoder_position_after_read": 1333.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_bb9858d2e8e9c3549c_2.jpg",
+    "sha256": "afc68298f063446ca5d4e1d30e8ded569d7552f801e980b57e54076043513e59",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_1ac0cd5b45de866a",
+    "requested_zero_based_frame": 1606,
+    "decoder_position_after_read": 1607.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_9ff0bc77263dfff528_0.jpg",
+    "sha256": "f0d427d74083273502a20e992f6f1cc615e52957f5a5d4f59698006a3be1ecf6",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_1ac0cd5b45de866a",
+    "requested_zero_based_frame": 1607,
+    "decoder_position_after_read": 1608.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_9ff0bc77263dfff528_1.jpg",
+    "sha256": "64664a40d97e0a39449346041a7dac15fdba1b366d9429a439bc38039ae19c39",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_1ac0cd5b45de866a",
+    "requested_zero_based_frame": 1772,
+    "decoder_position_after_read": 1773.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_9ff0bc77263dfff528_2.jpg",
+    "sha256": "4af60361ae0b099c59b69a5e450ee61e064aeb2e6a4a31f6928a2492f1f8c4a3",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_1ac0cd5b45de866a",
+    "requested_zero_based_frame": 1858,
+    "decoder_position_after_read": 1859.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\vid_1ac0cd5b45de866a.jpg",
+    "sha256": "0c83a7b30b7342be809e5969e686c5ff71fbf320b22e066080150203d60867f2",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_2f993d44fd54187e",
+    "requested_zero_based_frame": 3,
+    "decoder_position_after_read": 4.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_709aefa59abbdda681_0.jpg",
+    "sha256": "5ce4f22deff6aea1d25e466bda66b955fbeba56b53ded1e759b9d509886ae4a8",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_2f993d44fd54187e",
+    "requested_zero_based_frame": 60,
+    "decoder_position_after_read": 61.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_709aefa59abbdda681_1.jpg",
+    "sha256": "587d0744b7468b0d7865a7033e00cec0140465b70cd6d09524cf1c6c8a6c2f3f",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_2f993d44fd54187e",
+    "requested_zero_based_frame": 105,
+    "decoder_position_after_read": 106.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_709aefa59abbdda681_2.jpg",
+    "sha256": "d2679e65d0ddc9721b111ab9763636acde2cb305422e90b8012ccc213d1ed0de",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_2f993d44fd54187e",
+    "requested_zero_based_frame": 105,
+    "decoder_position_after_read": 106.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_c76e4661561c2feeb0_0.jpg",
+    "sha256": "d2679e65d0ddc9721b111ab9763636acde2cb305422e90b8012ccc213d1ed0de",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_2f993d44fd54187e",
+    "requested_zero_based_frame": 149,
+    "decoder_position_after_read": 150.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_c76e4661561c2feeb0_1.jpg",
+    "sha256": "6e01711c11021f43574c51dbaad5b913af672e6ab3b182913e0775079db6e6d8",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_2f993d44fd54187e",
+    "requested_zero_based_frame": 190,
+    "decoder_position_after_read": 191.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_c76e4661561c2feeb0_2.jpg",
+    "sha256": "1a0d9105c8869c41c383899fc235d00f45ad480b704c443aae05ed2ffa8bac18",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_2f993d44fd54187e",
+    "requested_zero_based_frame": 299,
+    "decoder_position_after_read": 300.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\vid_2f993d44fd54187e.jpg",
+    "sha256": "0d060b6cbf186fec120287729a026e1733f4e5e7e0155e3b271788458c221815",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_33cbe5f84565bf3d",
+    "requested_zero_based_frame": 150,
+    "decoder_position_after_read": 151.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_cddfc02155f1821b8f_0.jpg",
+    "sha256": "dedfc97bc642a7cb31fa48dc225503f4640073adcbc265445dfdaa9cde81be1f",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_33cbe5f84565bf3d",
+    "requested_zero_based_frame": 210,
+    "decoder_position_after_read": 211.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_cddfc02155f1821b8f_1.jpg",
+    "sha256": "bd9d4001a36ec0d8ba873d573a966ce7561c67d3e95a2f9740ebb6990b776d11",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_33cbe5f84565bf3d",
+    "requested_zero_based_frame": 312,
+    "decoder_position_after_read": 313.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_cddfc02155f1821b8f_2.jpg",
+    "sha256": "0ddf47e055dc215e0a043462f81ead60121675d0e5d06d858e840e0d93a91744",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_33cbe5f84565bf3d",
+    "requested_zero_based_frame": 884,
+    "decoder_position_after_read": 885.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_19561ede8233796b10_0.jpg",
+    "sha256": "6b16629576b4a72856d812233f57c1a54b3d6689653f10438a9cf089d05d4e2e",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_33cbe5f84565bf3d",
+    "requested_zero_based_frame": 936,
+    "decoder_position_after_read": 937.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_19561ede8233796b10_1.jpg",
+    "sha256": "ee1504600046669f693d565caf680b02873e63c65552a74a4ed4344019668f1a",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_33cbe5f84565bf3d",
+    "requested_zero_based_frame": 1048,
+    "decoder_position_after_read": 1049.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_19561ede8233796b10_2.jpg",
+    "sha256": "b7f812e3854ba51a3f9d70a327e89d22cde150b0081b78c0850db39e20180737",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_33cbe5f84565bf3d",
+    "requested_zero_based_frame": 1048,
+    "decoder_position_after_read": 1049.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_f4b3097cc669548327_0.jpg",
+    "sha256": "b7f812e3854ba51a3f9d70a327e89d22cde150b0081b78c0850db39e20180737",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_33cbe5f84565bf3d",
+    "requested_zero_based_frame": 1105,
+    "decoder_position_after_read": 1106.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_f4b3097cc669548327_1.jpg",
+    "sha256": "43c137f567260970cb3c877635d59030f34ddbf162168749a8649de04c69ebda",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_33cbe5f84565bf3d",
+    "requested_zero_based_frame": 1120,
+    "decoder_position_after_read": 1121.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\vid_33cbe5f84565bf3d.jpg",
+    "sha256": "837ae7cae873d48f22dca75af51bf9470ce63bafdf58e52d7aed8ecda50f6a02",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_33cbe5f84565bf3d",
+    "requested_zero_based_frame": 1192,
+    "decoder_position_after_read": 1193.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_f4b3097cc669548327_2.jpg",
+    "sha256": "6b1ea2d063a80a110991a157a5084ee046abe05cc4394b8ac3586ed864751aac",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_3e2129fa15608b04",
+    "requested_zero_based_frame": 435,
+    "decoder_position_after_read": 436.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\vid_3e2129fa15608b04.jpg",
+    "sha256": "e50bd6ada56b33a45583ad280489e55ecd2d130d17cf0a47c55702f79b3cc8d9",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_4a4b044fd46cca10",
+    "requested_zero_based_frame": 548,
+    "decoder_position_after_read": 549.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\vid_4a4b044fd46cca10.jpg",
+    "sha256": "e2b6e7611fa654c00b641ab9d1b951f1a30ccf7152c8afdf0b385eb2705e2df6",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_4d1daeb09e2c1b0e",
+    "requested_zero_based_frame": 1077,
+    "decoder_position_after_read": 1078.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\vid_4d1daeb09e2c1b0e.jpg",
+    "sha256": "fde3bc2e807e9ff0bad164a4a658969fadf2c3424828c857d6fae20058fd9d36",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_5ecd6a78f9f6d143",
+    "requested_zero_based_frame": 4,
+    "decoder_position_after_read": 5.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_d7af2020d057934d50_0.jpg",
+    "sha256": "7d7883e2991af1ee976ceb504882baf534f46fe25ce0efb6a572e7ab07074db1",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_5ecd6a78f9f6d143",
+    "requested_zero_based_frame": 240,
+    "decoder_position_after_read": 241.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_d7af2020d057934d50_1.jpg",
+    "sha256": "ebcaad8cd913ccd49ce1acdf234c7e53d18f52e3f6faf735b38ceedb2bad0d13",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_5ecd6a78f9f6d143",
+    "requested_zero_based_frame": 280,
+    "decoder_position_after_read": 281.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_d7af2020d057934d50_2.jpg",
+    "sha256": "3f891c89b5cd6f96c6fbef045d33468a9d55d02a4c31f204db87c1129c5c1570",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_5ecd6a78f9f6d143",
+    "requested_zero_based_frame": 1755,
+    "decoder_position_after_read": 1756.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\vid_5ecd6a78f9f6d143.jpg",
+    "sha256": "948a96916e290886cfe9ace619014f979fe55df08d3062e7cf3f0f57224473ae",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_6dbe8779159bce47",
+    "requested_zero_based_frame": 770,
+    "decoder_position_after_read": 771.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\vid_6dbe8779159bce47.jpg",
+    "sha256": "bd746b5fcae5132b38e204c76017803e88d57f20ff8c46af2a91d0699cce7fb8",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_6dbe8779159bce47",
+    "requested_zero_based_frame": 1632,
+    "decoder_position_after_read": 1633.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_52ea159192f8fc5a18_0.jpg",
+    "sha256": "54438829636608874d0c682a5ee84b2ce3d4ce1d25afeb7e32874a67f0064b4c",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_6dbe8779159bce47",
+    "requested_zero_based_frame": 1705,
+    "decoder_position_after_read": 1706.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_52ea159192f8fc5a18_1.jpg",
+    "sha256": "c1aa216877be21b773c290144bfb10f79e8197a51078baed9edeaeb8e0e3ae49",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_6dbe8779159bce47",
+    "requested_zero_based_frame": 1796,
+    "decoder_position_after_read": 1797.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_52ea159192f8fc5a18_2.jpg",
+    "sha256": "871aab352e5f43902271336c3819c0fe899e647cf3a9b0aa54c9a8efc850cf45",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_762b204cd565ac52",
+    "requested_zero_based_frame": 1387,
+    "decoder_position_after_read": 1388.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\vid_762b204cd565ac52.jpg",
+    "sha256": "167681e5dbdfb35c59ed9586f53d5ad2cd976626a897408057161d017737c5ec",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_769bc27d1c4abfab",
+    "requested_zero_based_frame": 562,
+    "decoder_position_after_read": 563.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_c4774628dd2fa04641_0.jpg",
+    "sha256": "c580dfa5b34d1f3b842d1eef442f91067b1785d5c5eef2f80243bc104ef5e556",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_769bc27d1c4abfab",
+    "requested_zero_based_frame": 636,
+    "decoder_position_after_read": 637.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_c4774628dd2fa04641_1.jpg",
+    "sha256": "f28aad01cfd28322c70d9353610b66612e983aa2b2c629ea130944abf9c71c8d",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_769bc27d1c4abfab",
+    "requested_zero_based_frame": 754,
+    "decoder_position_after_read": 755.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_15de4676677de916d0_0.jpg",
+    "sha256": "dfb4e7929b7d949811e91aca63c87946e4c34c25971d2e9e54b1ce4750174415",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_769bc27d1c4abfab",
+    "requested_zero_based_frame": 754,
+    "decoder_position_after_read": 755.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_c4774628dd2fa04641_2.jpg",
+    "sha256": "dfb4e7929b7d949811e91aca63c87946e4c34c25971d2e9e54b1ce4750174415",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_769bc27d1c4abfab",
+    "requested_zero_based_frame": 820,
+    "decoder_position_after_read": 821.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_15de4676677de916d0_1.jpg",
+    "sha256": "1a7b61180284e280f12e12e19425f112352aa1bcfce0578232acb5d8afc42162",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_769bc27d1c4abfab",
+    "requested_zero_based_frame": 914,
+    "decoder_position_after_read": 915.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_15de4676677de916d0_2.jpg",
+    "sha256": "3144e4bd61177c7921697bebc3fbd15343edf072c417a70aba7c6def36fd5055",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_769bc27d1c4abfab",
+    "requested_zero_based_frame": 1104,
+    "decoder_position_after_read": 1105.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_50437be04b9a9a36ed_0.jpg",
+    "sha256": "09a1b2e3c494495af633f81f71d328bae275764029b60cd4d3370904a92a3c49",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_769bc27d1c4abfab",
+    "requested_zero_based_frame": 1184,
+    "decoder_position_after_read": 1185.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_50437be04b9a9a36ed_1.jpg",
+    "sha256": "30d3423fb126b95eaa536cd59176107f8275813af421f7165e03f16a1fcfed6b",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_769bc27d1c4abfab",
+    "requested_zero_based_frame": 1264,
+    "decoder_position_after_read": 1265.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_50437be04b9a9a36ed_2.jpg",
+    "sha256": "a75e1a916217b1f5ea1f64c63ad6b52d6fa9e78663837724358891ce0c44611a",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_769bc27d1c4abfab",
+    "requested_zero_based_frame": 1343,
+    "decoder_position_after_read": 1344.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\vid_769bc27d1c4abfab.jpg",
+    "sha256": "7b33a9ef61c35e6a9ac3d98dcbd7686c58a65b4f7eaffeacdd02f7797aa463ea",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_769bc27d1c4abfab",
+    "requested_zero_based_frame": 2072,
+    "decoder_position_after_read": 2073.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_2073ececf0915178cc_0.jpg",
+    "sha256": "f52c1fd4c8be735e730186ad77a8b50125ad1fd8d167583bbcc81903fb9a24f4",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_769bc27d1c4abfab",
+    "requested_zero_based_frame": 2169,
+    "decoder_position_after_read": 2170.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_2073ececf0915178cc_1.jpg",
+    "sha256": "4f30dc416c5d736154785d5bfddb022be93b446567f031a339345c6c12831706",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_769bc27d1c4abfab",
+    "requested_zero_based_frame": 2250,
+    "decoder_position_after_read": 2251.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_2073ececf0915178cc_2.jpg",
+    "sha256": "cafc13508ea9777457d6e4b8cb81c930d6c3c3219459c5dcc2cf8a38f745f9e6",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_871bc1a5b112709b",
+    "requested_zero_based_frame": 1374,
+    "decoder_position_after_read": 1375.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\vid_871bc1a5b112709b.jpg",
+    "sha256": "fbd69aab03761f90131276452c0b1efe1d9212f32dcc69fbf3d93b39cfd038df",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_8c19cbd3c181b15a",
+    "requested_zero_based_frame": 719,
+    "decoder_position_after_read": 720.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\vid_8c19cbd3c181b15a.jpg",
+    "sha256": "814d818b86f67a3529970568111959976361339e5ebf98df46edbe540577457f",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_a098f327a26fe877",
+    "requested_zero_based_frame": 1131,
+    "decoder_position_after_read": 1132.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\vid_a098f327a26fe877.jpg",
+    "sha256": "4f29ba3887bc0f130425b7893d580275b046763fa8b6980125058ee352858f96",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_a7e0a74bb2cacc23",
+    "requested_zero_based_frame": 1182,
+    "decoder_position_after_read": 1183.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\vid_a7e0a74bb2cacc23.jpg",
+    "sha256": "6cdb7d45146b017a425c14ca84208a7ec0c7b3f7e6ddc2848ad82c5061121951",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_aa01d8740a74fd7d",
+    "requested_zero_based_frame": 14,
+    "decoder_position_after_read": 15.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_aee0a429a21693a253_0.jpg",
+    "sha256": "e2bf46425717ffadb3f202f65c52ebb89fa88545a77da33987ae4b0f735ecde9",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_aa01d8740a74fd7d",
+    "requested_zero_based_frame": 142,
+    "decoder_position_after_read": 143.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_aee0a429a21693a253_1.jpg",
+    "sha256": "f749556f3b97c5df6c706e6acdf8d27913fbd3bd91bb5833263b119343bf45d0",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_aa01d8740a74fd7d",
+    "requested_zero_based_frame": 168,
+    "decoder_position_after_read": 169.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_aee0a429a21693a253_2.jpg",
+    "sha256": "aef58a2fc0062434c75be195b5874cd85226aed99f0b4cee9f8d1df4aa69669a",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_aa01d8740a74fd7d",
+    "requested_zero_based_frame": 760,
+    "decoder_position_after_read": 761.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_cec13eefff34409cdb_0.jpg",
+    "sha256": "c8aca389e44b61a745fc79ca04a98552d63dcaa8274221389d0a977aae30641e",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_aa01d8740a74fd7d",
+    "requested_zero_based_frame": 849,
+    "decoder_position_after_read": 850.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\vid_aa01d8740a74fd7d.jpg",
+    "sha256": "5831b528e88167d991b9663d7706f9d3457f07ec3bcc6a5b7a04a00279629dc2",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_aa01d8740a74fd7d",
+    "requested_zero_based_frame": 864,
+    "decoder_position_after_read": 865.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_cec13eefff34409cdb_1.jpg",
+    "sha256": "5003c7a2d89d61b92fed69f23aae6eb4c38948dbfc47aa54978a6529a01e7743",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_aa01d8740a74fd7d",
+    "requested_zero_based_frame": 938,
+    "decoder_position_after_read": 939.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_6e34e000e401e92ab6_0.jpg",
+    "sha256": "7d0cb6026223e60379841e5737d9ef93e8e5d9057ca25b056fc884f01fdf8d8d",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_aa01d8740a74fd7d",
+    "requested_zero_based_frame": 938,
+    "decoder_position_after_read": 939.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_cec13eefff34409cdb_2.jpg",
+    "sha256": "7d0cb6026223e60379841e5737d9ef93e8e5d9057ca25b056fc884f01fdf8d8d",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_aa01d8740a74fd7d",
+    "requested_zero_based_frame": 992,
+    "decoder_position_after_read": 993.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_6e34e000e401e92ab6_1.jpg",
+    "sha256": "18f1bf6e7970600bef719f2e6c1f3da3f28bf39de18aa5ffc134159f05c33b65",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_aa01d8740a74fd7d",
+    "requested_zero_based_frame": 1074,
+    "decoder_position_after_read": 1075.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_6e34e000e401e92ab6_2.jpg",
+    "sha256": "fc550b5390412c45ddd904b0440335f05e619b9f9351f55c1c19b2776c2bd896",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_aa01d8740a74fd7d",
+    "requested_zero_based_frame": 1074,
+    "decoder_position_after_read": 1075.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_865eff11a82c98aff9_0.jpg",
+    "sha256": "fc550b5390412c45ddd904b0440335f05e619b9f9351f55c1c19b2776c2bd896",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_aa01d8740a74fd7d",
+    "requested_zero_based_frame": 1157,
+    "decoder_position_after_read": 1158.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_865eff11a82c98aff9_1.jpg",
+    "sha256": "e9bbe760115932ae67cb9fcdc01abf0ac2c8b3ba52d36764525fa36c61671adc",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_aa01d8740a74fd7d",
+    "requested_zero_based_frame": 1216,
+    "decoder_position_after_read": 1217.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_834edc610f0edab7bf_0.jpg",
+    "sha256": "f3ca1521acbcc4cfde572eaa0af003c60c467d1baeaa20019e5a4ea6c1476183",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_aa01d8740a74fd7d",
+    "requested_zero_based_frame": 1216,
+    "decoder_position_after_read": 1217.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_865eff11a82c98aff9_2.jpg",
+    "sha256": "f3ca1521acbcc4cfde572eaa0af003c60c467d1baeaa20019e5a4ea6c1476183",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_aa01d8740a74fd7d",
+    "requested_zero_based_frame": 1291,
+    "decoder_position_after_read": 1292.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_834edc610f0edab7bf_1.jpg",
+    "sha256": "db7a23e79ef2cb88f2d1c942dd45dac3c91c40239902e17a4195fbef61660bc5",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_aa01d8740a74fd7d",
+    "requested_zero_based_frame": 1380,
+    "decoder_position_after_read": 1381.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_834edc610f0edab7bf_2.jpg",
+    "sha256": "094578eaa1efa4366543ae9a93c4be48be6be781b7e47f34643acad510c1c3c5",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_ac42199741c9c0c1",
+    "requested_zero_based_frame": 775,
+    "decoder_position_after_read": 776.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\vid_ac42199741c9c0c1.jpg",
+    "sha256": "11c84462eb09183caad160a9bb87006bbad479d3ccd83a8cb99b0604adbf8c41",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_bbc5006a077ac6b1",
+    "requested_zero_based_frame": 1131,
+    "decoder_position_after_read": 1132.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\vid_bbc5006a077ac6b1.jpg",
+    "sha256": "f424d47329d2fdc48bfe8b8afaefc67adc6d640082f69574344a04b8e7a0b4f3",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_c63ebda7f39171bc",
+    "requested_zero_based_frame": 1217,
+    "decoder_position_after_read": 1218.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\vid_c63ebda7f39171bc.jpg",
+    "sha256": "1ab9a9b0254fd53c2529a242338cf7c3ad7c4103d59bc2a66fc88adc70d1249d",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_cccf82e3e7e7a94a",
+    "requested_zero_based_frame": 1458,
+    "decoder_position_after_read": 1459.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\vid_cccf82e3e7e7a94a.jpg",
+    "sha256": "7ab4b4be90a2f1719ea2e74f2e596be4710aebdfb2e405aa4a04f7770f85eb5b",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_d19791ead4037b9a",
+    "requested_zero_based_frame": 198,
+    "decoder_position_after_read": 199.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\vid_d19791ead4037b9a.jpg",
+    "sha256": "deb88f7f51bcddcace19af4c908c193eccefcddd929f2a792a983948bc9eca88",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_d5dd3c73ecfdd074",
+    "requested_zero_based_frame": 605,
+    "decoder_position_after_read": 606.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\vid_d5dd3c73ecfdd074.jpg",
+    "sha256": "dd8eaf558f77162264693a10030c5fb588b320add3c765ae500180d981613938",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_dd4079cefb8f35d3",
+    "requested_zero_based_frame": 526,
+    "decoder_position_after_read": 527.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\vid_dd4079cefb8f35d3.jpg",
+    "sha256": "c5bd338c14a36dd72e6a9d42a94b6f0e56213e0da59ed477b52ea9a9e230fc0f",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_e2fbdd20b335321f",
+    "requested_zero_based_frame": 382,
+    "decoder_position_after_read": 383.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_4401202746b68b5331_0.jpg",
+    "sha256": "b198d27de7f87d8c8c71e469d44f7abcb39f145a72758524c06d1b96db54a1e8",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_e2fbdd20b335321f",
+    "requested_zero_based_frame": 420,
+    "decoder_position_after_read": 421.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_4401202746b68b5331_1.jpg",
+    "sha256": "2a83078ca3b7f3672396d19a1c6c9227a928be1be6193287b90f2af38d3749ab",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_e2fbdd20b335321f",
+    "requested_zero_based_frame": 425,
+    "decoder_position_after_read": 426.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\vid_e2fbdd20b335321f.jpg",
+    "sha256": "cb503c49ca840abcfa43e1261a0152d65ef9626c3dcb17459943822022295501",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_e2fbdd20b335321f",
+    "requested_zero_based_frame": 468,
+    "decoder_position_after_read": 469.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_4401202746b68b5331_2.jpg",
+    "sha256": "55b1e5fb02c5107cee8da1e123bb6c79b67a5cf5fe5a3c84077bc19ad849fdad",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_e61ec8fb945f06ad",
+    "requested_zero_based_frame": 622,
+    "decoder_position_after_read": 623.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_2f16162b29e51e2f78_0.jpg",
+    "sha256": "4743ef655aa2acdd9dd8c6c3c7ca296cca90d471cf578f0cbab938a4c9542424",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_e61ec8fb945f06ad",
+    "requested_zero_based_frame": 751,
+    "decoder_position_after_read": 752.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_2f16162b29e51e2f78_1.jpg",
+    "sha256": "dbc72cce8c15d5790badd5983bde38ce904776a0a9d60dcdf94722e4873f5710",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_e61ec8fb945f06ad",
+    "requested_zero_based_frame": 898,
+    "decoder_position_after_read": 899.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_2f16162b29e51e2f78_2.jpg",
+    "sha256": "41f24235889875204ba9fcc53c534d0176f34443b15257d9da5a7c96eb6fea36",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_e61ec8fb945f06ad",
+    "requested_zero_based_frame": 898,
+    "decoder_position_after_read": 899.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_6d7e4cbc3b8ce62f45_0.jpg",
+    "sha256": "41f24235889875204ba9fcc53c534d0176f34443b15257d9da5a7c96eb6fea36",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_e61ec8fb945f06ad",
+    "requested_zero_based_frame": 1009,
+    "decoder_position_after_read": 1010.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_6d7e4cbc3b8ce62f45_1.jpg",
+    "sha256": "01490eecdd5c649f1017742960e227e7d4464a52e22562a99994380f6708cf99",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_e61ec8fb945f06ad",
+    "requested_zero_based_frame": 1200,
+    "decoder_position_after_read": 1201.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_6d7e4cbc3b8ce62f45_2.jpg",
+    "sha256": "8ffd8b574b935130efb668ca2d745ffce7361173a81a998719e01bac8023c1b1",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_e61ec8fb945f06ad",
+    "requested_zero_based_frame": 1300,
+    "decoder_position_after_read": 1301.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\vid_e61ec8fb945f06ad.jpg",
+    "sha256": "780fcd86c75950293f8ac059b49ac64c3da7c4eca52e50a3052ddf4b553f05c5",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_e61ec8fb945f06ad",
+    "requested_zero_based_frame": 1688,
+    "decoder_position_after_read": 1689.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_7501569b908e793d35_0.jpg",
+    "sha256": "8b168b518d8554d256c8ba58a281f1877866391081fb6478b32835d58b12882f",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_e61ec8fb945f06ad",
+    "requested_zero_based_frame": 1771,
+    "decoder_position_after_read": 1772.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_7501569b908e793d35_1.jpg",
+    "sha256": "d7610a3f20f3ab855b3ecd376ea8497eaa54837832fb5f3c33642c061e2afbd1",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_e61ec8fb945f06ad",
+    "requested_zero_based_frame": 2000,
+    "decoder_position_after_read": 2001.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_7501569b908e793d35_2.jpg",
+    "sha256": "88d2856141dc0d91e0b73c38327a9f3c93979f81e1fd26f346461e6bfe2ec5ca",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_fd3e2ae78827f629",
+    "requested_zero_based_frame": 240,
+    "decoder_position_after_read": 241.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_82d242d849eeae0237_0.jpg",
+    "sha256": "d0225877192a76ed64423ad10a3d0beafd677ea84fd8310371f3f9ff08d7aa29",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_fd3e2ae78827f629",
+    "requested_zero_based_frame": 282,
+    "decoder_position_after_read": 283.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_82d242d849eeae0237_1.jpg",
+    "sha256": "c3480cc8b4aa9cbab4a38608ee51f09d9c43d03897a63a37a64c340f0b994c98",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_fd3e2ae78827f629",
+    "requested_zero_based_frame": 350,
+    "decoder_position_after_read": 351.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_82d242d849eeae0237_2.jpg",
+    "sha256": "6ec741a9a287eb1feb8ba84310a790beb07c6da2feb21a867d5931e065634bd5",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_fd3e2ae78827f629",
+    "requested_zero_based_frame": 683,
+    "decoder_position_after_read": 684.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\vid_fd3e2ae78827f629.jpg",
+    "sha256": "aa4e546d4e5acc2366a97442f2cdf5d3c2b0b126d93d06e0c4acc49ffd437cd3",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_ffec5a0821a6c480",
+    "requested_zero_based_frame": 1146,
+    "decoder_position_after_read": 1147.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_911557ec2316444144_0.jpg",
+    "sha256": "8b1ffef818a209bbde3371a5662e792a4931141e11695bfe4c659bb61a26c9e3",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_ffec5a0821a6c480",
+    "requested_zero_based_frame": 1223,
+    "decoder_position_after_read": 1224.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_911557ec2316444144_1.jpg",
+    "sha256": "0cedb47605e5b2ddb5ca756eb7f8e7e4ce359ffc36cf501f4c9fc02caaae60d8",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_ffec5a0821a6c480",
+    "requested_zero_based_frame": 1245,
+    "decoder_position_after_read": 1246.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\vid_ffec5a0821a6c480.jpg",
+    "sha256": "442712c5ee4ea1847c24e7817a3f725a13ad82c9af298cbde432b1dea05d3387",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_ffec5a0821a6c480",
+    "requested_zero_based_frame": 1344,
+    "decoder_position_after_read": 1345.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_911557ec2316444144_2.jpg",
+    "sha256": "32a73e3286af7e1250d433599e86198ea7d8d6f6ae0c84739d60f8599242759a",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_ffec5a0821a6c480",
+    "requested_zero_based_frame": 1344,
+    "decoder_position_after_read": 1345.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_ed5503be0ec8ad904f_0.jpg",
+    "sha256": "32a73e3286af7e1250d433599e86198ea7d8d6f6ae0c84739d60f8599242759a",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_ffec5a0821a6c480",
+    "requested_zero_based_frame": 1452,
+    "decoder_position_after_read": 1453.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_ed5503be0ec8ad904f_1.jpg",
+    "sha256": "43271691ceccc6068302b8b739c55d1126d80a77d43c5fb155d5438215384a48",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  },
+  {
+    "video_id": "vid_ffec5a0821a6c480",
+    "requested_zero_based_frame": 1534,
+    "decoder_position_after_read": 1535.0,
+    "output": "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\phase2\\media\\rep_ed5503be0ec8ad904f_2.jpg",
+    "sha256": "c4cc9bb2db27585c24558003b7deefda167918993963d28c50f7bf0e065cfca9",
+    "method": "OpenCV FFmpeg seek; reported frame position verified; diagnostic only, not extraction or label evidence"
+  }
+]

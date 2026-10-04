@@ -1,0 +1,12 @@
+{
+  "completed_at_unix": 1791128139.450478,
+  "models": [
+    "LogisticRegression",
+    "RandomForest",
+    "HistGradientBoosting",
+    "SVM",
+    "UniLSTM"
+  ],
+  "no_production_fit": true,
+  "config_sha256": "c3634559d2761fed585d18532160f376dd606fa11603c04cbcb6cd8c3fc13c19"
+}

@@ -1,0 +1,62 @@
+[
+  {
+    "fold": 0,
+    "train_n": 242,
+    "validation_n": 38,
+    "train_sources": 24,
+    "validation_sources": 5,
+    "Correct": 15,
+    "Incorrect": 23,
+    "Left": 20,
+    "Right": 18,
+    "source_intersection": []
+  },
+  {
+    "fold": 1,
+    "train_n": 213,
+    "validation_n": 67,
+    "train_sources": 23,
+    "validation_sources": 6,
+    "Correct": 42,
+    "Incorrect": 25,
+    "Left": 31,
+    "Right": 36,
+    "source_intersection": []
+  },
+  {
+    "fold": 2,
+    "train_n": 219,
+    "validation_n": 61,
+    "train_sources": 23,
+    "validation_sources": 6,
+    "Correct": 44,
+    "Incorrect": 17,
+    "Left": 34,
+    "Right": 27,
+    "source_intersection": []
+  },
+  {
+    "fold": 3,
+    "train_n": 227,
+    "validation_n": 53,
+    "train_sources": 23,
+    "validation_sources": 6,
+    "Correct": 43,
+    "Incorrect": 10,
+    "Left": 38,
+    "Right": 15,
+    "source_intersection": []
+  },
+  {
+    "fold": 4,
+    "train_n": 219,
+    "validation_n": 61,
+    "train_sources": 23,
+    "validation_sources": 6,
+    "Correct": 39,
+    "Incorrect": 22,
+    "Left": 20,
+    "Right": 41,
+    "source_intersection": []
+  }
+]

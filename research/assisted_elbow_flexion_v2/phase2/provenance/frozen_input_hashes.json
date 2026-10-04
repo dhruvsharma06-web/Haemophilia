@@ -1,0 +1,14 @@
+{
+  "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\config.json": "c3634559d2761fed585d18532160f376dd606fa11603c04cbcb6cd8c3fc13c19",
+  "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\protocol_lock.json": "8350fa5fccbeb2cd6a6644584557fcc4d7d7722f280497c14e699d38d39f6f56",
+  "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\splits\\fold_assignments.csv": "931f660046c3684da4988b1bf8f0f3709b27d2b8bc8f6b45a70fc24b6d513e6b",
+  "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\features\\model_ready.npz": "c7fb405a58c2edcc9d89df7bca21be5bbe8205935c220859e3c241002993be74",
+  "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\features\\scalar_features.csv": "7a873b4b03731fe2794b1830c9005e367809c62895b6a09e3d0ad2e2adedaa26",
+  "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\baselines\\SVM\\summary.json": "118f874b9a177f12f71e59db91c33e7c83f41bb24596c686e967da754cb74748",
+  "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\baselines\\SVM\\out_of_fold_predictions.csv": "435b67d9791a028a8f7da4b7039fa3a79522219a159a911f82912aaa2c20404b",
+  "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\checkpoints\\SVM\\fold_0.joblib": "37fc67b43bc5110ec478a75bf754927cd72bbaa1b7bb5e67f18e912fde7c3303",
+  "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\checkpoints\\SVM\\fold_1.joblib": "16a8f8e63a87b9cfa62f060613e091d656cccb2a03a87e616f01045e8c3446d3",
+  "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\checkpoints\\SVM\\fold_2.joblib": "dcab49214a1c25fdec66b414a6c8add3d211e160f2f8ce9c49459478c210b645",
+  "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\checkpoints\\SVM\\fold_3.joblib": "daa722d01b3ad373296ab282b942b2a236d5cf5b1e611893dc130a8cc942d8a0",
+  "C:\\dev\\Haemophilia\\research\\assisted_elbow_flexion_v2\\checkpoints\\SVM\\fold_4.joblib": "8cf65e1cd4083c783f37b4cc59aacc0a0a376c368f27aec5d6b7054fbfe32b40"
+}

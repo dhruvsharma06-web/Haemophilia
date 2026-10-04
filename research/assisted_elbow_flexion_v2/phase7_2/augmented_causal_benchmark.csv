@@ -1,0 +1,19 @@
+strategy,split,total_reps,completed_reps,missed_reps,fragmented_reps,completion_rate_pct,median_iou,mean_iou,median_start_error_frames,median_end_error_frames,median_duration_error_sec
+Strategy 2 (Phase 5 Baseline),Overall (82 reps),82,62,20,7,75.61,0.8489,0.7333,2.5,-11.5,-0.2749
+Strategy 2 (Phase 5 Baseline),Development (63 reps),63,50,13,4,79.37,0.8523,0.7462,3.5,-12.5,-0.3415
+Strategy 2 (Phase 5 Baseline),Held-Out (19 reps),19,12,7,3,63.16,0.786,0.6797,0.0,2.0,-0.0834
+Causal Cycle (Phase 7: 15 pre / 10 post),Overall (82 reps),82,74,8,7,90.24,0.8097,0.7536,9.0,-18.0,-0.5581
+Causal Cycle (Phase 7: 15 pre / 10 post),Development (63 reps),63,58,5,4,92.06,0.7823,0.7503,11.0,-19.0,-0.5831
+Causal Cycle (Phase 7: 15 pre / 10 post),Held-Out (19 reps),19,16,3,3,84.21,0.8737,0.7656,3.5,-6.0,-0.4665
+Causal + 10 pre / 15 post,Overall (82 reps),82,70,12,8,85.37,0.7664,0.7203,14.0,-14.5,-0.5581
+Causal + 10 pre / 15 post,Development (63 reps),63,56,7,5,88.89,0.753,0.7248,16.0,-15.5,-0.5748
+Causal + 10 pre / 15 post,Held-Out (19 reps),19,14,5,3,73.68,0.9122,0.7021,5.5,-7.0,-0.2499
+Causal + 10 pre / 20 post,Overall (82 reps),82,63,19,7,76.83,0.7667,0.6923,16.0,-12.0,-0.4998
+Causal + 10 pre / 20 post,Development (63 reps),63,51,12,4,80.95,0.7667,0.7183,16.0,-13.0,-0.5498
+Causal + 10 pre / 20 post,Held-Out (19 reps),19,12,7,3,63.16,0.6706,0.5817,16.5,-8.0,-0.175
+Causal + 15 pre / 15 post,Overall (82 reps),82,70,12,8,85.37,0.7989,0.7358,9.0,-14.5,-0.4831
+Causal + 15 pre / 15 post,Development (63 reps),63,56,7,5,88.89,0.7804,0.7407,11.0,-15.5,-0.4998
+Causal + 15 pre / 15 post,Held-Out (19 reps),19,14,5,3,73.68,0.927,0.7161,1.5,-7.0,-0.1749
+Causal + 15 pre / 20 post,Overall (82 reps),82,63,19,7,76.83,0.7944,0.7077,11.0,-12.0,-0.4165
+Causal + 15 pre / 20 post,Development (63 reps),63,51,12,4,80.95,0.7944,0.7343,11.0,-13.0,-0.4665
+Causal + 15 pre / 20 post,Held-Out (19 reps),19,12,7,3,63.16,0.6864,0.5944,10.5,-8.0,-0.125

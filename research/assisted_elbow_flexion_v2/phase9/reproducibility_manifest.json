@@ -1,0 +1,28 @@
+{
+  "phase": "Phase 9 \u2014 Model Optimization",
+  "created_at": "2026-10-05T00:20:00Z",
+  "final_decision": "B \u2014 No Meaningful Improvement",
+  "baseline_retained": true,
+  "baseline_model": "BalancedSVM (Phase 3)",
+  "dataset": "human280_20261004",
+  "canonical_manifest_sha256": "bb4669ec492ac26cbf5b064c89390e43cac207f9785c3a5cd0003cea3c587262",
+  "environment": {
+    "python": "3.10.11 (tags/v3.10.11:7d4cc5a, Apr  5 2023, 00:38:17) [MSC v.1929 64 bit (AMD64)]",
+    "platform": "Windows-10-10.0.26300-SP0",
+    "sklearn": "1.7.2",
+    "numpy": "2.2.6",
+    "pandas": "2.3.3"
+  },
+  "artifacts": {
+    "model_optimization_results_csv": "0c25ce67dcf4731877b511ac9787bef9c8926af954a5eb70e874253cc41bc7ea",
+    "nested_model_comparison_csv": "7c1b7180c86d1068cdf1277110064d3150aa780d4fd9f12b2cc0de93e6cb9e17",
+    "offline_parity_results_csv": "0a6f7a2a0f719561ee61f14e94c5b17e01e66260583e611b762d954d56c6fe88",
+    "final_model_v2_optimized_parameters_json": "d7a54a3ac1bf3c4ef6c92e83e3b7628ae28ec78f2625b7aa1e5ba1f8784c66c0",
+    "final_model_v2_optimized_metadata_json": "71f60234c7ed2e1db479832c60e79845998c2de8c82416085554a9d50ce56097",
+    "model_sweep_comparison_png": "2c436dcc51febedd968e1049901d840f2eac914ea05bdda25bb8bb3110a6ce54",
+    "nested_cv_results_png": "9ee18ca099f4eb6fc4cc02e28f5a434aff57df485e9ebfa4c12733fa00def349",
+    "phase9_model_adapter_py": "9967e62dda56ac2dee1085e6c340939047077599f97b69f69eb0c8c2bc8283ed",
+    "run_phase9_optimization_py": "63cfec4c937c7047cc9bebf022f937c4b1f375a5792cffd92e2216a27466230a"
+  },
+  "phase3_baseline_checkpoint_sha256": "008ba8f504fd0beca9273cdb57ba5d5043011cbd108fc6e604421502b9cbd583"
+}

@@ -1,0 +1,165 @@
+{
+  "canonical_examples": 280,
+  "models": [
+    "LogisticRegression",
+    "RandomForest",
+    "HistGradientBoosting",
+    "SVM",
+    "UniLSTM"
+  ],
+  "fold_fit_checks": [
+    {
+      "model": "LogisticRegression",
+      "fold": 0,
+      "source_intersection": [],
+      "membership_and_scaler_fit_verified": true
+    },
+    {
+      "model": "LogisticRegression",
+      "fold": 1,
+      "source_intersection": [],
+      "membership_and_scaler_fit_verified": true
+    },
+    {
+      "model": "LogisticRegression",
+      "fold": 2,
+      "source_intersection": [],
+      "membership_and_scaler_fit_verified": true
+    },
+    {
+      "model": "LogisticRegression",
+      "fold": 3,
+      "source_intersection": [],
+      "membership_and_scaler_fit_verified": true
+    },
+    {
+      "model": "LogisticRegression",
+      "fold": 4,
+      "source_intersection": [],
+      "membership_and_scaler_fit_verified": true
+    },
+    {
+      "model": "RandomForest",
+      "fold": 0,
+      "source_intersection": [],
+      "membership_and_scaler_fit_verified": true
+    },
+    {
+      "model": "RandomForest",
+      "fold": 1,
+      "source_intersection": [],
+      "membership_and_scaler_fit_verified": true
+    },
+    {
+      "model": "RandomForest",
+      "fold": 2,
+      "source_intersection": [],
+      "membership_and_scaler_fit_verified": true
+    },
+    {
+      "model": "RandomForest",
+      "fold": 3,
+      "source_intersection": [],
+      "membership_and_scaler_fit_verified": true
+    },
+    {
+      "model": "RandomForest",
+      "fold": 4,
+      "source_intersection": [],
+      "membership_and_scaler_fit_verified": true
+    },
+    {
+      "model": "HistGradientBoosting",
+      "fold": 0,
+      "source_intersection": [],
+      "membership_and_scaler_fit_verified": true
+    },
+    {
+      "model": "HistGradientBoosting",
+      "fold": 1,
+      "source_intersection": [],
+      "membership_and_scaler_fit_verified": true
+    },
+    {
+      "model": "HistGradientBoosting",
+      "fold": 2,
+      "source_intersection": [],
+      "membership_and_scaler_fit_verified": true
+    },
+    {
+      "model": "HistGradientBoosting",
+      "fold": 3,
+      "source_intersection": [],
+      "membership_and_scaler_fit_verified": true
+    },
+    {
+      "model": "HistGradientBoosting",
+      "fold": 4,
+      "source_intersection": [],
+      "membership_and_scaler_fit_verified": true
+    },
+    {
+      "model": "SVM",
+      "fold": 0,
+      "source_intersection": [],
+      "membership_and_scaler_fit_verified": true
+    },
+    {
+      "model": "SVM",
+      "fold": 1,
+      "source_intersection": [],
+      "membership_and_scaler_fit_verified": true
+    },
+    {
+      "model": "SVM",
+      "fold": 2,
+      "source_intersection": [],
+      "membership_and_scaler_fit_verified": true
+    },
+    {
+      "model": "SVM",
+      "fold": 3,
+      "source_intersection": [],
+      "membership_and_scaler_fit_verified": true
+    },
+    {
+      "model": "SVM",
+      "fold": 4,
+      "source_intersection": [],
+      "membership_and_scaler_fit_verified": true
+    },
+    {
+      "model": "UniLSTM",
+      "fold": 0,
+      "source_intersection": [],
+      "membership_and_scaler_fit_verified": true
+    },
+    {
+      "model": "UniLSTM",
+      "fold": 1,
+      "source_intersection": [],
+      "membership_and_scaler_fit_verified": true
+    },
+    {
+      "model": "UniLSTM",
+      "fold": 2,
+      "source_intersection": [],
+      "membership_and_scaler_fit_verified": true
+    },
+    {
+      "model": "UniLSTM",
+      "fold": 3,
+      "source_intersection": [],
+      "membership_and_scaler_fit_verified": true
+    },
+    {
+      "model": "UniLSTM",
+      "fold": 4,
+      "source_intersection": [],
+      "membership_and_scaler_fit_verified": true
+    }
+  ],
+  "protected_files_unchanged": 2032,
+  "all_passed": true,
+  "script_sha256": "07d05a2f85102daf77078722449ad7c0a8889d3ff894b3fd0e86baa6e3d2a6eb"
+}

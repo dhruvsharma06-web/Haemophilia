@@ -1,0 +1,40 @@
+{
+  "phase": "7.2",
+  "status": "VERIFIED_PASSED",
+  "authoritative_model": "Phase 3 BalancedSVM (FROZEN)",
+  "reconciled_discrepancies": 4,
+  "reconciliation_verdict": "A (62/82 canonical figure is authoritative)",
+  "canonical_benchmark_strategies": 6,
+  "selected_development_candidate": "AugmentedCausalSegmenter",
+  "selected_parameters": {
+    "pre_roll_frames": 15,
+    "post_roll_frames": 15,
+    "min_rom_deg": 15.0,
+    "onset_delta_deg": 8.0,
+    "reversal_delta_deg": 8.0,
+    "min_frames": 15,
+    "min_duration_sec": 0.8,
+    "adaptive_baseline_init": 148.0
+  },
+  "development_completion_rate_pct": 88.89,
+  "development_end_to_end_correct_pct": 74.6,
+  "locked_held_out_completion_rate_pct": 84.21,
+  "locked_held_out_end_to_end_correct_pct": 73.68,
+  "protected_files_verified": 2514,
+  "production_checkpoints_created": 0,
+  "artifacts_generated": [
+    "BASELINE_RECONCILIATION.md",
+    "PHASE7_2_REPORT.md",
+    "augmented_causal_benchmark.csv",
+    "downstream_classification_results.csv",
+    "boundary_robustness.csv",
+    "live_validation_results.csv",
+    "runner_audit.csv",
+    "segmentation_config.json",
+    "augmented_causal_segmenter.py",
+    "plots/benchmark_completion_and_iou.png",
+    "plots/e2e_vs_conditioned_accuracy.png",
+    "plots/boundary_robustness_perturbations.png",
+    "plots/runner_audit_segment_distribution.png"
+  ]
+}

@@ -1,0 +1,4 @@
+[mov,mp4,m4a,3gp,3g2,mj2 @ 000001b1c6794d00] Skipping unhandled metadata com.android.video.temporal_layers_count of type 67
+[mov,mp4,m4a,3gp,3g2,mj2 @ 000001b1c6794d00] st: 0 edit list: 1 Missing key frame while searching for timestamp: 12388
+[mov,mp4,m4a,3gp,3g2,mj2 @ 000001b1c6794d00] st: 0 edit list 1 Cannot find an index entry before timestamp: 12388.
+[rawvideo @ 000001b1c67a1a00] Application provided invalid, non monotonically increasing dts to muxer in stream 0: 1173 >= 1173

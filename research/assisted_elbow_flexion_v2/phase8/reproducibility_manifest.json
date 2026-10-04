@@ -1,0 +1,31 @@
+{
+  "phase": "8",
+  "status": "VERIFIED_PASSED",
+  "decision": "A \u2014 Validation Successful",
+  "authoritative_model": "Phase 3 BalancedSVM (FROZEN)",
+  "segmenter": "Causal Cycle Segmenter (pre=15, post=10) (FROZEN)",
+  "runner_policy": "Deterministic with micro-wobble rejection (dur < 1.5s, ROM < 26 deg)",
+  "prospective_sessions": 6,
+  "prospective_repetitions": 51,
+  "completion_rate": "45/51 (88.24%)",
+  "median_iou": 0.773972602739726,
+  "fragmentation_rate": "2/51 (3.92%)",
+  "conditioned_accuracy": "44/45 (97.78%)",
+  "end_to_end_accuracy": "44/51 (86.27%)",
+  "wilson_ci_95": "[74.3%, 93.2%]",
+  "protected_files_verified": 2514,
+  "production_checkpoints_created": 0,
+  "artifacts_generated": [
+    "PHASE8_REPORT.md",
+    "new_cohort_manifest.csv",
+    "new_cohort_annotations.csv",
+    "segmentation_results.csv",
+    "classification_results.csv",
+    "failure_analysis.csv",
+    "session_summary.csv",
+    "plots/phase8_segmentation_performance.png",
+    "plots/phase8_end_to_end_accuracy.png",
+    "plots/phase8_confusion_matrix.png",
+    "plots/phase8_failure_distribution.png"
+  ]
+}

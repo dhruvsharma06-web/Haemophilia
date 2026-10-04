@@ -1,0 +1,7 @@
+{
+  "locked_at_utc": "2026-10-04T16:02:25.430963+00:00",
+  "config_sha256": "28d57fa1e25f32e4367575c3024878edc581197620bdb920057c48abf4a51652",
+  "audit_complete_sha256": "024ead2f075f8f7dc91dcbb6bf2aececbc7cd2f44ef341c074ca6af22983d214",
+  "diagnostics_sha256": "fe6a25523879f1f4b8daabdbc2132e5f64b6472cbe4dec0cc3cedaaff8924ad2",
+  "frozen_phase1_input_hashes_sha256": "2d121b5117d6cf99e0c0496f825e9780c336d63fbe473494401086b0a311ab6c"
+}

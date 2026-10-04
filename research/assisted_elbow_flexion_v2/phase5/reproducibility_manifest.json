@@ -1,0 +1,26 @@
+{
+  "phase": 5,
+  "status": "VERIFIED_PASSED",
+  "selected_strategy": "Strategy 2: Pre-Roll & Post-Roll Circular Buffers",
+  "strategies_evaluated": 5,
+  "canonical_replay_records": 1400,
+  "live_shadow_repetitions": 30,
+  "live_shadow_accuracy": 0.8,
+  "replay_parity_max_feature_delta": 0.0,
+  "replay_parity_max_score_delta": 0.0,
+  "protected_files_checked": 2514,
+  "protected_files_unchanged": true,
+  "file_hashes": {
+    "PHASE5_REPORT.md": "21c79c5a017c7a97282a9ff26774f2f8f981c0d90244989a0c2ad2cc584098a3",
+    "segmentation_error_analysis.csv": "c74a47a13e582e827d45610ad8accd2e6d93a3b428af3b06b4bdfd62ca51aaa7",
+    "canonical_replay_results.csv": "7fe0075a729cad159ead790428a8ee6e0294ddc13d1062fdf068f9716fdc0391",
+    "segmentation_strategy_comparison.csv": "15aab8f89a6776ea5c12a4951f53e350fc2a83a1dfa4b4661497581c264ddd02",
+    "live_shadow_results.csv": "4194ff989aacab5b5398cf39dc31e470da51e40a6000be5f0061f85d5fb52cb2",
+    "live_replay_parity.csv": "8d2489a52f7cd532405476f8085563c3f1f10e0ebe0f452cc5d726a308391f7b",
+    "segmentation_config.json": "53bbb6c9626154e19c697652d9022d6418c7084baf709abe1899949a334f77f0",
+    "live_elbow_camera_v2.py": "3431bc5429707bfd184ac8428398f9bd66fb7c7ecbda48c70938ac7c47494d65",
+    "plots/canonical_vs_segmented_windows.png": "54c4e66981c510490f863f7d6ce79ffc30324c9ecb5fdb2dec678e7831800552",
+    "plots/segmentation_strategy_comparison.png": "436cc1d3574ce6927e4d8caeb6a7e526d4e97fa1d8461767cefca7e2d60e45d3",
+    "plots/phase5_shadow_decision_scores.png": "110555e417503d79ee1df4fdadf2beab28bdbbdaeca99bc6097ae7c1fbd5e129"
+  }
+}

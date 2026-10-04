@@ -1,0 +1,38 @@
+[
+  {
+    "repetition_id": "rep_acba12d05fb8cb1071",
+    "video_id": "vid_ac42199741c9c0c1",
+    "n_frames": 145,
+    "duration_sec": 2.4156559999999994,
+    "raw_missing_values": 35,
+    "raw_missing_fraction": 0.040229885057471264,
+    "repaired_values": 3,
+    "remaining_missing_values": 32,
+    "status": "partial_requires_fold_imputation",
+    "errors": "active_angle: valid_fraction=0.779310 below 0.8",
+    "active_angle_valid_fraction": 0.7793103448275862,
+    "opposing_angle_valid_fraction": 1.0,
+    "active_flare_valid_fraction": 0.9793103448275862,
+    "opposing_flare_valid_fraction": 1.0,
+    "torso_lean_valid_fraction": 1.0,
+    "shoulder_depth_ratio_valid_fraction": 1.0
+  },
+  {
+    "repetition_id": "rep_d4f184058e742c55a8",
+    "video_id": "vid_bbc5006a077ac6b1",
+    "n_frames": 141,
+    "duration_sec": 2.3490110000000044,
+    "raw_missing_values": 39,
+    "raw_missing_fraction": 0.04609929078014184,
+    "repaired_values": 0,
+    "remaining_missing_values": 39,
+    "status": "partial_requires_fold_imputation",
+    "errors": "active_angle: endpoint_gap_seconds=0.333200; active_flare: endpoint_gap_seconds=0.166600",
+    "active_angle_valid_fraction": 0.8581560283687943,
+    "opposing_angle_valid_fraction": 1.0,
+    "active_flare_valid_fraction": 0.8652482269503546,
+    "opposing_flare_valid_fraction": 1.0,
+    "torso_lean_valid_fraction": 1.0,
+    "shoulder_depth_ratio_valid_fraction": 1.0
+  }
+]

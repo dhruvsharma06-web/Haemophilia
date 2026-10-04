@@ -1,0 +1,14 @@
+{
+  "amended_at_utc": "2026-10-04T15:28:15.375760+00:00",
+  "stage": "raw extraction / unsupervised feature availability, before any learned-model fits",
+  "reason": "One observed active-wrist visibility gap has valid bracketing support 0.466467 seconds apart. It passes the unchanged >=80% valid-frame condition but failed the initial 0.25-second cap.",
+  "affected_repetition_at_decision": "rep_3138501c806e115527",
+  "change": "Maximum internal bracketing gap 0.25 -> 0.50 seconds, applied uniformly to every channel/repetition; endpoint limit remains 0.10 seconds and visibility remains >=0.5.",
+  "limitations": "The 0.50-second bound is an engineering accommodation, not a clinically validated tolerance. Interpolated movement may miss real dynamics. Report every operation and preserve raw NaNs.",
+  "no_labels_or_model_metrics_used_to_decide": true,
+  "old_config_sha256": "f09b4196b1ec596fb844dc80b5514b1fcd5ca220c565957335cb073cdd3fb6e8",
+  "new_config_sha256": "27f7956d04a6ac5d5c9592f1f287601e8ed9a114be8f07b5112a5460c715c427",
+  "fold_assignments_unchanged": "931f660046c3684da4988b1bf8f0f3709b27d2b8bc8f6b45a70fc24b6d513e6b",
+  "model_hyperparameters_unchanged": true,
+  "raw_pose_extraction_parameters_unchanged": true
+}

@@ -1,0 +1,10 @@
+{
+  "sources": 29,
+  "canonical_repetitions": 280,
+  "unique_frames": 44256,
+  "explicit_absent_world_frames": 4,
+  "all_structural_and_timing_checks_passed": true,
+  "raw_files_actually_audited": true,
+  "image_outside_xy_policy": "Recorded, not clipped: MediaPipe image coordinates can extend beyond image boundaries.",
+  "script_sha256": "f03a7ff054bcda6f2d2ae20784428c107c2183743e55d2046f40e5bfcb7ae7cc"
+}

@@ -1,0 +1,12 @@
+{
+  "all_passed": true,
+  "canonical_examples": 280,
+  "individually_audited_frozen_errors": 36,
+  "scalar_and_temporal_features_audited": 45,
+  "fit_boundaries_and_preprocessing_checked": 129,
+  "inner_selection_folds_verified": 5,
+  "leave_one_source_out_groups": 29,
+  "protected_files_unchanged": 2514,
+  "no_deployment_or_model_checkpoint_created": true,
+  "script_sha256": "1aff09a85e4d4007ec194104d8bcdf1a88638de6af6733757389d6e4e3b46ed0"
+}

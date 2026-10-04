@@ -1,0 +1,2 @@
+[mov,mp4,m4a,3gp,3g2,mj2 @ 00000277d8224d40] Skipping unhandled metadata com.android.video.temporal_layers_count of type 67
+[rawvideo @ 00000277d822f300] Application provided invalid, non monotonically increasing dts to muxer in stream 0: 1174 >= 1174

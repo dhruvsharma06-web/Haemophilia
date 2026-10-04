@@ -1,0 +1,14 @@
+{
+  "amended_at_utc": "2026-10-04T15:33:50.876390+00:00",
+  "stage": "After all source extraction, before any model fits",
+  "reason": "Two repetitions retain unsupported intervals: one active-angle valid fraction 0.779310 and one endpoint gap exceeding 0.10 seconds. Do not further relax visibility, fraction or endpoint repair limits.",
+  "affected_repetitions": [
+    "rep_acba12d05fb8cb1071",
+    "rep_d4f184058e742c55a8"
+  ],
+  "policy": "Keep unsupported values NaN. Dependent full-range summaries/phase features stay NaN. Impute scalar/channel means using only each outer training fold, then scale on training only. Every one of 280 remains a sample; missingness flags excluded from predictors.",
+  "no_label_or_model_metric_tuning": true,
+  "model_hyperparameters_and_folds_unchanged": true,
+  "old_config_sha256": "27f7956d04a6ac5d5c9592f1f287601e8ed9a114be8f07b5112a5460c715c427",
+  "new_config_sha256": "c3634559d2761fed585d18532160f376dd606fa11603c04cbcb6cd8c3fc13c19"
+}

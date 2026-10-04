@@ -1,0 +1,34 @@
+{
+  "selected_model": "BalancedSVM",
+  "selection_priority_order": [
+    "1. Balanced Accuracy",
+    "2. Incorrect Recall (Sensitivity to execution errors)",
+    "3. Macro-F1",
+    "4. Stability across source and session partitions"
+  ],
+  "winning_metrics_source_grouped_5fold": {
+    "accuracy": 0.8821428571428571,
+    "balanced_accuracy": 0.8662328882879837,
+    "macro_f1": 0.8688971182905546,
+    "correct_recall": 0.9180327868852459,
+    "incorrect_recall": 0.8144329896907216,
+    "confusion_matrix": "[[168, 15], [18, 79]]",
+    "source_accuracy_std": 0.1692376545419264,
+    "source_accuracy_min": 0.5
+  },
+  "comparison_against_baseline": {
+    "delta_balanced_accuracy": 0.027576,
+    "delta_incorrect_recall": 0.082474,
+    "delta_macro_f1": 0.017141,
+    "delta_accuracy": 0.010714,
+    "false_negatives_reduction": "Reduced from 26 to 18 (-30.8%)",
+    "source_accuracy_std_reduction": "Reduced from 0.1927 to 0.1692 (-0.0234)",
+    "worst_source_accuracy_improvement": "Raised from 30.0% to 50.0% (+20.0%)"
+  },
+  "robustness_under_stricter_loso": {
+    "loso_balanced_accuracy": 0.8425722494507352,
+    "loso_incorrect_recall": 0.7835051546391752,
+    "loso_advantage_over_unweighted": "+3.27% BA, +9.28% Incorrect Recall"
+  },
+  "decision_rationale": "BalancedSVM is decisively selected as the final research candidate. It delivers substantial gains in balanced accuracy (+2.76%) and error sensitivity (+8.25%), directly addressing the baseline's severe false-negative rate. Crucially, under the 29-source LOSO diagnostic, BalancedSVM maintains an even larger margin of superiority over the unweighted baseline (+3.28% BA, +9.28% Incorrect Recall), demonstrating that class weighting is robust to partition shifts."
+}

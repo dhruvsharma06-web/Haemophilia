@@ -1,0 +1,9 @@
+{
+  "controlled_candidates": 4,
+  "nested_inner_selection": true,
+  "source_leave_one_out_folds": 29,
+  "total_new_fits": 129,
+  "config_sha256": "28d57fa1e25f32e4367575c3024878edc581197620bdb920057c48abf4a51652",
+  "experiment_script_sha256": "7464a35b1cc4c94d7d5c0892ed4c7eb2c1fabfade8e1067a5b39b5caf6afcc08",
+  "no_models_serialized": true
+}

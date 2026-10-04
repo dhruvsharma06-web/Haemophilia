@@ -1,0 +1,31 @@
+{
+  "phase": 3,
+  "title": "Assisted Elbow Flexion V2 Phase 3 Research Artifacts",
+  "canonical_dataset": "C:\\dev\\Haemophilia\\processed_data\\assisted_elbow_flexion_v2\\releases\\human280_20261004",
+  "canonical_examples_count": 280,
+  "dataset_manifest_sha256": "bb4669ec492ac26cbf5b064c89390e43cac207f9785c3a5cd0003cea3c587262",
+  "case_determination": "CASE B \u2014 No independent reviewed cohort exists in workspace or repository",
+  "created_files": {
+    "participant_grouping_audit.csv": "f86e0fb106b5ae43213ec549c55e2987350e636f3cc40a1a2d090ba02249e3bc",
+    "development_model_comparison.csv": "8f7dc28a0bc483a733d729ee72f26597b2ca3619563df6f4bee4fa0afd3cfe89",
+    "development_fold_metrics.csv": "0120f1ab62c31085f9fdf4cdace811d809d7369e83a4bb3d8bef9aaf526a5a23",
+    "development_per_source_metrics.csv": "c33c74b4c00dfcf8c28668d2444257a1b11560447703aa1a97d6a009ad2a75eb",
+    "development_per_hand_metrics.csv": "095ddd7619926387539671eaf1404dad5e9ed25bc47d9f1c47868320f71be363",
+    "generalization_gap.csv": "1b5d6fe6218673287c3ba77d1ec6198cdc76c3f0080ab3657b8746fe6bffa264",
+    "final_model_selection.json": "6242391e5165d36f070eb81fa01fd7fdf02c375e12e99708db4fc265730e7e1e",
+    "final_model_metadata.json": "b38f4218f9a19dd574e1547a34fdd7cb6bff7d6e11e8ed7ab3f408093d638c87",
+    "feature_definition_snapshot.json": "1affa0c76fb3fd5981163bd19a27f09dd23f8b088ead4f15bc1002c16fa613cb",
+    "checkpoints/final_model_v2_parameters.json": "008ba8f504fd0beca9273cdb57ba5d5043011cbd108fc6e604421502b9cbd583",
+    "plots/model_comparison.png": "2ec8640a989f709fbe29f9d5ed09cadaaaf44125fa8f3b3b67ccaeaad49fc0fc",
+    "plots/generalization_gap.png": "b95d2dddd080e3341f8ab5d47ce6f587316ee581b40138720331431b89af983a"
+  },
+  "prohibitions_verified": {
+    "no_excluded_candidates_included": true,
+    "no_historical_extra_samples": true,
+    "no_synthetic_data": true,
+    "no_production_code_touched": true,
+    "no_production_checkpoint_replaced": true,
+    "no_flutter_backend_modified": true,
+    "no_live_evaluator_modified": true
+  }
+}

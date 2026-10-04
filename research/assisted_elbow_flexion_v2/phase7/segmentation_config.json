@@ -1,0 +1,30 @@
+{
+  "phase": 7,
+  "pipeline_scope": "Causal Cycle-Based Repetition Segmenter",
+  "recommended_strategy": {
+    "name": "Causal Cycle Segmenter",
+    "class_name": "CausalCycleSegmenter",
+    "state_machine": "REST -> FLEXING -> EXTENDING -> POST_ROLL -> COMPLETED",
+    "parameters": {
+      "min_rom_deg": 15.0,
+      "onset_delta_deg": 8.0,
+      "reversal_delta_deg": 8.0,
+      "pre_roll_frames": 15,
+      "post_roll_frames": 10,
+      "min_frames": 15,
+      "min_duration_sec": 0.8
+    },
+    "performance_metrics": {
+      "overall_completion_rate_pct": 90.2439024390244,
+      "overall_median_iou": 0.8097184065934067,
+      "development_completion_rate_pct": 92.06349206349206,
+      "heldout_completion_rate_pct": 84.21052631578947,
+      "live_test_accuracy_pct": 66.66666666666666
+    }
+  },
+  "frozen_model": {
+    "name": "BalancedSVM",
+    "status": "Strictly Frozen",
+    "modifications": "NONE"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "phase": 4,
+  "status": "VERIFIED_PASSED",
+  "canonical_examples_verified": 280,
+  "protected_files_checked": 2514,
+  "protected_files_unchanged": true,
+  "offline_parity_max_delta": 1.554312234475219e-14,
+  "shadow_test_repetitions": 30,
+  "file_hashes": {
+    "LIVE_PIPELINE_AUDIT.md": "b0d757989a36ff26131cb0e0ac1e1ebf21533e21e96b8dfd61d74d7fda5d6126",
+    "deployment_adapter.py": "946e4ea49077c050290d83271faaba6365bd1cf188de31b9475b5d445d718bf3",
+    "live_elbow_camera_v2.py": "accaa10a53d576393641d0658d7374c44cff44dd300148c86c68c9e5e4ef4bb5",
+    "run_offline_parity.py": "ce8533bcbeadb888b1bc2cd6e21beb2abe5d94061a6bc3eb88bf9e840cbcd702",
+    "offline_parity_report.md": "d2a20b34dd479466fb2aaa098520d890b07d2e788d0f99fb7e5e64e1623b4bce",
+    "offline_parity_results.csv": "7352f98e37ec181a711d8ad96f73039f106736914443f9120d9a332a58bdf355",
+    "run_shadow_validation.py": "f9e82572146f2941a4a1d52923a209d46bc445e54893011a9c3efd2ce856859e",
+    "live_shadow_results.csv": "14ec2b6604c34b3f48b5a31517de8ac95d42bfe7a593b9303cad012fd40eec16",
+    "live_feature_distribution_audit.csv": "232ddb65a7d8e2275116d6d944a2c2daa220d413b0152a3e64317ed4b52094ef",
+    "phase4_config.json": "aec985dff128774443f04f7f13ca394db6c2041847e98d95382a2a0350b1f8b5",
+    "PHASE4_REPORT.md": "083e615aed57ddd24e7fd91fa0190fb7aafd426ecffccfdcd3b970eae4ba58db",
+    "plots/distribution_shift_audit.png": "c00147b4bb5efbac7d9bf4d940bf8ec89563f4baa2e03677b32b6f6807cff738",
+    "plots/shadow_decision_scores.png": "e1ead8dafa45f947760aaedb0741d096bdbda378ec487e226ee3e98a957bd366"
+  }
+}

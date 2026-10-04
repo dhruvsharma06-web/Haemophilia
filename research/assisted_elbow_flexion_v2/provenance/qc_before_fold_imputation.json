@@ -1,0 +1,21 @@
+{
+  "checked_repetitions": 280,
+  "raw_missing_values": 356,
+  "feature_failures": [
+    {
+      "repetition_id": "rep_acba12d05fb8cb1071",
+      "channel": "active_angle",
+      "error": "valid_fraction=0.779310 below 0.8"
+    },
+    {
+      "repetition_id": "rep_d4f184058e742c55a8",
+      "channel": "active_angle",
+      "error": "endpoint_gap_seconds=0.333200"
+    },
+    {
+      "repetition_id": "rep_d4f184058e742c55a8",
+      "channel": "active_flare",
+      "error": "endpoint_gap_seconds=0.166600"
+    }
+  ]
+}

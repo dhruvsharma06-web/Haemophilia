@@ -1,0 +1,6 @@
+Model,accuracy,balanced_accuracy,macro_f1,correct_recall,incorrect_recall
+LogisticRegression,85.36,81.05,82.74,95.08,67.01
+RandomForest,84.64,80.74,82.13,93.44,68.04
+HistGradientBoosting,83.57,79.68,80.94,92.35,67.01
+SVM,87.14,83.87,85.18,94.54,73.20
+UniLSTM,64.29,59.84,59.96,74.32,45.36

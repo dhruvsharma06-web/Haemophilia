@@ -1,0 +1,71 @@
+{
+  "phase": 5,
+  "project": "Assisted Elbow Flexion V2",
+  "pipeline_scope": "Live Repetition Segmentation Optimization",
+  "selected_strategy": {
+    "name": "Strategy 2: Pre-Roll & Post-Roll Circular Buffers",
+    "class_name": "Phase5RepetitionSegmenter",
+    "description": "Continuous circular pre-roll buffer (20 frames) prepended upon flexion onset; post-roll buffer (20 frames) appended upon extension completion. Calibrated against canonical geometry without label leakage.",
+    "parameters": {
+      "flexion_start_threshold_deg": 135.0,
+      "turnaround_reversal_deg": 12.0,
+      "extension_finish_threshold_deg": 135.0,
+      "pre_roll_frames": 20,
+      "post_roll_frames": 20,
+      "min_rom_deg": 16.0,
+      "min_frames": 15,
+      "min_duration_sec": 0.8
+    },
+    "canonical_benchmark_metrics": {
+      "completion_rate_pct": 94.64,
+      "median_start_frame_error": -1.0,
+      "median_end_frame_error": -7.0,
+      "median_duration_error_sec": -0.0833,
+      "median_rom_error_deg": 0.0,
+      "median_iou": 0.761,
+      "mean_iou": 0.710
+    }
+  },
+  "candidate_strategies_evaluated": [
+    {
+      "strategy_id": "strategy_1",
+      "name": "Fixed 135 deg Threshold (Phase 4 Baseline)",
+      "completion_rate_pct": 94.29,
+      "median_duration_error_sec": -0.883,
+      "mean_iou": 0.644
+    },
+    {
+      "strategy_id": "strategy_2",
+      "name": "Fixed 135 deg with Circular Pre/Post-Roll Buffers",
+      "completion_rate_pct": 94.64,
+      "median_duration_error_sec": -0.083,
+      "mean_iou": 0.710
+    },
+    {
+      "strategy_id": "strategy_3",
+      "name": "Adaptive Extension Baseline with Hysteresis",
+      "completion_rate_pct": 82.50,
+      "median_duration_error_sec": -0.117,
+      "mean_iou": 0.714
+    },
+    {
+      "strategy_id": "strategy_4",
+      "name": "Velocity-Aware & Smoothed Boundary State Machine",
+      "completion_rate_pct": 91.43,
+      "median_duration_error_sec": -0.133,
+      "mean_iou": 0.727
+    },
+    {
+      "strategy_id": "strategy_5",
+      "name": "Composite Adaptive Kinematic Segmenter (AdaptiveKinematic)",
+      "completion_rate_pct": 92.14,
+      "median_duration_error_sec": 0.075,
+      "mean_iou": 0.707
+    }
+  ],
+  "frozen_model": {
+    "name": "BalancedSVM",
+    "status": "Strictly Frozen",
+    "modifications": "NONE"
+  }
+}

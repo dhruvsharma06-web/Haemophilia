@@ -1,0 +1,1032 @@
+{
+  "0": {
+    "active_min_angle": {
+      "correct_p10": 74.71337280273437,
+      "correct_p90": 93.54597930908203,
+      "overlap_low": 82.97102355957031,
+      "overlap_high": 88.96049880981445
+    },
+    "active_max_angle": {
+      "correct_p10": 144.04554138183593,
+      "correct_p90": 166.108935546875,
+      "overlap_low": 148.28707122802734,
+      "overlap_high": 157.4284210205078
+    },
+    "active_rom": {
+      "correct_p10": 51.106422424316406,
+      "correct_p90": 87.97604827880859,
+      "overlap_low": 59.23893737792969,
+      "overlap_high": 71.62432098388672
+    },
+    "opposing_min_angle": {
+      "correct_p10": 78.09227600097657,
+      "correct_p90": 93.23983535766601,
+      "overlap_low": 85.74501037597656,
+      "overlap_high": 89.32619285583496
+    },
+    "opposing_max_angle": {
+      "correct_p10": 133.30953369140624,
+      "correct_p90": 165.8765579223633,
+      "overlap_low": 141.43157196044922,
+      "overlap_high": 153.28518676757812
+    },
+    "opposing_rom": {
+      "correct_p10": 46.85610122680664,
+      "correct_p90": 85.11185607910157,
+      "overlap_low": 55.58408546447754,
+      "overlap_high": 60.842227935791016
+    },
+    "duration": {
+      "correct_p10": 2.172406999999998,
+      "correct_p90": 3.9249856000000007,
+      "overlap_low": 2.440628249999999,
+      "overlap_high": 2.9737224999999996
+    },
+    "active_peak_abs_velocity": {
+      "correct_p10": 268.48450927734376,
+      "correct_p90": 552.3026611328125,
+      "overlap_low": 303.8588104248047,
+      "overlap_high": 433.34800720214844
+    },
+    "active_mean_abs_velocity": {
+      "correct_p10": 54.422364947580334,
+      "correct_p90": 85.71250996173188,
+      "overlap_low": 59.554456758710494,
+      "overlap_high": 73.05958590044037
+    },
+    "opposing_peak_abs_velocity": {
+      "correct_p10": 175.7986862182617,
+      "correct_p90": 403.1708770751954,
+      "overlap_low": 213.88331604003906,
+      "overlap_high": 329.4163513183594
+    },
+    "opposing_mean_abs_velocity": {
+      "correct_p10": 40.80319571110085,
+      "correct_p90": 75.14684525525202,
+      "overlap_low": 45.519682436664745,
+      "overlap_high": 67.04706723957342
+    },
+    "active_mean_flare": {
+      "correct_p10": 0.043193879845599026,
+      "correct_p90": 0.14659718048969725,
+      "overlap_low": 0.05745698445157234,
+      "overlap_high": 0.12411760013679156
+    },
+    "active_max_flare": {
+      "correct_p10": 0.10294073522090912,
+      "correct_p90": 0.3320932030677799,
+      "overlap_low": 0.16395283490419388,
+      "overlap_high": 0.2295580431818962
+    },
+    "opposing_mean_flare": {
+      "correct_p10": 0.030981122856655226,
+      "correct_p90": 0.1633351558812266,
+      "overlap_low": 0.05380701610277348,
+      "overlap_high": 0.10934007304339315
+    },
+    "opposing_max_flare": {
+      "correct_p10": 0.0903924897313118,
+      "correct_p90": 0.29078787267208106,
+      "overlap_low": 0.13697108253836632,
+      "overlap_high": 0.2321476712822914
+    },
+    "mean_angle_asymmetry": {
+      "correct_p10": 5.809974349117709,
+      "correct_p90": 12.364099084884463,
+      "overlap_low": 9.135212936235181,
+      "overlap_high": 10.186831796593793
+    },
+    "max_angle_asymmetry": {
+      "correct_p10": 16.838955688476563,
+      "correct_p90": 33.1406967163086,
+      "overlap_low": 22.31634521484375,
+      "overlap_high": 27.45223617553711
+    },
+    "mean_flare_asymmetry": {
+      "correct_p10": 0.04373581778709571,
+      "correct_p90": 0.12275549066740005,
+      "overlap_low": 0.06611021215220046,
+      "overlap_high": 0.10579796482459791
+    },
+    "max_flare_asymmetry": {
+      "correct_p10": 0.11554778516292571,
+      "correct_p90": 0.26408085823059085,
+      "overlap_low": 0.16627059131860733,
+      "overlap_high": 0.22112483531236649
+    },
+    "mean_torso_lean": {
+      "correct_p10": 3.2511805378843737,
+      "correct_p90": 19.73679576225941,
+      "overlap_low": 4.723389797579033,
+      "overlap_high": 14.400347189013292
+    },
+    "max_torso_lean": {
+      "correct_p10": 8.60706024169922,
+      "correct_p90": 34.6741641998291,
+      "overlap_low": 14.459562301635742,
+      "overlap_high": 29.21304988861084
+    },
+    "range_torso_lean": {
+      "correct_p10": 8.071536168456078,
+      "correct_p90": 28.903452253341676,
+      "overlap_low": 12.933666169643402,
+      "overlap_high": 23.24721223115921
+    },
+    "mean_shoulder_depth_ratio": {
+      "correct_p10": 0.07456434793959175,
+      "correct_p90": 0.2565149005637023,
+      "overlap_low": 0.0998685191460073,
+      "overlap_high": 0.20608293137610653
+    },
+    "max_shoulder_depth_ratio": {
+      "correct_p10": 0.14895536452531816,
+      "correct_p90": 0.9017005205154419,
+      "overlap_low": 0.20024748146533966,
+      "overlap_high": 0.3411908969283104
+    },
+    "range_shoulder_depth_ratio": {
+      "correct_p10": 0.13267523694958072,
+      "correct_p90": 0.7786178022623063,
+      "overlap_low": 0.1835453251405852,
+      "overlap_high": 0.2539768498390913
+    },
+    "flexion_duration": {
+      "correct_p10": 0.7664508000000001,
+      "correct_p90": 2.045795799999998,
+      "overlap_low": 0.9995670000000003,
+      "overlap_high": 1.5826450000000003
+    },
+    "extension_duration": {
+      "correct_p10": 0.9597268000000003,
+      "correct_p90": 2.266237799999999,
+      "overlap_low": 1.2329555000000028,
+      "overlap_high": 1.5660109999999996
+    },
+    "flexion_fraction": {
+      "correct_p10": 0.29331758443344325,
+      "correct_p90": 0.6319274911786044,
+      "overlap_low": 0.40277776619877265,
+      "overlap_high": 0.5654680355985477
+    },
+    "active_start_angle": {
+      "correct_p10": 134.53684692382814,
+      "correct_p90": 158.4293670654297,
+      "overlap_low": 142.9161834716797,
+      "overlap_high": 154.51175689697266
+    },
+    "active_end_angle": {
+      "correct_p10": 138.30017547607423,
+      "correct_p90": 158.55089874267577,
+      "overlap_low": 143.12787246704102,
+      "overlap_high": 153.7520523071289
+    },
+    "flexion_excursion": {
+      "correct_p10": 40.39833374023438,
+      "correct_p90": 82.02753295898438,
+      "overlap_low": 54.57835006713867,
+      "overlap_high": 69.32294464111328
+    },
+    "extension_excursion": {
+      "correct_p10": 46.56475677490234,
+      "correct_p90": 82.18242492675782,
+      "overlap_low": 54.201171875,
+      "overlap_high": 68.18014526367188
+    },
+    "flexion_net_speed": {
+      "correct_p10": 21.393270558659278,
+      "correct_p90": 90.88838345627688,
+      "overlap_low": 39.29995465625605,
+      "overlap_high": 56.80776455697803
+    },
+    "extension_net_speed": {
+      "correct_p10": 23.41762455363814,
+      "correct_p90": 69.53860750361048,
+      "overlap_low": 33.19238888410713,
+      "overlap_high": 57.3742809907812
+    }
+  },
+  "1": {
+    "active_min_angle": {
+      "correct_p10": 74.75380477905273,
+      "correct_p90": 93.02121658325196,
+      "overlap_low": 84.62240982055664,
+      "overlap_high": 88.82575035095215
+    },
+    "active_max_angle": {
+      "correct_p10": 144.88440399169923,
+      "correct_p90": 162.8174011230469,
+      "overlap_low": 148.45278549194336,
+      "overlap_high": 156.99220275878906
+    },
+    "active_rom": {
+      "correct_p10": 53.463243103027345,
+      "correct_p90": 83.98539428710937,
+      "overlap_low": 59.68185234069824,
+      "overlap_high": 67.92071914672852
+    },
+    "opposing_min_angle": {
+      "correct_p10": 78.1808853149414,
+      "correct_p90": 91.63224029541016,
+      "overlap_low": 86.01434707641602,
+      "overlap_high": 88.60848999023438
+    },
+    "opposing_max_angle": {
+      "correct_p10": 136.87020874023438,
+      "correct_p90": 163.8198699951172,
+      "overlap_low": 142.56289672851562,
+      "overlap_high": 155.47494506835938
+    },
+    "opposing_rom": {
+      "correct_p10": 51.19488525390625,
+      "correct_p90": 81.95293426513672,
+      "overlap_low": 56.47576141357422,
+      "overlap_high": 61.604366302490234
+    },
+    "duration": {
+      "correct_p10": 2.115756000000001,
+      "correct_p90": 3.481834000000001,
+      "overlap_low": 2.3996440000000003,
+      "overlap_high": 2.9367010000000002
+    },
+    "active_peak_abs_velocity": {
+      "correct_p10": 264.4408264160156,
+      "correct_p90": 529.2037170410158,
+      "overlap_low": 297.76451110839844,
+      "overlap_high": 411.1392364501953
+    },
+    "active_mean_abs_velocity": {
+      "correct_p10": 55.81082541938761,
+      "correct_p90": 86.49214696009251,
+      "overlap_low": 60.82441297236156,
+      "overlap_high": 71.26749425277109
+    },
+    "opposing_peak_abs_velocity": {
+      "correct_p10": 173.074462890625,
+      "correct_p90": 392.411376953125,
+      "overlap_low": 206.20159912109375,
+      "overlap_high": 316.8814697265625
+    },
+    "opposing_mean_abs_velocity": {
+      "correct_p10": 42.49303731584854,
+      "correct_p90": 75.19003722682625,
+      "overlap_low": 47.283906899813964,
+      "overlap_high": 64.27494614320081
+    },
+    "active_mean_flare": {
+      "correct_p10": 0.038480080634996125,
+      "correct_p90": 0.15579155723241267,
+      "overlap_low": 0.05197327004967716,
+      "overlap_high": 0.127355748534169
+    },
+    "active_max_flare": {
+      "correct_p10": 0.1007124051451683,
+      "correct_p90": 0.25272833108901976,
+      "overlap_low": 0.14289173856377602,
+      "overlap_high": 0.2283961921930313
+    },
+    "opposing_mean_flare": {
+      "correct_p10": 0.03310121863088169,
+      "correct_p90": 0.16975817593932885,
+      "overlap_low": 0.06387650258051236,
+      "overlap_high": 0.10793566630615338
+    },
+    "opposing_max_flare": {
+      "correct_p10": 0.08728407323360443,
+      "correct_p90": 0.26133090257644653,
+      "overlap_low": 0.14520017057657242,
+      "overlap_high": 0.22969171404838562
+    },
+    "mean_angle_asymmetry": {
+      "correct_p10": 5.210795950157335,
+      "correct_p90": 12.43852168418362,
+      "overlap_low": 7.808542798566386,
+      "overlap_high": 10.006341869965874
+    },
+    "max_angle_asymmetry": {
+      "correct_p10": 15.836148071289063,
+      "correct_p90": 30.80660858154297,
+      "overlap_low": 19.552509307861328,
+      "overlap_high": 26.458145141601562
+    },
+    "mean_flare_asymmetry": {
+      "correct_p10": 0.0431623957635588,
+      "correct_p90": 0.13108559089245558,
+      "overlap_low": 0.06542486476807471,
+      "overlap_high": 0.11204191719576231
+    },
+    "max_flare_asymmetry": {
+      "correct_p10": 0.11460470780730247,
+      "correct_p90": 0.2497004553675652,
+      "overlap_low": 0.17273083329200745,
+      "overlap_high": 0.220778901129961
+    },
+    "mean_torso_lean": {
+      "correct_p10": 3.8007319608729437,
+      "correct_p90": 18.790053631554894,
+      "overlap_low": 5.224586314200853,
+      "overlap_high": 14.032204397784216
+    },
+    "max_torso_lean": {
+      "correct_p10": 9.421792984008789,
+      "correct_p90": 33.82915496826172,
+      "overlap_low": 14.859661102294922,
+      "overlap_high": 31.41988182067871
+    },
+    "range_torso_lean": {
+      "correct_p10": 8.639397293329239,
+      "correct_p90": 29.832676470279694,
+      "overlap_low": 13.806407928466797,
+      "overlap_high": 24.914706230163574
+    },
+    "mean_shoulder_depth_ratio": {
+      "correct_p10": 0.07414334507920792,
+      "correct_p90": 0.2551977603461856,
+      "overlap_low": 0.13119332604614709,
+      "overlap_high": 0.22166691962694393
+    },
+    "max_shoulder_depth_ratio": {
+      "correct_p10": 0.14840976893901825,
+      "correct_p90": 0.5301794409751892,
+      "overlap_low": 0.25001562386751175,
+      "overlap_high": 0.33831921219825745
+    },
+    "range_shoulder_depth_ratio": {
+      "correct_p10": 0.1354796439409256,
+      "correct_p90": 0.45047540217638016,
+      "overlap_low": 0.17896362594910897,
+      "overlap_high": 0.2530164122581482
+    },
+    "flexion_duration": {
+      "correct_p10": 0.7331711999999999,
+      "correct_p90": 1.7992350999999989,
+      "overlap_low": 0.9747004999999993,
+      "overlap_high": 1.5576719999999984
+    },
+    "extension_duration": {
+      "correct_p10": 0.8979465000000004,
+      "correct_p90": 2.202398200000002,
+      "overlap_low": 1.182833,
+      "overlap_high": 1.5995110000000006
+    },
+    "flexion_fraction": {
+      "correct_p10": 0.2843265681755066,
+      "correct_p90": 0.6192681344261076,
+      "overlap_low": 0.38688347959189984,
+      "overlap_high": 0.5636460659865598
+    },
+    "active_start_angle": {
+      "correct_p10": 137.29754943847655,
+      "correct_p90": 157.60924530029297,
+      "overlap_low": 143.16709518432617,
+      "overlap_high": 154.2433853149414
+    },
+    "active_end_angle": {
+      "correct_p10": 140.61358642578125,
+      "correct_p90": 156.9470977783203,
+      "overlap_low": 143.8076171875,
+      "overlap_high": 153.56570434570312
+    },
+    "flexion_excursion": {
+      "correct_p10": 47.685332489013675,
+      "correct_p90": 80.80772018432617,
+      "overlap_low": 54.908111572265625,
+      "overlap_high": 66.3282356262207
+    },
+    "extension_excursion": {
+      "correct_p10": 48.80027542114258,
+      "correct_p90": 80.70278625488281,
+      "overlap_low": 55.767255783081055,
+      "overlap_high": 64.0441665649414
+    },
+    "flexion_net_speed": {
+      "correct_p10": 31.747545221669718,
+      "correct_p90": 90.83191853032046,
+      "overlap_low": 42.842566638983115,
+      "overlap_high": 52.03320570830416
+    },
+    "extension_net_speed": {
+      "correct_p10": 29.40872755261645,
+      "correct_p90": 72.34646936945573,
+      "overlap_low": 35.85338138616906,
+      "overlap_high": 52.36791692461527
+    }
+  },
+  "2": {
+    "active_min_angle": {
+      "correct_p10": 74.38990631103516,
+      "correct_p90": 93.05525817871094,
+      "overlap_low": 82.96202850341797,
+      "overlap_high": 88.72280883789062
+    },
+    "active_max_angle": {
+      "correct_p10": 144.3856201171875,
+      "correct_p90": 166.59642639160157,
+      "overlap_low": 148.54510498046875,
+      "overlap_high": 156.0023422241211
+    },
+    "active_rom": {
+      "correct_p10": 54.04280395507813,
+      "correct_p90": 88.77853546142578,
+      "overlap_low": 59.98360824584961,
+      "overlap_high": 70.53464126586914
+    },
+    "opposing_min_angle": {
+      "correct_p10": 80.16952362060547,
+      "correct_p90": 91.98477478027344,
+      "overlap_low": 86.51845169067383,
+      "overlap_high": 88.9451904296875
+    },
+    "opposing_max_angle": {
+      "correct_p10": 132.22152709960938,
+      "correct_p90": 165.7871307373047,
+      "overlap_low": 142.03598022460938,
+      "overlap_high": 151.03457641601562
+    },
+    "opposing_rom": {
+      "correct_p10": 43.824652099609374,
+      "correct_p90": 84.5676025390625,
+      "overlap_low": 55.248985290527344,
+      "overlap_high": 58.82586669921875
+    },
+    "duration": {
+      "correct_p10": 2.105760600000001,
+      "correct_p90": 3.748402999999999,
+      "overlap_low": 2.4989339999999984,
+      "overlap_high": 3.215295
+    },
+    "active_peak_abs_velocity": {
+      "correct_p10": 264.281005859375,
+      "correct_p90": 567.1267211914063,
+      "overlap_low": 303.8588104248047,
+      "overlap_high": 435.25689697265625
+    },
+    "active_mean_abs_velocity": {
+      "correct_p10": 55.76893652445098,
+      "correct_p90": 85.45575070556782,
+      "overlap_low": 60.81697167837601,
+      "overlap_high": 73.51867394582035
+    },
+    "opposing_peak_abs_velocity": {
+      "correct_p10": 174.24552001953126,
+      "correct_p90": 429.9896545410156,
+      "overlap_low": 205.28716278076172,
+      "overlap_high": 334.02540588378906
+    },
+    "opposing_mean_abs_velocity": {
+      "correct_p10": 40.811357012349546,
+      "correct_p90": 75.30625961039328,
+      "overlap_low": 45.80277022964182,
+      "overlap_high": 67.23534248051658
+    },
+    "active_mean_flare": {
+      "correct_p10": 0.044273748487967175,
+      "correct_p90": 0.15100279124480737,
+      "overlap_low": 0.08255771102176387,
+      "overlap_high": 0.1248988465788341
+    },
+    "active_max_flare": {
+      "correct_p10": 0.10561990588903428,
+      "correct_p90": 0.3892939031124117,
+      "overlap_low": 0.17572686076164246,
+      "overlap_high": 0.23127378523349762
+    },
+    "opposing_mean_flare": {
+      "correct_p10": 0.03511637541597772,
+      "correct_p90": 0.16543010819133963,
+      "overlap_low": 0.06165324924539209,
+      "overlap_high": 0.11345587066739729
+    },
+    "opposing_max_flare": {
+      "correct_p10": 0.09802658706903458,
+      "correct_p90": 0.38226656913757334,
+      "overlap_low": 0.13656748086214066,
+      "overlap_high": 0.23669305443763733
+    },
+    "mean_angle_asymmetry": {
+      "correct_p10": 6.071696848914874,
+      "correct_p90": 12.344873759299016,
+      "overlap_low": 7.892852761343414,
+      "overlap_high": 10.283039141966452
+    },
+    "max_angle_asymmetry": {
+      "correct_p10": 16.198098754882814,
+      "correct_p90": 33.15953369140625,
+      "overlap_low": 22.15087127685547,
+      "overlap_high": 27.041156768798828
+    },
+    "mean_flare_asymmetry": {
+      "correct_p10": 0.041458293482233774,
+      "correct_p90": 0.12539700422752137,
+      "overlap_low": 0.06377715823847684,
+      "overlap_high": 0.10985696470188547
+    },
+    "max_flare_asymmetry": {
+      "correct_p10": 0.11460155993700027,
+      "correct_p90": 0.26985783576965333,
+      "overlap_low": 0.16564244031906128,
+      "overlap_high": 0.2234545424580574
+    },
+    "mean_torso_lean": {
+      "correct_p10": 3.167092643744665,
+      "correct_p90": 19.20775010154835,
+      "overlap_low": 4.892880579990268,
+      "overlap_high": 12.449524346003981
+    },
+    "max_torso_lean": {
+      "correct_p10": 8.052921390533447,
+      "correct_p90": 34.49567565917969,
+      "overlap_low": 13.955810070037842,
+      "overlap_high": 27.893634796142578
+    },
+    "range_torso_lean": {
+      "correct_p10": 7.591484984755516,
+      "correct_p90": 29.991090488433837,
+      "overlap_low": 12.286510705947876,
+      "overlap_high": 22.669738337397575
+    },
+    "mean_shoulder_depth_ratio": {
+      "correct_p10": 0.07060437772017232,
+      "correct_p90": 0.2544699698711647,
+      "overlap_low": 0.10660873259741967,
+      "overlap_high": 0.20190930307751054
+    },
+    "max_shoulder_depth_ratio": {
+      "correct_p10": 0.18275285363197327,
+      "correct_p90": 0.901361083984375,
+      "overlap_low": 0.21727300435304642,
+      "overlap_high": 0.3429329842329025
+    },
+    "range_shoulder_depth_ratio": {
+      "correct_p10": 0.1361670136451721,
+      "correct_p90": 0.7835285007953645,
+      "overlap_low": 0.16304926836164668,
+      "overlap_high": 0.2634382412652485
+    },
+    "flexion_duration": {
+      "correct_p10": 0.7597152000000001,
+      "correct_p90": 2.0691202000000004,
+      "overlap_low": 1.074666500000001,
+      "overlap_high": 1.5745055000000017
+    },
+    "extension_duration": {
+      "correct_p10": 0.8997995999999986,
+      "correct_p90": 2.2662353999999993,
+      "overlap_low": 1.2078105000000008,
+      "overlap_high": 1.5995110000000006
+    },
+    "flexion_fraction": {
+      "correct_p10": 0.29726966770465113,
+      "correct_p90": 0.6358819601356566,
+      "overlap_low": 0.4122492245433538,
+      "overlap_high": 0.5675452508037504
+    },
+    "active_start_angle": {
+      "correct_p10": 133.97898559570314,
+      "correct_p90": 157.631103515625,
+      "overlap_low": 143.20134735107422,
+      "overlap_high": 150.9394874572754
+    },
+    "active_end_angle": {
+      "correct_p10": 138.31297607421874,
+      "correct_p90": 158.33563537597655,
+      "overlap_low": 143.3630599975586,
+      "overlap_high": 149.93379974365234
+    },
+    "flexion_excursion": {
+      "correct_p10": 46.84227447509766,
+      "correct_p90": 82.48482818603516,
+      "overlap_low": 55.15658950805664,
+      "overlap_high": 68.13096237182617
+    },
+    "extension_excursion": {
+      "correct_p10": 49.01130065917969,
+      "correct_p90": 83.0017593383789,
+      "overlap_low": 54.201171875,
+      "overlap_high": 67.23587036132812
+    },
+    "flexion_net_speed": {
+      "correct_p10": 21.457254698651727,
+      "correct_p90": 90.7489809022249,
+      "overlap_low": 39.5210789216732,
+      "overlap_high": 49.952567133555824
+    },
+    "extension_net_speed": {
+      "correct_p10": 24.965619660967025,
+      "correct_p90": 68.37517936645192,
+      "overlap_low": 33.64771803212587,
+      "overlap_high": 57.414527788217995
+    }
+  },
+  "3": {
+    "active_min_angle": {
+      "correct_p10": 74.53604125976562,
+      "correct_p90": 93.65738372802734,
+      "overlap_low": 84.52293014526367,
+      "overlap_high": 88.78133773803711
+    },
+    "active_max_angle": {
+      "correct_p10": 142.52132568359374,
+      "correct_p90": 167.92370910644533,
+      "overlap_low": 148.17916107177734,
+      "overlap_high": 158.0787582397461
+    },
+    "active_rom": {
+      "correct_p10": 50.803811645507814,
+      "correct_p90": 88.98740234375,
+      "overlap_low": 59.98697280883789,
+      "overlap_high": 71.55023574829102
+    },
+    "opposing_min_angle": {
+      "correct_p10": 77.5619110107422,
+      "correct_p90": 93.31022567749024,
+      "overlap_low": 88.23257827758789,
+      "overlap_high": 89.55620574951172
+    },
+    "opposing_max_angle": {
+      "correct_p10": 135.2871520996094,
+      "correct_p90": 167.39627532958986,
+      "overlap_low": 143.89127349853516,
+      "overlap_high": 154.1646957397461
+    },
+    "opposing_rom": {
+      "correct_p10": 51.05359420776367,
+      "correct_p90": 86.6738037109375,
+      "overlap_low": 56.9856014251709,
+      "overlap_high": 59.93782424926758
+    },
+    "duration": {
+      "correct_p10": 2.233011,
+      "correct_p90": 3.7000885999999986,
+      "overlap_low": 2.5155999999999983,
+      "overlap_high": 3.252947999999998
+    },
+    "active_peak_abs_velocity": {
+      "correct_p10": 265.3068420410156,
+      "correct_p90": 526.2201416015625,
+      "overlap_low": 303.8588104248047,
+      "overlap_high": 418.5348205566406
+    },
+    "active_mean_abs_velocity": {
+      "correct_p10": 54.43566752846062,
+      "correct_p90": 80.96369781598915,
+      "overlap_low": 59.47050785950226,
+      "overlap_high": 73.30120416543771
+    },
+    "opposing_peak_abs_velocity": {
+      "correct_p10": 186.96369018554688,
+      "correct_p90": 409.8815887451173,
+      "overlap_low": 227.99201202392578,
+      "overlap_high": 338.57447814941406
+    },
+    "opposing_mean_abs_velocity": {
+      "correct_p10": 41.36028585264467,
+      "correct_p90": 75.54532041590738,
+      "overlap_low": 47.14620202992922,
+      "overlap_high": 67.52337457236573
+    },
+    "active_mean_flare": {
+      "correct_p10": 0.038070746747356415,
+      "correct_p90": 0.1543359954658252,
+      "overlap_low": 0.06987736035205384,
+      "overlap_high": 0.13091025472150014
+    },
+    "active_max_flare": {
+      "correct_p10": 0.09702081978321075,
+      "correct_p90": 0.44294835925102233,
+      "overlap_low": 0.16536975651979446,
+      "overlap_high": 0.23858002573251724
+    },
+    "opposing_mean_flare": {
+      "correct_p10": 0.030258750582400126,
+      "correct_p90": 0.16746928019855345,
+      "overlap_low": 0.06008513806652396,
+      "overlap_high": 0.10577374381932178
+    },
+    "opposing_max_flare": {
+      "correct_p10": 0.08723039478063584,
+      "correct_p90": 0.38371612429618857,
+      "overlap_low": 0.13991763442754745,
+      "overlap_high": 0.23438570275902748
+    },
+    "mean_angle_asymmetry": {
+      "correct_p10": 5.367434831733083,
+      "correct_p90": 12.047997747934637,
+      "overlap_low": 8.509365366233917,
+      "overlap_high": 9.808925356412827
+    },
+    "max_angle_asymmetry": {
+      "correct_p10": 15.855996704101562,
+      "correct_p90": 34.31291198730469,
+      "overlap_low": 21.412309646606445,
+      "overlap_high": 27.62240982055664
+    },
+    "mean_flare_asymmetry": {
+      "correct_p10": 0.05153359947659951,
+      "correct_p90": 0.12809003827413687,
+      "overlap_low": 0.060116973329310146,
+      "overlap_high": 0.10826929257610476
+    },
+    "max_flare_asymmetry": {
+      "correct_p10": 0.1366802364587784,
+      "correct_p90": 0.26499140262603765,
+      "overlap_low": 0.16334917396306992,
+      "overlap_high": 0.2239428088068962
+    },
+    "mean_torso_lean": {
+      "correct_p10": 3.6640198696546773,
+      "correct_p90": 20.632872946658605,
+      "overlap_low": 5.086426739704444,
+      "overlap_high": 16.975186153308943
+    },
+    "max_torso_lean": {
+      "correct_p10": 9.6953706741333,
+      "correct_p90": 35.21494255065918,
+      "overlap_low": 15.688890218734741,
+      "overlap_high": 32.209821701049805
+    },
+    "range_torso_lean": {
+      "correct_p10": 8.75677106976509,
+      "correct_p90": 29.982750034332277,
+      "overlap_low": 14.77559194341302,
+      "overlap_high": 25.389838218688965
+    },
+    "mean_shoulder_depth_ratio": {
+      "correct_p10": 0.07442951197622677,
+      "correct_p90": 0.24708773154035307,
+      "overlap_low": 0.09931579955506524,
+      "overlap_high": 0.1875104046395461
+    },
+    "max_shoulder_depth_ratio": {
+      "correct_p10": 0.14851066023111342,
+      "correct_p90": 0.9455330431461337,
+      "overlap_low": 0.20319628715515137,
+      "overlap_high": 0.3316485732793808
+    },
+    "range_shoulder_depth_ratio": {
+      "correct_p10": 0.13845945202047005,
+      "correct_p90": 0.8084594607353212,
+      "overlap_low": 0.15770949271973222,
+      "overlap_high": 0.2733675890849554
+    },
+    "flexion_duration": {
+      "correct_p10": 0.7963239999999996,
+      "correct_p90": 2.032466199999999,
+      "overlap_low": 1.0828659999999974,
+      "overlap_high": 1.624305500000001
+    },
+    "extension_duration": {
+      "correct_p10": 0.9962381999999991,
+      "correct_p90": 2.31234,
+      "overlap_low": 1.2661230000000003,
+      "overlap_high": 1.6246915000000004
+    },
+    "flexion_fraction": {
+      "correct_p10": 0.2909086404200343,
+      "correct_p90": 0.6162218226259536,
+      "overlap_low": 0.4121257806101365,
+      "overlap_high": 0.5590479434765769
+    },
+    "active_start_angle": {
+      "correct_p10": 132.6206848144531,
+      "correct_p90": 159.18828735351562,
+      "overlap_low": 142.34254455566406,
+      "overlap_high": 154.6395721435547
+    },
+    "active_end_angle": {
+      "correct_p10": 136.1581604003906,
+      "correct_p90": 160.17888336181642,
+      "overlap_low": 142.27730178833008,
+      "overlap_high": 153.60916900634766
+    },
+    "flexion_excursion": {
+      "correct_p10": 38.927328491210936,
+      "correct_p90": 82.3160385131836,
+      "overlap_low": 55.913272857666016,
+      "overlap_high": 68.32962226867676
+    },
+    "extension_excursion": {
+      "correct_p10": 43.84121398925782,
+      "correct_p90": 82.36754302978515,
+      "overlap_low": 53.8253059387207,
+      "overlap_high": 67.26339340209961
+    },
+    "flexion_net_speed": {
+      "correct_p10": 22.023138538934624,
+      "correct_p90": 87.8964726751648,
+      "overlap_low": 41.78120025205037,
+      "overlap_high": 52.82750969049446
+    },
+    "extension_net_speed": {
+      "correct_p10": 21.56460385571332,
+      "correct_p90": 65.98571346757656,
+      "overlap_low": 32.15500127101226,
+      "overlap_high": 56.06914710313802
+    }
+  },
+  "4": {
+    "active_min_angle": {
+      "correct_p10": 74.58280029296876,
+      "correct_p90": 93.56814727783203,
+      "overlap_low": 84.62240982055664,
+      "overlap_high": 89.6431999206543
+    },
+    "active_max_angle": {
+      "correct_p10": 142.37569274902344,
+      "correct_p90": 163.07935485839843,
+      "overlap_low": 147.06036376953125,
+      "overlap_high": 156.4891128540039
+    },
+    "active_rom": {
+      "correct_p10": 50.9992172241211,
+      "correct_p90": 83.96631317138672,
+      "overlap_low": 58.575477600097656,
+      "overlap_high": 71.80557250976562
+    },
+    "opposing_min_angle": {
+      "correct_p10": 78.07856140136718,
+      "correct_p90": 93.35160293579102,
+      "overlap_low": 87.75627517700195,
+      "overlap_high": 88.9111270904541
+    },
+    "opposing_max_angle": {
+      "correct_p10": 132.31499481201172,
+      "correct_p90": 161.44666748046876,
+      "overlap_low": 139.82135009765625,
+      "overlap_high": 152.79058074951172
+    },
+    "opposing_rom": {
+      "correct_p10": 44.9503288269043,
+      "correct_p90": 82.54579925537116,
+      "overlap_low": 54.510196685791016,
+      "overlap_high": 59.93782424926758
+    },
+    "duration": {
+      "correct_p10": 2.1157593000000015,
+      "correct_p90": 4.041609900000002,
+      "overlap_low": 2.3951752499999976,
+      "overlap_high": 3.181981499999999
+    },
+    "active_peak_abs_velocity": {
+      "correct_p10": 264.71738891601564,
+      "correct_p90": 540.1362060546875,
+      "overlap_low": 302.22642517089844,
+      "overlap_high": 427.2310333251953
+    },
+    "active_mean_abs_velocity": {
+      "correct_p10": 54.3079396251056,
+      "correct_p90": 82.97839191876162,
+      "overlap_low": 59.554456758710494,
+      "overlap_high": 72.61200821279179
+    },
+    "opposing_peak_abs_velocity": {
+      "correct_p10": 172.62575988769532,
+      "correct_p90": 395.4381256103516,
+      "overlap_low": 207.74903869628906,
+      "overlap_high": 325.49706268310547
+    },
+    "opposing_mean_abs_velocity": {
+      "correct_p10": 40.46314209535819,
+      "correct_p90": 74.97188014406,
+      "overlap_low": 45.15049335461755,
+      "overlap_high": 67.36004253544537
+    },
+    "active_mean_flare": {
+      "correct_p10": 0.039119592684659234,
+      "correct_p90": 0.1564055056320328,
+      "overlap_low": 0.05164307136866943,
+      "overlap_high": 0.1281450486227509
+    },
+    "active_max_flare": {
+      "correct_p10": 0.09734123647212982,
+      "correct_p90": 0.2524687588214874,
+      "overlap_low": 0.14249353855848312,
+      "overlap_high": 0.2295580431818962
+    },
+    "opposing_mean_flare": {
+      "correct_p10": 0.0297548652429371,
+      "correct_p90": 0.17303226003758684,
+      "overlap_low": 0.06008513806652396,
+      "overlap_high": 0.11580244036893739
+    },
+    "opposing_max_flare": {
+      "correct_p10": 0.08614595755934715,
+      "correct_p90": 0.26196774542331697,
+      "overlap_low": 0.13880111277103424,
+      "overlap_high": 0.23348965495824814
+    },
+    "mean_angle_asymmetry": {
+      "correct_p10": 5.2821756185928495,
+      "correct_p90": 11.99912461706226,
+      "overlap_low": 9.129817922758004,
+      "overlap_high": 9.820964368264711
+    },
+    "max_angle_asymmetry": {
+      "correct_p10": 15.991818237304688,
+      "correct_p90": 30.87132568359375,
+      "overlap_low": 23.04082489013672,
+      "overlap_high": 27.037433624267578
+    },
+    "mean_flare_asymmetry": {
+      "correct_p10": 0.043448350735533166,
+      "correct_p90": 0.13016130483930533,
+      "overlap_low": 0.060810827402426146,
+      "overlap_high": 0.10868324921069003
+    },
+    "max_flare_asymmetry": {
+      "correct_p10": 0.11524290144443512,
+      "correct_p90": 0.2533928096294403,
+      "overlap_low": 0.16293135285377502,
+      "overlap_high": 0.22297082841396332
+    },
+    "mean_torso_lean": {
+      "correct_p10": 3.2833067574777544,
+      "correct_p90": 19.611361332189325,
+      "overlap_low": 4.705899038446523,
+      "overlap_high": 10.507990085752859
+    },
+    "max_torso_lean": {
+      "correct_p10": 8.705185031890869,
+      "correct_p90": 33.77574081420899,
+      "overlap_low": 14.062434911727905,
+      "overlap_high": 26.901079654693604
+    },
+    "range_torso_lean": {
+      "correct_p10": 8.105767959356308,
+      "correct_p90": 27.184601664543155,
+      "overlap_low": 12.204221308231354,
+      "overlap_high": 23.82482558488846
+    },
+    "mean_shoulder_depth_ratio": {
+      "correct_p10": 0.06933816918570826,
+      "correct_p90": 0.25296648490099516,
+      "overlap_low": 0.09416533142469616,
+      "overlap_high": 0.2064843712421528
+    },
+    "max_shoulder_depth_ratio": {
+      "correct_p10": 0.1487076535820961,
+      "correct_p90": 0.517343273758889,
+      "overlap_low": 0.22166799008846283,
+      "overlap_high": 0.3186511769890785
+    },
+    "range_shoulder_depth_ratio": {
+      "correct_p10": 0.12912410497665405,
+      "correct_p90": 0.43606527335941875,
+      "overlap_low": 0.16381124680629,
+      "overlap_high": 0.2276432748149091
+    },
+    "flexion_duration": {
+      "correct_p10": 0.7331911999999999,
+      "correct_p90": 2.0791137999999996,
+      "overlap_low": 0.9912394999999996,
+      "overlap_high": 1.6159774999999987
+    },
+    "extension_duration": {
+      "correct_p10": 0.8996664000000003,
+      "correct_p90": 2.3523270000000007,
+      "overlap_low": 1.1828274999999993,
+      "overlap_high": 1.6994779999999998
+    },
+    "flexion_fraction": {
+      "correct_p10": 0.29547112621994975,
+      "correct_p90": 0.650157469936519,
+      "overlap_low": 0.38688347959189984,
+      "overlap_high": 0.5654680355985477
+    },
+    "active_start_angle": {
+      "correct_p10": 130.80579223632813,
+      "correct_p90": 158.3599884033203,
+      "overlap_low": 141.91553497314453,
+      "overlap_high": 153.79878997802734
+    },
+    "active_end_angle": {
+      "correct_p10": 136.64391479492187,
+      "correct_p90": 158.1507354736328,
+      "overlap_low": 141.6112174987793,
+      "overlap_high": 152.46780395507812
+    },
+    "flexion_excursion": {
+      "correct_p10": 37.92411804199219,
+      "correct_p90": 81.46960296630859,
+      "overlap_low": 53.31719970703125,
+      "overlap_high": 68.78036117553711
+    },
+    "extension_excursion": {
+      "correct_p10": 44.63429565429688,
+      "correct_p90": 80.8342498779297,
+      "overlap_low": 52.16263198852539,
+      "overlap_high": 67.74053955078125
+    },
+    "flexion_net_speed": {
+      "correct_p10": 17.125849162378948,
+      "correct_p90": 91.2993182224164,
+      "overlap_low": 37.438207933152924,
+      "overlap_high": 56.82930239767077
+    },
+    "extension_net_speed": {
+      "correct_p10": 20.673943367224815,
+      "correct_p90": 70.78026151428911,
+      "overlap_low": 31.610301047520966,
+      "overlap_high": 56.492715506518735
+    }
+  }
+}

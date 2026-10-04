@@ -1,0 +1,15 @@
+{
+  "canonical_examples": 280,
+  "all_passed": true,
+  "checks": [
+    "physical angle/ratio bounds",
+    "canonical exact ranges and durations",
+    "monotonic PTS",
+    "phase duration consistency",
+    "resampling endpoints",
+    "analytical degrees and nonuniform-PTS velocity",
+    "exercised-arm mapping",
+    "bounded missing-gap refusal"
+  ],
+  "script_sha256": "0f71f12b41bfd98f9297fcfafa6d376f0603905a7033a733271e964aa5a40e9c"
+}
