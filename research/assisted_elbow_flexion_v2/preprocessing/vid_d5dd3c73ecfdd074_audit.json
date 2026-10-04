@@ -1,7 +1,7 @@
 {
   "video_id": "vid_d5dd3c73ecfdd074",
   "source_sha256": "d5dd3c73ecfdd074e9209c7a26abee875b7b134b366aea3d36923562310edd07",
-  "source_video": "C:\\Users\\DEVESH SHUKLA\\Downloads\\hemo\\Assisted elbow flexion\\Both hand assisted mix\\VID20260825125415.mp4",
+  "source_video": "<source_video_redacted>/VID20260825125415.mp4",
   "status": "success",
   "canonical_repetitions": 12,
   "original_decoded_frames": 1176,
@@ -22,7 +22,7 @@
     "-threads",
     "2",
     "-i",
-    "C:\\Users\\DEVESH SHUKLA\\Downloads\\hemo\\Assisted elbow flexion\\Both hand assisted mix\\VID20260825125415.mp4",
+    "<source_video_redacted>/VID20260825125415.mp4",
     "-map",
     "0:v:0",
     "-vf",

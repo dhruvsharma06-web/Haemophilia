@@ -1,7 +1,7 @@
 {
   "video_id": "vid_762b204cd565ac52",
   "source_sha256": "762b204cd565ac52dfc6deaac7575e22d59eb82b30d82af9880cc5067213a65e",
-  "source_video": "C:\\Users\\DEVESH SHUKLA\\Downloads\\hemo\\Assisted elbow flexion\\Correct\\20260910_144241.mp4",
+  "source_video": "<source_video_redacted>/20260910_144241.mp4",
   "status": "success",
   "canonical_repetitions": 9,
   "original_decoded_frames": 2431,
@@ -22,7 +22,7 @@
     "-threads",
     "2",
     "-i",
-    "C:\\Users\\DEVESH SHUKLA\\Downloads\\hemo\\Assisted elbow flexion\\Correct\\20260910_144241.mp4",
+    "<source_video_redacted>/20260910_144241.mp4",
     "-map",
     "0:v:0",
     "-vf",

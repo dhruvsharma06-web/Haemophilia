@@ -68,7 +68,7 @@ def initialize():
     dump(P2/'provenance/protected_files_before.json',protected)
     dump(P2/'provenance/frozen_input_hashes.json',frozen_hashes())
     import shutil
-    shutil.copyfile(Path(r'C:\Users\DEVESH SHUKLA\.codex\attachments\c010ba2b-6331-40d7-b058-fe4d58d64c11\Pasted text.txt'),P2/'provenance/user_authorization.txt')
+    shutil.copyfile(Path(r'<local_path_redacted>,P2/'provenance/user_authorization.txt')
     print('Initialized Phase 2: 280 canonical rows; 36 frozen SVM errors; Phase 1 artifact hashes verified.')
 
 if __name__=='__main__':initialize()

@@ -52,7 +52,7 @@ def main():
         composition.append({'fold':f,'train_n':len(tr),'validation_n':len(va),'train_sources':tr.source_sha256.nunique(),'validation_sources':va.source_sha256.nunique(),'Correct':int((va.label=='Correct').sum()),'Incorrect':int((va.label=='Incorrect').sum()),'Left':int((va.hand=='Left').sum()),'Right':int((va.hand=='Right').sum()),'source_intersection':[]})
     dump(ROOT/'splits/leakage_audit.json', composition)
     pd.DataFrame([{k:v for k,v in x.items() if k!='source_intersection'} for x in composition]).to_csv(ROOT/'splits/fold_composition.csv',index=False)
-    shutil.copyfile(Path(r'C:\Users\DEVESH SHUKLA\.codex\attachments\c1ba7f03-9aae-470c-85a1-725d8045d139\Pasted text.txt'), ROOT/'provenance/phase1_user_authorization.txt')
+    shutil.copyfile(Path(r'<local_path_redacted>, ROOT/'provenance/phase1_user_authorization.txt')
     import cv2, scipy, sklearn, torch, mediapipe
     env={'python':sys.version,'platform':platform.platform(),'executable':sys.executable,'packages':{m.__name__:m.__version__ for m in [np,pd,cv2,scipy,sklearn,torch,mediapipe]},'cuda_available':torch.cuda.is_available(),'ffmpeg':subprocess.check_output(['ffmpeg','-version'],text=True).splitlines()[0]}
     assets=list(Path(mediapipe.__file__).parent.glob('modules/pose*/*.tflite'))
