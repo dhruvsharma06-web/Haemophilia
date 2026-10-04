@@ -54,7 +54,7 @@ The table below details the exact provenance and training-set overlap of the fiv
 
 ## 2. Complete Repository Video Inventory
 
-An audit of every video file in `C:\dev\Haemophilia` was performed to identify any candidate sources outside the 280 canonical dataset:
+An audit of every video file in `<repo_root>` was performed to identify any candidate sources outside the 280 canonical dataset:
 
 ### Category A: V2 Review Media (`processed_data/assisted_elbow_flexion_v2/review_media/`)
 - **Total Files:** Exactly 29 MP4 files.
