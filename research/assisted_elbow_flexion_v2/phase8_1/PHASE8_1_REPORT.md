@@ -79,7 +79,7 @@ An audit of every video file in `C:\dev\Haemophilia` was performed to identify a
 - **Eligible Truly Independent Continuous Videos Found:** **0**
 - **Conclusion:** **NO INDEPENDENT COHORT CURRENTLY AVAILABLE IN THE REPOSITORY.**
 
-*Documented in: [`independent_cohort_inventory.csv`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase8_1/independent_cohort_inventory.csv) and [`independence_audit.json`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase8_1/independence_audit.json).*
+*Documented in: [`independent_cohort_inventory.csv`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase8_1/independent_cohort_inventory.csv) and [`independence_audit.json`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase8_1/independence_audit.json).*
 
 ---
 
@@ -150,9 +150,9 @@ In strict compliance with all project instructions:
 
 ## Artifact Index
 
-- **Reclassification Document:** [`PHASE8_RECLASSIFICATION.md`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase8_1/PHASE8_RECLASSIFICATION.md)
-- **Comprehensive Report:** [`PHASE8_1_REPORT.md`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase8_1/PHASE8_1_REPORT.md)
-- **Independent Cohort Inventory:** [`independent_cohort_inventory.csv`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase8_1/independent_cohort_inventory.csv)
-- **Independence Audit JSON:** [`independence_audit.json`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase8_1/independence_audit.json)
-- **Verification Script:** [`verify_phase8_1.py`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase8_1/verify_phase8_1.py)
-- **Reproducibility Manifest:** [`reproducibility_manifest.json`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase8_1/reproducibility_manifest.json)
+- **Reclassification Document:** [`PHASE8_RECLASSIFICATION.md`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase8_1/PHASE8_RECLASSIFICATION.md)
+- **Comprehensive Report:** [`PHASE8_1_REPORT.md`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase8_1/PHASE8_1_REPORT.md)
+- **Independent Cohort Inventory:** [`independent_cohort_inventory.csv`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase8_1/independent_cohort_inventory.csv)
+- **Independence Audit JSON:** [`independence_audit.json`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase8_1/independence_audit.json)
+- **Verification Script:** [`verify_phase8_1.py`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase8_1/verify_phase8_1.py)
+- **Reproducibility Manifest:** [`reproducibility_manifest.json`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase8_1/reproducibility_manifest.json)

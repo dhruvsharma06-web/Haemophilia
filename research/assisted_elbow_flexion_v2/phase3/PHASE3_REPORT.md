@@ -1,9 +1,9 @@
 # Assisted Elbow Flexion V2 — Phase 3 Comprehensive Research Report
 
-**Workspace:** [`C:\dev\Haemophilia\research\assisted_elbow_flexion_v2\phase3`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase3)  
-**Dataset:** [`human280_20261004`](file:///C:/dev/Haemophilia/processed_data/assisted_elbow_flexion_v2/releases/human280_20261004) (280 human-reviewed repetitions; 183 Correct, 97 Incorrect; 143 Left, 137 Right; 29 source videos)  
-**Task:** Supervised Binary Classification (`Correct` vs `Incorrect`); Hand (`Left`/`Right`) is metadata only.  
-**Independent Verification:** Passed via [`verify_phase3.py`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase3/verify_phase3.py) (2,514 protected repository files verified unchanged; zero production code touched).
+**Workspace:** [`<repo_root>/research\assisted_elbow_flexion_v2\phase3`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase3)
+**Dataset:** [`human280_20261004`](file:///<repo_root>/processed_data/assisted_elbow_flexion_v2/releases/human280_20261004) (280 human-reviewed repetitions; 183 Correct, 97 Incorrect; 143 Left, 137 Right; 29 source videos)
+**Task:** Supervised Binary Classification (`Correct` vs `Incorrect`); Hand (`Left`/`Right`) is metadata only.
+**Independent Verification:** Passed via [`verify_phase3.py`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase3/verify_phase3.py) (2,514 protected repository files verified unchanged; zero production code touched).
 
 ---
 
@@ -24,7 +24,7 @@ Phase 3 concludes the research and model selection pipeline for Assisted Elbow F
 4. **Generalization Gap Quantified:**
    Holding out entire recording sessions drops Balanced Accuracy by **5.0% to 6.5%** (86.62% $\to$ 80.12%), driven almost entirely by session `person2` (57.1% accuracy due to camera angle and posture proxy shifts). This proves that session-level camera setup and viewpoint variation—not model capacity—remain the dominant bottleneck.
 5. **Final Development Model Fit & Production Safety:**
-   The final research model was fit on all 280 canonical development repetitions with complete mathematical transparency: parameters, support vectors (181 total: 100 Correct, 81 Incorrect), scaler coefficients, and imputer statistics are preserved in [`checkpoints/final_model_v2_parameters.json`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase3/checkpoints/final_model_v2_parameters.json) and [`final_model_metadata.json`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase3/final_model_metadata.json). No production checkpoints, Flutter apps, backends, or live camera evaluators were modified.
+   The final research model was fit on all 280 canonical development repetitions with complete mathematical transparency: parameters, support vectors (181 total: 100 Correct, 81 Incorrect), scaler coefficients, and imputer statistics are preserved in [`checkpoints/final_model_v2_parameters.json`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase3/checkpoints/final_model_v2_parameters.json) and [`final_model_metadata.json`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase3/final_model_metadata.json). No production checkpoints, Flutter apps, backends, or live camera evaluators were modified.
 
 ---
 
@@ -53,7 +53,7 @@ Before any Phase 3 modeling, a comprehensive audit of all potential data sources
 
 ## 3. Participant Identity Audit
 
-The nominal identifiers `person1` through `person5` were audited against video timestamps, file metadata, and review logs. Results are recorded in [`participant_grouping_audit.csv`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase3/participant_grouping_audit.csv).
+The nominal identifiers `person1` through `person5` were audited against video timestamps, file metadata, and review logs. Results are recorded in [`participant_grouping_audit.csv`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase3/participant_grouping_audit.csv).
 
 ### Forensic Lineage of Participant Identifiers
 - In the canonical release manifest, `subject_verification_status` is explicitly set to `inherited_not_independently_verified`.
@@ -69,7 +69,7 @@ The nominal identifiers `person1` through `person5` were audited against video t
 | **person5** | `session_block_5` | 2026-09-10 | 15:03:57 – 15:06:02 | 5 | 39 | 3840x2160, 60 fps | Continuous 2-minute block recorded 16 days later |
 
 ### Audit Finding
-There is no independent biometric evidence (e.g. facial identification, participant enrollment roster, or clothing audit) confirming that these 5 recording blocks represent 5 distinct individuals rather than repeat sessions of fewer individuals. Consequently, these groups represent **recording session clusters**. 
+There is no independent biometric evidence (e.g. facial identification, participant enrollment roster, or clothing audit) confirming that these 5 recording blocks represent 5 distinct individuals rather than repeat sessions of fewer individuals. Consequently, these groups represent **recording session clusters**.
 
 In Phase 3, we treat them rigorously as **session holdouts** to measure the impact of holding out an entire recording batch.
 
@@ -88,7 +88,7 @@ Three validation paradigms were executed to evaluate stability under increasing 
 
 ## 5. Candidate Model Comparison
 
-The frozen unweighted baseline (`FrozenPhase1SVM`) and the class-weighted candidate (`BalancedSVM`) were compared across all three validation paradigms. Comprehensive results are compiled in [`development_model_comparison.csv`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase3/development_model_comparison.csv).
+The frozen unweighted baseline (`FrozenPhase1SVM`) and the class-weighted candidate (`BalancedSVM`) were compared across all three validation paradigms. Comprehensive results are compiled in [`development_model_comparison.csv`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase3/development_model_comparison.csv).
 
 | Validation Protocol | Model | N | Accuracy | Balanced Accuracy | Macro-F1 | Correct Recall | Incorrect Recall | Confusion Matrix | Source Acc Std | Min Source Acc |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -99,7 +99,7 @@ The frozen unweighted baseline (`FrozenPhase1SVM`) and the class-weighted candid
 | **5-Fold Session-Grouped**| FrozenPhase1SVM_Session | 280 | 80.36% | 81.58% | 79.44% | 77.60% | 85.57% | `[[142, 41], [14, 83]]` | 0.2241 | 37.5% |
 | **5-Fold Session-Grouped**| **BalancedSVM_Session** | 280 | 77.50% | 80.12% | 76.90% | 71.58% | **88.66%** | `[[131, 52], [11, 86]]` | 0.2468 | 25.0% |
 
-Fold-level breakdowns are recorded in [`development_fold_metrics.csv`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase3/development_fold_metrics.csv), and source-level metrics are recorded in [`development_per_source_metrics.csv`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase3/development_per_source_metrics.csv).
+Fold-level breakdowns are recorded in [`development_fold_metrics.csv`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase3/development_fold_metrics.csv), and source-level metrics are recorded in [`development_per_source_metrics.csv`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase3/development_per_source_metrics.csv).
 
 ---
 
@@ -112,7 +112,7 @@ Model selection adhered to the pre-specified hierarchy:
 4. **Group and Source Stability** (reduced dispersion and higher floor)
 
 ### Selection Outcome: `BalancedSVM` Wins Decisively
-The decision record is formalized in [`final_model_selection.json`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase3/final_model_selection.json).
+The decision record is formalized in [`final_model_selection.json`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase3/final_model_selection.json).
 
 ```
 Evaluation Dimension                  FrozenPhase1SVM         BalancedSVM            Advantage of BalancedSVM
@@ -143,7 +143,7 @@ In strict accordance with the protocol for **CASE B** (no genuinely independent 
 
 ## 8. Generalization Gap Analysis
 
-The generalization gap between validation protocols is documented in [`generalization_gap.csv`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase3/generalization_gap.csv) and visualized in [`plots/generalization_gap.png`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase3/plots/generalization_gap.png).
+The generalization gap between validation protocols is documented in [`generalization_gap.csv`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase3/generalization_gap.csv) and visualized in [`plots/generalization_gap.png`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase3/plots/generalization_gap.png).
 
 ```
 Protocols (in order of increasing holdout severity)            Balanced Accuracy    Delta vs Baseline    Delta vs Balanced Source
@@ -173,7 +173,7 @@ Protocols (in order of increasing holdout severity)            Balanced Accuracy
 
 ## 9. Final Feature Decision
 
-The feature representation was locked in [`feature_definition_snapshot.json`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase3/feature_definition_snapshot.json).
+The feature representation was locked in [`feature_definition_snapshot.json`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase3/feature_definition_snapshot.json).
 
 ### Decision: Retain Full 34-Feature Scalar Representation
 1. **Retain Peak Angular Velocities:** Phase 2 demonstrated that replacing peak velocities with 95th-percentile velocities (`VelocityP95`) decreased Balanced Accuracy from 83.87% to 83.32%. Extreme velocity peaks, while numerically sensitive, capture ballistic and uncontrolled arm movements characteristic of incorrect repetitions.
@@ -184,7 +184,7 @@ The feature representation was locked in [`feature_definition_snapshot.json`](fi
 
 ## 10. Hand Analysis (Descriptive Metadata Only)
 
-Hand metadata was evaluated across all models without using hand as an input feature or prediction target. Full statistics are compiled in [`development_per_hand_metrics.csv`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase3/development_per_hand_metrics.csv).
+Hand metadata was evaluated across all models without using hand as an input feature or prediction target. Full statistics are compiled in [`development_per_hand_metrics.csv`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase3/development_per_hand_metrics.csv).
 
 | Protocol & Model | Hand | Reps | Correct | Incorrect | Accuracy | Balanced Acc | Correct Recall | Incorrect Recall | Confusion Matrix |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -218,8 +218,8 @@ The final research model for Assisted Elbow Flexion V2 is **`BalancedSVM`**, tra
   2. `StandardScaler(with_mean=True, with_std=True)`
 - **Support Vectors:** 181 total (100 class 0 / Correct, 81 class 1 / Incorrect)
 - **Model Checkpoint Artifacts:**
-  - Full parameters JSON: [`checkpoints/final_model_v2_parameters.json`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase3/checkpoints/final_model_v2_parameters.json)
-  - Metadata record: [`final_model_metadata.json`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase3/final_model_metadata.json)
+  - Full parameters JSON: [`checkpoints/final_model_v2_parameters.json`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase3/checkpoints/final_model_v2_parameters.json)
+  - Metadata record: [`final_model_metadata.json`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase3/final_model_metadata.json)
 
 ---
 
@@ -272,8 +272,8 @@ To transition this research pipeline into clinical utility, development must pro
 
 ## Verification & Reproducibility Sign-off
 
-- **Canonical Manifest Verified:** [`releases/human280_20261004/canonical_manifest.csv`](file:///C:/dev/Haemophilia/processed_data/assisted_elbow_flexion_v2/releases/human280_20261004/canonical_manifest.csv) (SHA-256 verified; 280 repetitions).
+- **Canonical Manifest Verified:** [`releases/human280_20261004/canonical_manifest.csv`](file:///<repo_root>/processed_data/assisted_elbow_flexion_v2/releases/human280_20261004/canonical_manifest.csv) (SHA-256 verified; 280 repetitions).
 - **Excluded Candidates:** 22 candidates verified quarantined.
 - **Protected Files Check:** 2,514 protected repository files verified unchanged via SHA-256 audit.
-- **Verification Script:** Executed and passed with exit code 0 ([`verify_phase3.py`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase3/verify_phase3.py)).
-- **Reproducibility Manifest:** Recorded in [`reproducibility_manifest.json`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase3/reproducibility_manifest.json).
+- **Verification Script:** Executed and passed with exit code 0 ([`verify_phase3.py`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase3/verify_phase3.py)).
+- **Reproducibility Manifest:** Recorded in [`reproducibility_manifest.json`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase3/reproducibility_manifest.json).

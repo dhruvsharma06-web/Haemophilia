@@ -2,7 +2,7 @@
 
 This independent research workspace uses only immutable release `human280_20261004`: 280 reviewed repetitions, binary quality target, source SHA-256 grouping. Read `reports/CODE_AUDIT.md`, `features/FEATURE_DEFINITIONS.md` and frozen `config.json` before running.
 
-Use the recorded Python environment (`C:\Python310\python.exe`) and FFmpeg on PATH. From `C:\dev\Haemophilia`:
+Use the recorded Python environment (`C:\Python310\python.exe`) and FFmpeg on PATH. From `<repo_root>`:
 
 ```powershell
 # Initialization was completed once before extraction; never rerun it over this workspace.

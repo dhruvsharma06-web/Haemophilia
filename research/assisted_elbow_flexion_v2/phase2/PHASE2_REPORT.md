@@ -1,9 +1,9 @@
 # Assisted Elbow Flexion V2 — Phase 2 Comprehensive Research Report
 
-**Workspace:** [`C:\dev\Haemophilia\research\assisted_elbow_flexion_v2\phase2`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase2)  
-**Dataset:** [`human280_20261004`](file:///C:/dev/Haemophilia/processed_data/assisted_elbow_flexion_v2/releases/human280_20261004) (280 human-reviewed repetitions; 183 Correct, 97 Incorrect; 143 Left, 137 Right)  
-**Task:** Supervised Binary Classification (`Correct` vs `Incorrect`); Hand (`Left`/`Right`) is metadata only.  
-**Verification Status:** Verified via [`verify_phase2.py`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase2/verify_phase2.py) (129 fits checked; 2,514 protected files unchanged).
+**Workspace:** [`<repo_root>/research\assisted_elbow_flexion_v2\phase2`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase2)
+**Dataset:** [`human280_20261004`](file:///<repo_root>/processed_data/assisted_elbow_flexion_v2/releases/human280_20261004) (280 human-reviewed repetitions; 183 Correct, 97 Incorrect; 143 Left, 137 Right)
+**Task:** Supervised Binary Classification (`Correct` vs `Incorrect`); Hand (`Left`/`Right`) is metadata only.
+**Verification Status:** Verified via [`verify_phase2.py`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase2/verify_phase2.py) (129 fits checked; 2,514 protected files unchanged).
 
 ---
 
@@ -55,7 +55,7 @@ The baseline exhibits high specificity on `Correct` movement (94.54%) but a pron
 
 ## 3. Error Analysis (The 36 Held-Out Phase 1 Errors)
 
-Every one of the 36 classification errors produced by the frozen Phase 1 SVM was individually audited across feature values, quality control logs, landmark visibility, temporal boundaries, and decision scores. Detailed row-by-row records are preserved in [`error_analysis.csv`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase2/error_analysis.csv).
+Every one of the 36 classification errors produced by the frozen Phase 1 SVM was individually audited across feature values, quality control logs, landmark visibility, temporal boundaries, and decision scores. Detailed row-by-row records are preserved in [`error_analysis.csv`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase2/error_analysis.csv).
 
 ### 3.1 Error Breakdown by Direction
 - **False Negatives (Incorrect labeled as Correct): 26 repetitions (72.2% of errors).** The model failed to detect movement execution flaws, assigning negative decision scores.
@@ -90,7 +90,7 @@ Audit tagging categorized the observed failure characteristics without attributi
 
 ## 4. Source Failure Analysis (All 29 Sources)
 
-The canonical dataset originates from 29 distinct source video files. Full source-level diagnostics are compiled in [`source_failure_analysis.csv`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase2/source_failure_analysis.csv).
+The canonical dataset originates from 29 distinct source video files. Full source-level diagnostics are compiled in [`source_failure_analysis.csv`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase2/source_failure_analysis.csv).
 
 ### 4.1 Source Composition and Partition Imbalance
 - **Single-Class Sources: 24 of 29 videos (82.8%)**
@@ -128,7 +128,7 @@ On mixed sources where both classes coexist within the exact same recording sess
 
 ## 5. Feature Robustness Analysis
 
-The 34 scalar features and 11 temporal representations were audited for physical interpretation, camera-view invariance, numerical stability, and source confounding. The results are preserved in [`feature_robustness.csv`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase2/feature_robustness.csv).
+The 34 scalar features and 11 temporal representations were audited for physical interpretation, camera-view invariance, numerical stability, and source confounding. The results are preserved in [`feature_robustness.csv`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase2/feature_robustness.csv).
 
 ### 5.1 Evidence Behind the Two Focused Feature Hypotheses
 
@@ -164,7 +164,7 @@ The 34 scalar features and 11 temporal representations were audited for physical
 
 ## 6. Controlled Model Experiments
 
-Four controlled modifications and one nested selection procedure were evaluated using identical 5-fold source-grouped splits and training-only preprocessing. Full results are stored in [`all_results.csv`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase2/experiments/all_results.csv).
+Four controlled modifications and one nested selection procedure were evaluated using identical 5-fold source-grouped splits and training-only preprocessing. Full results are stored in [`all_results.csv`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase2/experiments/all_results.csv).
 
 | Model / Procedure | Acc | Bal Acc | Macro-F1 | Corr Rec | Incorr Rec | Confusion Matrix | Source Std | Worst Source | $\Delta$ Bal Acc |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -207,7 +207,7 @@ Fold Std Bal Acc:         0.1069                0.0862              -0.0207 (low
 
 ## 8. Grouped Inner-Selection Procedure
 
-To guard against selection bias, an inner selection protocol was implemented in [`experiments.py`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase2/experiments.py) and audited in [`experiments/inner_selections.json`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase2/experiments/inner_selections.json).
+To guard against selection bias, an inner selection protocol was implemented in [`experiments.py`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase2/experiments.py) and audited in [`experiments/inner_selections.json`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase2/experiments/inner_selections.json).
 
 ### Selection Protocol
 - For each outer fold $k \in \{0, 1, 2, 3, 4\}$, the outer training set (comprising ~224 repetitions from ~23 sources) was partitioned using `StratifiedGroupKFold(n_splits=3, shuffle=True, random_state=42 + 100*k)` grouped by `source_sha256`.
@@ -238,7 +238,7 @@ This proves that the advantage of class-weighting survives nested cross-validati
 
 ## 9. Leave-One-Source-Out (LOSO) Diagnostic
 
-A 29-partition leave-one-source-out evaluation was executed using the unchanged original Phase 1 SVM specification. Full details are recorded in [`source_leave_one_out_results.csv`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase2/source_leave_one_out_results.csv) and [`experiments/source_leave_one_out_summary.json`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase2/experiments/source_leave_one_out_summary.json).
+A 29-partition leave-one-source-out evaluation was executed using the unchanged original Phase 1 SVM specification. Full details are recorded in [`source_leave_one_out_results.csv`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase2/source_leave_one_out_results.csv) and [`experiments/source_leave_one_out_summary.json`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase2/experiments/source_leave_one_out_summary.json).
 
 ### Diagnostic Metrics
 
@@ -329,8 +329,8 @@ For any subsequent research phase (Phase 3), the following prioritized roadmap i
 
 ## Verification & Artifact Preservation Sign-off
 
-- **Canonical Manifest:** Verified 280 repetitions ([`processed_data/assisted_elbow_flexion_v2/releases/human280_20261004`](file:///C:/dev/Haemophilia/processed_data/assisted_elbow_flexion_v2/releases/human280_20261004)).
+- **Canonical Manifest:** Verified 280 repetitions ([`processed_data/assisted_elbow_flexion_v2/releases/human280_20261004`](file:///<repo_root>/processed_data/assisted_elbow_flexion_v2/releases/human280_20261004)).
 - **Excluded Candidates:** 22 excluded repetitions strictly excluded.
 - **Protected Files Check:** 2,514 protected repository files verified unchanged via SHA-256 audit.
 - **Fits Checked:** 129 new model fits audited for strict fit boundaries and zero training-validation leakage.
-- **Verification Script:** Executed and passed with 0 exit code ([`verify_phase2.py`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase2/verify_phase2.py)).
+- **Verification Script:** Executed and passed with 0 exit code ([`verify_phase2.py`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase2/verify_phase2.py)).

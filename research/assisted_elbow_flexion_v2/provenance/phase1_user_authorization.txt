@@ -2,7 +2,7 @@ We are now authorized to begin the NEW Assisted Elbow Flexion V2 training phase.
 
 The canonical dataset is finalized and approved:
 
-`C:\dev\Haemophilia\processed_data\assisted_elbow_flexion_v2\releases\human280_20261004`
+`<repo_root>/processed_data\assisted_elbow_flexion_v2\releases\human280_20261004`
 
 Canonical supervised examples:
 - 280 total

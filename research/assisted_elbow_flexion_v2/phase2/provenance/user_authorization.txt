@@ -1,10 +1,10 @@
 Phase 1 is complete.
 
 Canonical dataset:
-`C:\dev\Haemophilia\processed_data\assisted_elbow_flexion_v2\releases\human280_20261004`
+`<repo_root>/processed_data\assisted_elbow_flexion_v2\releases\human280_20261004`
 
 Phase 1 workspace:
-`C:\dev\Haemophilia\research\assisted_elbow_flexion_v2`
+`<repo_root>/research\assisted_elbow_flexion_v2`
 
 Use ONLY the canonical 280 human-reviewed repetitions.
 
@@ -253,7 +253,7 @@ The objective is understanding and robustness, not inflating sample count.
 
 Create:
 
-`C:\dev\Haemophilia\research\assisted_elbow_flexion_v2\phase2\`
+`<repo_root>/research\assisted_elbow_flexion_v2\phase2\`
 
 Keep this completely separate from production.
 

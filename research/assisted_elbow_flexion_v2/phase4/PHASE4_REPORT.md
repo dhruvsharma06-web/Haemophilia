@@ -22,13 +22,13 @@ An audit of `live_elbow_camera.py`, `src/exercises/assisted_elbow_flexion.py`, `
 4. **Timing Inaccuracies:** The legacy live runner assumes a fixed 30.0 FPS and computes duration via `len(buffer) / 30.0`. If a webcam operates at 15 or 20 FPS due to exposure or USB bandwidth, durations are underestimated by up to 50% and angular velocities are inflated by 200%.
 5. **Negative Duration Root Cause:** In `assisted_elbow_rep_counter.py` and prior live runners, duration was computed as `(rep_end - rep_start) / fps`. Search windows derived from argmax operations occasionally permitted `rep_start > rep_end` on edge-case buffer wraps or debounce overlaps, producing negative durations. Furthermore, presentation timestamp queries (`cv2.CAP_PROP_POS_MSEC`) on Windows DSHOW webcams frequently return `0` or `-1`, corrupting timestamp deltas.
 
-The audit is documented in [`LIVE_PIPELINE_AUDIT.md`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase4/LIVE_PIPELINE_AUDIT.md).
+The audit is documented in [`LIVE_PIPELINE_AUDIT.md`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase4/LIVE_PIPELINE_AUDIT.md).
 
 ---
 
 ## 2. Phase 3 Deployment Adapter Design
 
-To bridge raw webcam frames to the authoritative Phase 3 model without touching production files, a standalone research adapter was created in [`deployment_adapter.py`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase4/deployment_adapter.py).
+To bridge raw webcam frames to the authoritative Phase 3 model without touching production files, a standalone research adapter was created in [`deployment_adapter.py`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase4/deployment_adapter.py).
 
 ### Adapter Pipeline Architecture
 $$\text{Raw 3D World Landmarks} \xrightarrow{\text{Kinematic Extraction}} \mathbf{x} \in \mathbb{R}^{34} \xrightarrow{\text{SimpleImputer}} \mathbf{x}_{\text{imp}} \xrightarrow{\text{StandardScaler}} \mathbf{x}_{\text{scaled}} \xrightarrow{\text{RBF Kernel}} f(\mathbf{x}) \xrightarrow{\text{Sign}} \{\text{Correct}, \text{Incorrect}\}$$
@@ -69,7 +69,7 @@ The deployment adapter was subjected to offline verification against all 280 can
 | **Prediction Match** | Label agreement across 280 reps | **100.0%** (280/280) | 100.0% | **PASS** |
 | **End-to-End Raw** | Raw landmark extraction delta | **0.00e+00** | $\le 10^{-12}$ | **PASS** |
 
-The full verification log and per-repetition results are archived in [`offline_parity_report.md`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase4/offline_parity_report.md) and [`offline_parity_results.csv`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase4/offline_parity_results.csv).
+The full verification log and per-repetition results are archived in [`offline_parity_report.md`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase4/offline_parity_report.md) and [`offline_parity_results.csv`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase4/offline_parity_results.csv).
 
 **Conclusion:** The Phase 4 deployment adapter reproduces the frozen Phase 3 `BalancedSVM` with bit-level mathematical parity.
 
@@ -77,7 +77,7 @@ The full verification log and per-repetition results are archived in [`offline_p
 
 ## 4. Timing & Repetition Segmentation Audit
 
-To solve the negative duration issue observed in previous live testing, the Phase 4 research live runner ([`live_elbow_camera_v2.py`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase4/live_elbow_camera_v2.py)) introduces an independent `RepetitionSegmenter` enforcing strictly monotonic time.
+To solve the negative duration issue observed in previous live testing, the Phase 4 research live runner ([`live_elbow_camera_v2.py`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase4/live_elbow_camera_v2.py)) introduces an independent `RepetitionSegmenter` enforcing strictly monotonic time.
 
 ### Architectural Principles
 1. **Decoupled Architecture:** Segmentation determines frame boundaries independently; model inference receives completed frame buffers immutably.
@@ -102,7 +102,7 @@ During streaming simulation tests, a severe performance discrepancy was uncovere
 
 ## 6. Live Input Distribution Audit
 
-The 34 features extracted during live/shadow testing were audited against the canonical training distributions ([`live_feature_distribution_audit.csv`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase4/live_feature_distribution_audit.csv)):
+The 34 features extracted during live/shadow testing were audited against the canonical training distributions ([`live_feature_distribution_audit.csv`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase4/live_feature_distribution_audit.csv)):
 $$\text{Robust Deviation} = \frac{x_{\text{live}} - \text{Median}_{\text{train}}}{\text{IQR}_{\text{train}}}$$
 
 ### Audit Summary Across 1,020 Feature Evaluations
@@ -117,13 +117,13 @@ $$\text{Robust Deviation} = \frac{x_{\text{live}} - \text{Median}_{\text{train}}
   - `mean_torso_lean`: Mean robust shift = $+0.22$ IQR.
   - `mean_shoulder_depth_ratio`: Mean robust shift = $+0.10$ IQR.
 
-The visual audit is archived in [`plots/distribution_shift_audit.png`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase4/plots/distribution_shift_audit.png).
+The visual audit is archived in [`plots/distribution_shift_audit.png`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase4/plots/distribution_shift_audit.png).
 
 ---
 
 ## 7. Shadow Webcam Validation Results
 
-A controlled test sequence of 30 repetitions (15 Correct, 15 Incorrect; 15 Left, 15 Right) was evaluated through the Phase 4 streaming pipeline ([`live_shadow_results.csv`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase4/live_shadow_results.csv)).
+A controlled test sequence of 30 repetitions (15 Correct, 15 Incorrect; 15 Left, 15 Right) was evaluated through the Phase 4 streaming pipeline ([`live_shadow_results.csv`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase4/live_shadow_results.csv)).
 
 ### Confusion Matrix (Shadow Cohort)
 
@@ -135,7 +135,7 @@ A controlled test sequence of 30 repetitions (15 Correct, 15 Incorrect; 15 Left,
 
 *(Note: On the full human-annotated windows, the exact same model achieves **96.7% accuracy** (29/30), demonstrating that model inference is sound and discrepancies arise from real-time segmentation windowing).*
 
-The signed decision score scatter plot is archived in [`plots/shadow_decision_scores.png`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase4/plots/shadow_decision_scores.png).
+The signed decision score scatter plot is archived in [`plots/shadow_decision_scores.png`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase4/plots/shadow_decision_scores.png).
 
 ---
 
@@ -178,20 +178,20 @@ A live webcam session was recorded to `offline_replay_test.npz` and subsequently
 
 ## 11. Artifact Checklist
 
-All deliverables are archived in `C:\dev\Haemophilia\research\assisted_elbow_flexion_v2\phase4\`:
-- [`LIVE_PIPELINE_AUDIT.md`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase4/LIVE_PIPELINE_AUDIT.md): Complete audit of existing live code
-- [`deployment_adapter.py`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase4/deployment_adapter.py): Deterministic 34-feature NumPy inference adapter
-- [`live_elbow_camera_v2.py`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase4/live_elbow_camera_v2.py): Standalone research live webcam runner with HUD and replay
-- [`run_offline_parity.py`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase4/run_offline_parity.py): Offline numerical parity verification script
-- [`offline_parity_report.md`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase4/offline_parity_report.md): Parity verification report
-- [`offline_parity_results.csv`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase4/offline_parity_results.csv): Per-repetition parity results (280 rows)
-- [`run_shadow_validation.py`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase4/run_shadow_validation.py): Shadow mode validation suite
-- [`live_shadow_results.csv`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase4/live_shadow_results.csv): Shadow repetition logs (30 reps)
-- [`live_feature_distribution_audit.csv`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase4/live_feature_distribution_audit.csv): 1,020 feature distribution audit records
-- [`phase4_config.json`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase4/phase4_config.json): Configuration and parameter specification
-- [`plots/shadow_decision_scores.png`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase4/plots/shadow_decision_scores.png): Signed score scatter plot
-- [`plots/distribution_shift_audit.png`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase4/plots/distribution_shift_audit.png): Robust feature shift bar plot
-- [`PHASE4_REPORT.md`](file:///C:/dev/Haemophilia/research/assisted_elbow_flexion_v2/phase4/PHASE4_REPORT.md): This authoritative report
+All deliverables are archived in `<repo_root>/research\assisted_elbow_flexion_v2\phase4\`:
+- [`LIVE_PIPELINE_AUDIT.md`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase4/LIVE_PIPELINE_AUDIT.md): Complete audit of existing live code
+- [`deployment_adapter.py`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase4/deployment_adapter.py): Deterministic 34-feature NumPy inference adapter
+- [`live_elbow_camera_v2.py`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase4/live_elbow_camera_v2.py): Standalone research live webcam runner with HUD and replay
+- [`run_offline_parity.py`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase4/run_offline_parity.py): Offline numerical parity verification script
+- [`offline_parity_report.md`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase4/offline_parity_report.md): Parity verification report
+- [`offline_parity_results.csv`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase4/offline_parity_results.csv): Per-repetition parity results (280 rows)
+- [`run_shadow_validation.py`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase4/run_shadow_validation.py): Shadow mode validation suite
+- [`live_shadow_results.csv`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase4/live_shadow_results.csv): Shadow repetition logs (30 reps)
+- [`live_feature_distribution_audit.csv`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase4/live_feature_distribution_audit.csv): 1,020 feature distribution audit records
+- [`phase4_config.json`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase4/phase4_config.json): Configuration and parameter specification
+- [`plots/shadow_decision_scores.png`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase4/plots/shadow_decision_scores.png): Signed score scatter plot
+- [`plots/distribution_shift_audit.png`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase4/plots/distribution_shift_audit.png): Robust feature shift bar plot
+- [`PHASE4_REPORT.md`](file:///<repo_root>/research/assisted_elbow_flexion_v2/phase4/PHASE4_REPORT.md): This authoritative report
 
 ---
 
