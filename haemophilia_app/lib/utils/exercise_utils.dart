@@ -48,10 +48,10 @@ const List<ExerciseMetadata> kAllExercises = [
     displayName: 'Shoulder Rotation',
     shortName: 'Shoulder Rotation',
     targetJoint: 'Rotator Cuff',
-    description: 'Bilateral internal and external rotation with elbows flexed 90° pinned to torso.',
+    description: 'Hold the bar at centre, rotate to one side, then return to centre. Each return completes one repetition.',
     icon: Icons.rotate_right_rounded,
-    isWorkInProgress: true,
-    statusLabel: 'Work in Progress',
+    isWorkInProgress: false,
+    statusLabel: 'Live assessment available',
   ),
   ExerciseMetadata(
     id: kAssistedElbowFlexion,
@@ -106,20 +106,14 @@ String normalizeExerciseId(String? exercise) {
   return normalized;
 }
 
-/// Returns true if the exercise is Work In Progress (not yet fully production-ready / validated).
-/// Production-ready: Assisted Shoulder Flexion, Assisted Elbow Flexion, Elbow Flexion & Extension.
-/// Shoulder Rotation remains Work In Progress (to be provided later).
+/// Returns whether a configured exercise has an unavailable implementation.
 bool isWorkInProgressExercise(String? exerciseName) {
   if (exerciseName == null || exerciseName.trim().isEmpty) return false;
   final canonical = normalizeExerciseId(exerciseName);
 
-  if (canonical == kAssistedShoulderFlexion ||
-      canonical == kAssistedElbowFlexion ||
-      canonical == kElbowFlexionExtension) {
-    return false;
+  for (final exercise in kAllExercises) {
+    if (exercise.id == canonical) return exercise.isWorkInProgress;
   }
-
-  // Work In Progress: Shoulder Rotation
   return true;
 }
 

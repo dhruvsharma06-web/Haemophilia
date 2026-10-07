@@ -7,6 +7,7 @@ engineering/tunable thresholds, not clinical cut-offs.
 from pathlib import Path
 
 EXERCISE_NAME = "shoulder_rotation"
+REP_DEFINITION = "centre -> one side -> centre"
 SEQUENCE_LENGTH = 128
 INPUT_SIZE = 10
 
@@ -34,6 +35,9 @@ SMOOTHING_WINDOW = 9
 MIN_REP_DURATION = 0.50
 MIN_REP_FRAMES = 15
 MIN_ROTATION_EXCURSION_DEG = 15.0
+# Centre-to-side excursion, distinct from the full left-to-right range above.
+SIDE_EXCURSION_DEG = 10.0
+CENTRE_RETURN_BAND_DEG = 3.0
 RETURN_FRACTION = 0.35
 
 # Prototype form-error thresholds. Keep tunable until validated by a physiotherapist.

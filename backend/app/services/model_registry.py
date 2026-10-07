@@ -1,7 +1,7 @@
 from pathlib import Path
+import os
 
 from src.exercises.assisted_shoulder_flexion import load_model
-from src.models.lstm_model import ExerciseLSTM
 import torch
 
 
@@ -12,6 +12,7 @@ class ModelRegistry:
 
         self._shoulder_rotation_model = None
         self._shoulder_rotation_device = None
+        self.shoulder_rotation_model_path = None
 
         self._assisted_elbow_model_human_verified = None
         self._assisted_elbow_device_human_verified = None
@@ -122,55 +123,21 @@ class ModelRegistry:
         )
 
     def get_shoulder_rotation(self):
-        """Return the shared shoulder rotation LSTM model."""
+        """Return the installed shoulder model or an explicit model override."""
         if self._shoulder_rotation_model is None:
-            model_path = (
-                Path(__file__).resolve().parents[3]
-                / "models"
-                / "shoulder_rotation_lstm.pth"
-            )
-
-            if not model_path.exists():
-                raise FileNotFoundError(
-                    f"Shoulder rotation model not found: {model_path}"
-                )
-
-            device = torch.device(
-                "cuda"
-                if torch.cuda.is_available()
-                else "cpu"
-            )
-
-            model = ExerciseLSTM(
-                input_size=10,
-                hidden_size=64,
-                num_layers=2,
-                num_classes=2,
-                dropout=0.3,
-            )
-
-            checkpoint = torch.load(
-                model_path,
-                map_location=device,
-                weights_only=True,
-            )
-
-            if isinstance(checkpoint, dict):
-                if "model_state_dict" in checkpoint:
-                    state_dict = checkpoint["model_state_dict"]
-                elif "state_dict" in checkpoint:
-                    state_dict = checkpoint["state_dict"]
-                else:
-                    state_dict = checkpoint
-            else:
-                state_dict = checkpoint
-
-            model.load_state_dict(state_dict)
-            model.to(device)
-            model.eval()
+            from src.models.shoulder_rotation_loader import load_shoulder_rotation_model
+            root = Path(__file__).resolve().parents[3]
+            model_path = Path(os.environ.get(
+                "SHOULDER_ROTATION_MODEL",
+                "models/shoulder_rotation/shoulder_rotation_classifier.joblib",
+            ))
+            if not model_path.is_absolute():
+                model_path = root / model_path
+            model, device = load_shoulder_rotation_model(model_path)
 
             self._shoulder_rotation_model = model
             self._shoulder_rotation_device = device
+            self.shoulder_rotation_model_path = model_path
 
         return (
             self._shoulder_rotation_model,

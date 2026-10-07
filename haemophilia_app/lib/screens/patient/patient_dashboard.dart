@@ -1956,7 +1956,7 @@ class _ExerciseLibraryCard extends StatelessWidget {
                         buildWipBadge(compact: true)
                       else
                         Text(
-                          tr('Clinically Validated'),
+                          tr(exercise.statusLabel),
                           style: TextStyle(
                             fontSize: 11,
                             color: Colors.green.shade700,

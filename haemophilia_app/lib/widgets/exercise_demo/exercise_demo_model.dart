@@ -148,33 +148,33 @@ class ExerciseDemoRegistry {
   );
 
   // ============================================================
-  // 2. SHOULDER ROTATION (WORK IN PROGRESS)
+  // 2. SHOULDER ROTATION
   // ============================================================
 
   static final ExerciseDemoConfig _shoulderRotationConfig = ExerciseDemoConfig(
     exerciseId: kShoulderRotation,
     displayName: 'Shoulder Rotation',
-    isWorkInProgress: true,
+    isWorkInProgress: false,
     phases: const [
       ExercisePhase(
         phaseNumber: 1,
         title: 'Starting Position',
         description:
-            'Stand upright facing forward with elbows bent at 90° tucked closely against your torso, forearms pointing straight forward.',
+            'Stand facing the camera with both hands on the bar. Hold it at centre briefly before starting.',
         startProgress: 0.0,
         endProgress: 0.20,
       ),
       ExercisePhase(
         phaseNumber: 2,
-        title: 'Outward Rotation',
+        title: 'Rotate to One Side',
         description:
-            'Slowly rotate both forearms outward away from the midline while keeping elbows pinned firmly against your sides.',
+            'Move the bar slowly to one side while keeping your elbows near your torso.',
         startProgress: 0.20,
         endProgress: 0.50,
       ),
       ExercisePhase(
         phaseNumber: 3,
-        title: 'Peak External Rotation',
+        title: 'Side Position',
         description:
             'Hold momentarily at your comfortable, pain-free outward rotation limit without twisting your torso.',
         startProgress: 0.50,
@@ -182,7 +182,7 @@ class ExerciseDemoRegistry {
       ),
       ExercisePhase(
         phaseNumber: 4,
-        title: 'Inward Return',
+        title: 'Return to Centre',
         description:
             'Smoothly rotate forearms back toward the center with steady, controlled motion.',
         startProgress: 0.60,
@@ -192,12 +192,13 @@ class ExerciseDemoRegistry {
         phaseNumber: 5,
         title: 'Return to Start',
         description:
-            'Pause momentarily in the neutral starting position before beginning the next repetition.',
+            'Centre to one side to centre is one repetition. Repeat on either side.',
         startProgress: 0.95,
         endProgress: 1.0,
       ),
     ],
     keyTips: const [
+      'One repetition: centre to one side to centre.',
       'Keep elbows firmly pinned against your ribs throughout the entire movement.',
       'Maintain an upright posture without leaning or twisting your chest.',
       'Work strictly within your comfortable, pain-free range of motion.',

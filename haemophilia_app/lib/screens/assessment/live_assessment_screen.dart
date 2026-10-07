@@ -12,6 +12,7 @@ import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../../services/assessment_history_service.dart';
+import '../../config/backend_config.dart';
 import '../../services/notification_service.dart';
 import '../../utils/app_localizations.dart';
 import '../../utils/exercise_utils.dart';
@@ -192,9 +193,6 @@ class _LiveAssessmentScreenState
   // ============================================================
   // CONFIGURATION
   // ============================================================
-
-  static const String websocketUrl =
-      'wss://lessons-family-councils-obvious.trycloudflare.com/v1/assessments/live';
 
   static const Duration frameInterval =
       Duration(milliseconds: 50);
@@ -637,18 +635,11 @@ class _LiveAssessmentScreenState
       });
     }
 
-    debugPrint('Connecting to WebSocket: $websocketUrl');
-
     try {
       final currentEx =
           _assignedMode ? _currentAssignedExercise() : widget.exerciseName;
-      final parsedUri = Uri.parse(websocketUrl);
-      final wsUri = parsedUri.replace(
-        queryParameters: {
-          ...parsedUri.queryParameters,
-          'exercise': currentEx,
-        },
-      );
+      final wsUri = BackendConfig.liveAssessment(normalizeExerciseId(currentEx));
+      debugPrint('Connecting to WebSocket: $wsUri');
 
       final channel = IOWebSocketChannel.connect(
         wsUri,
@@ -1349,6 +1340,14 @@ class _LiveAssessmentScreenState
 
       _inFlightFrames++;
       _lastAiFrameDispatched = DateTime.now();
+      if (normalizeExerciseId(_assignedMode
+              ? _currentAssignedExercise()
+              : widget.exerciseName) == kShoulderRotation) {
+        _channel!.sink.add(jsonEncode({
+          'type': 'frame_metadata',
+          'timestamp_ms': now.millisecondsSinceEpoch,
+        }));
+      }
       _channel!.sink.add(jpegBytes);
     } catch (e) {
       debugPrint('Frame processing error: $e');
@@ -1932,9 +1931,6 @@ class _LiveAssessmentScreenState
     }
   }
 
-  static const String errorFrameBaseUrl =
-      'https://lessons-family-councils-obvious.trycloudflare.com/v1/assets/error-frames/';
-
   String? _errorFrameUrl(Map<String, dynamic> rep) {
     // Support all versions of the backend payload so the image keeps working
     // even if the backend calls the field error_frame_url, errorFrameUrl,
@@ -1980,7 +1976,7 @@ class _LiveAssessmentScreenState
       return null;
     }
 
-    return '$errorFrameBaseUrl${Uri.encodeComponent(filename)}';
+    return BackendConfig.errorFrame(filename);
   }
 
   double _completedDouble(
@@ -2081,7 +2077,10 @@ class _LiveAssessmentScreenState
       fallback: _completedDouble(rep, 'rom'),
     );
     final duration = _completedDouble(rep, 'duration');
-    final speed = rep['speed']?.toString() ?? 'Unknown';
+    final speed = rep['speed']?.toString() ??
+        (rep['speed_deg_per_sec'] != null
+            ? '${_toDouble(rep['speed_deg_per_sec']).toStringAsFixed(1)} deg/s'
+            : 'Waiting');
     final confidence = _completedDouble(
       rep,
       'confidence',
@@ -2801,10 +2800,10 @@ class _LiveAssessmentScreenState
               _compactStat(
                 tr('FORM'),
                 tr(_form),
-                valueColor: _form.toLowerCase().contains('correct')
-                    ? Colors.greenAccent
-                    : _form.toLowerCase().contains('incorrect')
-                        ? Colors.redAccent
+                valueColor: _form.toLowerCase().contains('incorrect')
+                    ? Colors.redAccent
+                    : _form.toLowerCase().contains('correct')
+                        ? Colors.greenAccent
                         : Colors.white,
               ),
             ],

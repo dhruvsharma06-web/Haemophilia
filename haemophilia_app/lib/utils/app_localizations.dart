@@ -804,6 +804,15 @@ const Map<String, String> _hindiTranslations = {
   'Rotator Cuff': 'रोटर कफ',
   'Elbow Joint': 'कोहनी का जोड़',
   'Work in Progress': 'प्रगति पर है',
+  'Live assessment available': 'लाइव मूल्यांकन उपलब्ध है',
+  'CENTRE': 'बीच में',
+  'TO ONE SIDE': 'एक ओर ले जाएँ',
+  'ONE SIDE': 'एक ओर',
+  'RETURN TO CENTRE': 'बीच में लौटें',
+  'Hold the bar at centre, rotate to one side, then return to centre. Each return completes one repetition.':
+      'बार को बीच में पकड़ें, एक ओर घुमाएँ और फिर बीच में लौटें। हर वापसी से एक दोहराव पूरा होता है।',
+  'One repetition: centre to one side to centre.':
+      'एक दोहराव: बीच से एक ओर और फिर बीच में वापस।',
   'Needs Practice': 'अभ्यास की आवश्यकता',
 
   // --------------------------------------------------

@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
+import '../../config/backend_config.dart';
 
 class AssignedAssessmentScreen extends StatefulWidget {
   const AssignedAssessmentScreen({
@@ -85,14 +86,7 @@ class _AssignedAssessmentScreenState
   }
 
   String get _websocketUrl {
-    final exercise =
-        Uri.encodeQueryComponent(
-      _currentExercise,
-    );
-
-    return 'wss://lessons-family-councils-obvious.trycloudflare.com'
-        '/v1/assessments/live'
-        '?exercise=$exercise';
+    return BackendConfig.liveAssessment(_currentExercise).toString();
   }
 
   @override

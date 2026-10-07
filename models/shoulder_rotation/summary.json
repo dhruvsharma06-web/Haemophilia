@@ -1,0 +1,195 @@
+{
+  "method": "Nested LOSO: candidate selection uses all inner subjects; training weights balance subject and class",
+  "per_subject": {
+    "A": {
+      "samples": 124,
+      "accuracy": 0.75,
+      "balanced_accuracy": 0.7746212121212122,
+      "macro_f1": 0.730944215020648,
+      "incorrect_precision": 0.5454545454545454,
+      "incorrect_recall": 0.8333333333333334,
+      "confusion_matrix_rows_actual": [
+        [
+          63,
+          25
+        ],
+        [
+          6,
+          30
+        ]
+      ],
+      "class_order": [
+        "correct",
+        "incorrect"
+      ],
+      "selected_candidate": {
+        "family": "extra_trees",
+        "parameter": 8,
+        "relative": false
+      },
+      "training_subjects": [
+        "B",
+        "C",
+        "D",
+        "E"
+      ]
+    },
+    "B": {
+      "samples": 66,
+      "accuracy": 0.6363636363636364,
+      "balanced_accuracy": 0.6111111111111112,
+      "macro_f1": 0.5909090909090908,
+      "incorrect_precision": 0.38461538461538464,
+      "incorrect_recall": 0.5555555555555556,
+      "confusion_matrix_rows_actual": [
+        [
+          32,
+          16
+        ],
+        [
+          8,
+          10
+        ]
+      ],
+      "class_order": [
+        "correct",
+        "incorrect"
+      ],
+      "selected_candidate": {
+        "family": "svm",
+        "parameter": 2.0,
+        "relative": true
+      },
+      "training_subjects": [
+        "A",
+        "C",
+        "D",
+        "E"
+      ]
+    },
+    "C": {
+      "samples": 26,
+      "accuracy": 0.5769230769230769,
+      "balanced_accuracy": 0.5416666666666666,
+      "macro_f1": 0.4358974358974359,
+      "incorrect_precision": 1.0,
+      "incorrect_recall": 0.08333333333333333,
+      "confusion_matrix_rows_actual": [
+        [
+          14,
+          0
+        ],
+        [
+          11,
+          1
+        ]
+      ],
+      "class_order": [
+        "correct",
+        "incorrect"
+      ],
+      "selected_candidate": {
+        "family": "logistic",
+        "parameter": 0.1,
+        "relative": false
+      },
+      "training_subjects": [
+        "A",
+        "B",
+        "D",
+        "E"
+      ]
+    },
+    "D": {
+      "samples": 22,
+      "accuracy": 0.8181818181818182,
+      "balanced_accuracy": 0.7767857142857143,
+      "macro_f1": 0.7904761904761904,
+      "incorrect_precision": 0.8333333333333334,
+      "incorrect_recall": 0.625,
+      "confusion_matrix_rows_actual": [
+        [
+          13,
+          1
+        ],
+        [
+          3,
+          5
+        ]
+      ],
+      "class_order": [
+        "correct",
+        "incorrect"
+      ],
+      "selected_candidate": {
+        "family": "extra_trees",
+        "parameter": 3,
+        "relative": true
+      },
+      "training_subjects": [
+        "A",
+        "B",
+        "C",
+        "E"
+      ]
+    },
+    "E": {
+      "samples": 25,
+      "accuracy": 0.64,
+      "balanced_accuracy": 0.6538461538461539,
+      "macro_f1": 0.5989304812834224,
+      "incorrect_precision": 0.5714285714285714,
+      "incorrect_recall": 1.0,
+      "confusion_matrix_rows_actual": [
+        [
+          4,
+          9
+        ],
+        [
+          0,
+          12
+        ]
+      ],
+      "class_order": [
+        "correct",
+        "incorrect"
+      ],
+      "selected_candidate": {
+        "family": "logistic",
+        "parameter": 1.0,
+        "relative": true
+      },
+      "training_subjects": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ]
+    }
+  },
+  "overall": {
+    "samples": 263,
+    "accuracy": 0.6996197718631179,
+    "balanced_accuracy": 0.6931415057154119,
+    "macro_f1": 0.6781005500038733,
+    "incorrect_precision": 0.5321100917431193,
+    "incorrect_recall": 0.6744186046511628,
+    "confusion_matrix_rows_actual": [
+      [
+        126,
+        51
+      ],
+      [
+        28,
+        58
+      ]
+    ],
+    "class_order": [
+      "correct",
+      "incorrect"
+    ]
+  },
+  "mean_subject_balanced_accuracy": 0.6716061716061716,
+  "annotations_sha256": "1dc0319fe69e5b119f27e500a788234066edf67249b191f9f4887200afbf2c57",
+  "interpretation": "Development results on an already inspected cohort. New subjects are required for independent confirmation."
+}

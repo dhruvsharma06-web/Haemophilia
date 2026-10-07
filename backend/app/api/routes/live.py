@@ -1,24 +1,14 @@
 import json
+import time
 
 import cv2
 import mediapipe as mp
 import numpy as np
 from fastapi import APIRouter, WebSocket
 from starlette.websockets import WebSocketDisconnect
+from starlette.concurrency import run_in_threadpool
 
-from backend.app.services.model_registry import model_registry
-from src.exercises.assisted_shoulder_flexion import (
-    AssistedShoulderFlexionAssessment,
-)
-from src.exercises.assisted_elbow_flexion import (
-    AssistedElbowFlexionAssessment,
-)
-from src.exercises.elbow_flexion_assessment import (
-    ElbowFlexionAssessment,
-)
-from src.exercises.shoulder_rotation_assessment import (
-    ShoulderRotationAssessment,
-)
+from backend.app.services.exercise_factory import create_assessment, normalize_exercise
 
 
 router = APIRouter(
@@ -52,76 +42,7 @@ def make_json_safe(value):
 
 
 def _create_assessment(exercise: str):
-    exercise_normalized = (
-        (exercise or "")
-        .strip()
-        .lower()
-        .replace("-", "_")
-        .replace(" ", "_")
-    )
-
-    if (
-        "assisted_elbow" in exercise_normalized
-        or exercise_normalized in {
-            "assisted_elbow_flexion",
-            "assisted_elbow",
-        }
-    ):
-        model, device = model_registry.get_assisted_elbow_flexion()
-        return AssistedElbowFlexionAssessment(
-            model=model,
-            device=device,
-            fps=20.0,
-            data_dir="data",
-            save_artifacts=True,
-        )
-
-    if (
-        "elbow" in exercise_normalized
-        or exercise_normalized in {
-            "elbow_flexion",
-            "elbow_flexion_extension",
-            "elbow_flexion_and_extension",
-        }
-    ):
-        model, device = model_registry.get_elbow_flexion_extension()
-        return ElbowFlexionAssessment(
-            model=model,
-            device=device,
-            fps=20.0,
-            data_dir="data",
-            save_artifacts=True,
-        )
-
-    if (
-        "rotation" in exercise_normalized
-        or exercise_normalized in {
-            "shoulder_rotation",
-        }
-    ):
-        model, device = (
-            model_registry.get_shoulder_rotation()
-        )
-
-        return ShoulderRotationAssessment(
-            model=model,
-            device=device,
-            fps=20.0,
-            data_dir="data",
-            save_artifacts=True,
-        )
-
-    model, device = (
-        model_registry.get_assisted_flexion()
-    )
-
-    return AssistedShoulderFlexionAssessment(
-        model=model,
-        device=device,
-        fps=20.0,
-        data_dir="data",
-        save_artifacts=True,
-    )
+    return create_assessment(exercise, fps=20.0)
 
 
 @router.websocket("/live")
@@ -141,6 +62,7 @@ async def live_assessment(
     )
 
     try:
+        exercise = normalize_exercise(exercise)
         assessment = _create_assessment(exercise)
 
         with mp_pose.Pose(
@@ -152,6 +74,7 @@ async def live_assessment(
         ) as pose:
 
             frame_number = 0
+            pending_timestamp = None
 
             while True:
                 message = (
@@ -177,6 +100,8 @@ async def live_assessment(
                         )
                     except json.JSONDecodeError:
                         control = {}
+                    if not isinstance(control, dict):
+                        continue
 
                     if (
                         control.get("type")
@@ -203,12 +128,13 @@ async def live_assessment(
 
                         assessment = (
                             _create_assessment(
-                                next_exercise
+                                normalize_exercise(next_exercise)
                             )
                         )
 
-                        exercise = next_exercise
+                        exercise = normalize_exercise(next_exercise)
                         frame_number = 0
+                        pending_timestamp = None
 
                         await websocket.send_json({
                             "type":
@@ -217,6 +143,10 @@ async def live_assessment(
                                 exercise,
                         })
 
+                    elif control.get("type") == "frame_metadata":
+                        value = control.get("timestamp_ms")
+                        if isinstance(value, (int, float)) and np.isfinite(value):
+                            pending_timestamp = float(value)
                     continue
 
                 # -------------------------------------------------
@@ -231,6 +161,8 @@ async def live_assessment(
                     continue
 
                 frame_number += 1
+                frame_timestamp = pending_timestamp
+                pending_timestamp = None
 
                 if frame_number % 30 == 0:
                     print(
@@ -262,17 +194,21 @@ async def live_assessment(
                     cv2.COLOR_BGR2RGB,
                 )
 
-                results = pose.process(
+                results = await run_in_threadpool(
+                    pose.process,
                     rgb_frame
                 )
 
-                completed_rep = (
-                    assessment.process_frame(
+                timing = {}
+                if exercise == "shoulder_rotation":
+                    timing["timestamp_ms"] = (frame_timestamp if frame_timestamp is not None
+                                               else time.monotonic() * 1000)
+                completed_rep = assessment.process_frame(
                         frame,
                         results.pose_landmarks,
                         frame_number=frame_number,
+                        **timing,
                     )
-                )
 
                 live_state = (
                     assessment.get_live_state(

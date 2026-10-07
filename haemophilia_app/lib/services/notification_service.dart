@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/user_model.dart';
+import '../config/backend_config.dart';
 import '../screens/doctor/doctor_messages.dart';
 import '../screens/patient/assigned_assessment_screen.dart';
 import '../screens/patient/patient_doctor_chat_screen.dart';
@@ -346,12 +347,11 @@ class NotificationService {
 
     // 2. Dispatch to backend notification endpoint (FastAPI) for FCM push delivery
     try {
-      const backendUrl =
-          'https://lessons-family-councils-obvious.trycloudflare.com/v1/notifications/send';
+      final backendUrl = BackendConfig.endpoint('/v1/notifications/send');
 
       final response = await http
           .post(
-            Uri.parse(backendUrl),
+            backendUrl,
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({
               'target_user_id': targetUserId,

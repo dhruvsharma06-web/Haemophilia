@@ -4,10 +4,7 @@ import cv2
 import mediapipe as mp
 import numpy as np
 
-from src.exercises.assisted_shoulder_flexion import (
-    AssistedShoulderFlexionAssessment,
-)
-from backend.app.services.model_registry import model_registry
+from backend.app.services.exercise_factory import create_assessment, normalize_exercise
 
 
 mp_pose = mp.solutions.pose
@@ -47,8 +44,7 @@ class AssessmentService:
     """
     Service responsible for running the AI assessment on uploaded videos.
 
-    Current supported exercise:
-        assisted_shoulder_flexion
+    Uploaded-video assessment for all four exercise adapters.
     """
 
     def assess_video(self, video_path: str, exercise: str):
@@ -73,53 +69,20 @@ class AssessmentService:
         # Exercise processor dispatch
         # ---------------------------------------------------------
 
-        exercise_norm = (exercise or "").strip().lower().replace("-", "_").replace(" ", "_")
-
-        if "assisted_elbow" in exercise_norm or exercise_norm == "assisted_elbow_flexion":
-            from src.exercises.assisted_elbow_flexion import (
-                AssistedElbowFlexionAssessment,
-            )
-            model, device = model_registry.get_assisted_elbow_flexion()
-            assessment = AssistedElbowFlexionAssessment(
-                model=model,
-                device=device,
-                fps=fps,
-                data_dir="data",
-                save_artifacts=True,
-            )
-        elif "elbow" in exercise_norm or exercise_norm in {
-            "elbow_flexion",
-            "elbow_flexion_extension",
-            "elbow_flexion_and_extension",
-        }:
-            from src.exercises.elbow_flexion_assessment import (
-                ElbowFlexionAssessment,
-            )
-            model, device = model_registry.get_elbow_flexion_extension()
-            assessment = ElbowFlexionAssessment(
-                model=model,
-                device=device,
-                fps=fps,
-                data_dir="data",
-                save_artifacts=True,
-            )
-        elif "shoulder" in exercise_norm or exercise_norm == "assisted_shoulder_flexion":
-            model, device = model_registry.get_assisted_flexion()
-            assessment = AssistedShoulderFlexionAssessment(
-                model=model,
-                device=device,
-                fps=fps,
-                data_dir="data",
-                save_artifacts=True,
-            )
-        else:
-            raise ValueError(
-                f"Unsupported exercise: {exercise}"
-            )
-
+        exercise_norm = normalize_exercise(exercise)
+        assessment_id = str(uuid.uuid4())
+        capture = cv2.VideoCapture(str(video_path))
         reps = []
 
         try:
+            source_fps = capture.get(cv2.CAP_PROP_FPS)
+            if not capture.isOpened() or not np.isfinite(source_fps) or source_fps <= 0:
+                raise ValueError("Provide a readable video with valid frame timing.")
+            is_rotation = exercise_norm == "shoulder_rotation"
+            if is_rotation and source_fps < 19.5:
+                raise ValueError("Shoulder rotation videos must be recorded at 20 FPS or higher.")
+            fps = 20.0 if is_rotation else source_fps
+            assessment = create_assessment(exercise_norm, fps=fps)
 
             # -----------------------------------------------------
             # MediaPipe Pose
@@ -134,6 +97,7 @@ class AssessmentService:
             ) as pose:
 
                 frame_number = 0
+                source_number, next_time = 0, 0.0
 
                 # -------------------------------------------------
                 # Process every video frame
@@ -146,6 +110,12 @@ class AssessmentService:
                     if not success:
                         break
 
+                    time = source_number / source_fps
+                    source_number += 1
+                    if is_rotation:
+                        if time + 1e-6 < next_time:
+                            continue
+                        next_time += 1 / fps
                     frame_number += 1
 
                     # ---------------------------------------------
@@ -163,7 +133,7 @@ class AssessmentService:
                     # No pose detected
                     # ---------------------------------------------
 
-                    if results.pose_landmarks is None:
+                    if results.pose_landmarks is None and not is_rotation:
                         continue
 
                     # ---------------------------------------------
@@ -199,7 +169,7 @@ class AssessmentService:
 
         response = {
             "assessment_id": assessment_id,
-            "exercise": exercise,
+            "exercise": exercise_norm,
             "media_type": "video",
             "status": "completed",
             "rep_count": len(reps),
@@ -316,6 +286,9 @@ class AssessmentService:
                 ),
 
                 "smoothness": None,
+                "right_rom": to_python_value(rep.get("right_rom")),
+                "left_rom": to_python_value(rep.get("left_rom")),
+                "speed_deg_per_sec": to_python_value(rep.get("speed_deg_per_sec")),
             },
         }
 

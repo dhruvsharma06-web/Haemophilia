@@ -4,8 +4,11 @@ import tempfile
 import traceback
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from starlette.concurrency import run_in_threadpool
 
 from backend.app.services.assessment_service import assessment_service
+from backend.app.services.exercise_factory import normalize_exercise
+from backend.app.core.config import UPLOADS_DIR
 
 
 router = APIRouter(
@@ -25,11 +28,13 @@ async def assess_video(
             detail="No video file supplied.",
         )
 
-    if exercise != "assisted_shoulder_flexion":
+    try:
+        exercise = normalize_exercise(exercise)
+    except ValueError as error:
         raise HTTPException(
             status_code=400,
-            detail=f"Unsupported exercise: {exercise}",
-        )
+            detail=str(error),
+        ) from error
 
     suffix = os.path.splitext(file.filename)[1].lower()
 
@@ -45,6 +50,7 @@ async def assess_video(
         with tempfile.NamedTemporaryFile(
             delete=False,
             suffix=suffix,
+            dir=UPLOADS_DIR,
         ) as temp_file:
             temp_path = temp_file.name
 
@@ -53,7 +59,8 @@ async def assess_video(
                 temp_file,
             )
 
-        result = assessment_service.assess_video(
+        result = await run_in_threadpool(
+            assessment_service.assess_video,
             temp_path,
             exercise,
         )

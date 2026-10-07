@@ -1,0 +1,9 @@
+video_id,relative_path,subject_id,session_id,label,error_type
+S01_correct_01,correct/S01_correct_01.mp4,S01,session01,correct,none
+S01_incorrect_01,incorrect/S01_incorrect_01.mp4,S01,session01,incorrect,torso_compensation
+S02_correct_01,correct/S02_correct_01.mp4,S02,session01,correct,none
+S02_incorrect_01,incorrect/S02_incorrect_01.mp4,S02,session01,incorrect,elbow_movement
+S03_correct_01,correct/S03_correct_01.mp4,S03,session01,correct,none
+S03_incorrect_01,incorrect/S03_incorrect_01.mp4,S03,session01,incorrect,torso_compensation
+S04_correct_01,correct/S04_correct_01.mp4,S04,session01,correct,none
+S04_incorrect_01,incorrect/S04_incorrect_01.mp4,S04,session01,incorrect,elbow_movement

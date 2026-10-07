@@ -1,0 +1,27 @@
+{
+  "model_type": "shoulder_rotation_tabular",
+  "selected_candidate": {
+    "family": "extra_trees",
+    "parameter": 8,
+    "relative": false
+  },
+  "training_subjects": [
+    "A",
+    "B",
+    "C",
+    "D",
+    "E"
+  ],
+  "training_samples": 263,
+  "summary_features": 33,
+  "sequence_shape": [
+    128,
+    10
+  ],
+  "rep_definition": "centre -> one side -> centre",
+  "seed": 42,
+  "annotations_sha256": "1dc0319fe69e5b119f27e500a788234066edf67249b191f9f4887200afbf2c57",
+  "sklearn_version": "1.7.2",
+  "confidence": "uncalibrated model estimate; SVM uses decision margin",
+  "training_mode": "all_subjects_after_evaluation"
+}
