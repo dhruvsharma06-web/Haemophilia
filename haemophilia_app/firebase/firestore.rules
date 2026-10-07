@@ -17,11 +17,42 @@ service cloud.firestore {
     function conversationPair(id) { return currentPair(id.split('_')[0], id.split('_')[1]); }
     function consent() { return profile(request.auth.uid).get('consentVersion', '') == '2026-10-02-v1'; }
     function readyPatient() { return active() && consent() && profile(request.auth.uid).role == 'patient' && profile(request.auth.uid).get('onboardingCompleted', false); }
+    function deadline(data) {
+      let start = data.get('scheduledAt', data.get('createdAt', data.get('startedAt', null)));
+      let stored = data.get('expiresAt', null);
+      return start == null ? stored : (stored == null || stored > start + duration.value(1, 'h') ? start + duration.value(1, 'h') : stored);
+    }
+    function unfinished(data) { return data.status in ['assigned', 'active', 'in_progress', 'paused']; }
+    function expired(data) { return deadline(data) == null || deadline(data) <= request.time; }
+    function dueScheduleActivation(uid) {
+      let id = request.resource.data.sourceScheduleId;
+      let schedule = get(/databases/$(database)/documents/exerciseSchedules/$(id)).data;
+      let activated = getAfter(/databases/$(database)/documents/exerciseSchedules/$(id)).data;
+      return isSelf(uid) && readyPatient() && schedule.patientId == uid
+        && schedule.status == 'scheduled' && activated.status == 'activated'
+        && schedule.scheduledAt <= request.time && !expired(schedule)
+        && profile(uid).get('doctorId', '') == schedule.doctorId
+        && profile(schedule.doctorId).role == 'doctor'
+        && profile(schedule.doctorId).get('isApproved', true)
+        && profile(schedule.doctorId).get('accountActive', true)
+        && (schedule.get('managedSeries', false) == false ||
+          get(/databases/$(database)/documents/exerciseScheduleSeries/$(schedule.seriesId)).data.status == 'ready')
+        && request.resource.data.keys().hasOnly(['patientId', 'doctorId', 'sourceScheduleId', 'scheduleId', 'sessionName', 'exercises', 'exerciseProgress', 'scheduledAt', 'expiresAt', 'status', 'createdAt', 'updatedAt'])
+        && request.resource.data.get('scheduleId', id) == id
+        && request.resource.data.patientId == uid && request.resource.data.doctorId == schedule.doctorId
+        && request.resource.data.sessionName == schedule.sessionName
+        && request.resource.data.exercises == schedule.exercises
+        && request.resource.data.exerciseProgress == schedule.exerciseProgress
+        && request.resource.data.scheduledAt == schedule.scheduledAt
+        && request.resource.data.expiresAt == schedule.expiresAt
+        && request.resource.data.status == 'assigned'
+        && request.resource.data.createdAt == request.time && request.resource.data.updatedAt == request.time;
+    }
     function availableAssignment() {
       let assignment = get(/databases/$(database)/documents/exerciseAssignments/$(request.auth.uid)).data;
-      return assignment.status in ['assigned', 'in_progress', 'paused']
+      return assignment.status in ['assigned', 'active', 'in_progress', 'paused']
         && (assignment.get('scheduledAt', null) == null || assignment.scheduledAt <= request.time)
-        && (assignment.status != 'assigned' || assignment.get('expiresAt', null) == null || assignment.expiresAt > request.time);
+        && !expired(assignment);
     }
     match /users/{uid} {
       allow create: if isAdmin() || (signedIn() && request.auth.uid == uid
@@ -36,7 +67,7 @@ service cloud.firestore {
       allow list: if isAdmin() || (isDoctor() && resource.data.role == 'patient' && resource.data.doctorId == request.auth.uid)
         || (active() && profile(request.auth.uid).role == 'patient' && profile(request.auth.uid).get('doctorId', '') == uid);
       allow update: if isAdmin() || (isSelf(uid) && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-        'role', 'doctorId', 'uid', 'email', 'isApproved', 'accountActive', 'status', 'approvedBy', 'approvalUpdatedAt'
+        'role', 'doctorId', 'uid', 'email', 'isApproved', 'accountActive', 'status', 'approvedBy', 'approvalUpdatedAt', 'rejectionReason', 'removedAt'
       ]) && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['patientId']) || request.resource.data.patientId == 'SHP-' + uid.upper()));
       allow delete: if isAdmin();
       match /assessments/{id} {
@@ -54,6 +85,13 @@ service cloud.firestore {
         allow read, delete: if (signedIn() && request.auth.uid == uid) || isAdmin();
         allow update: if isSelf(uid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
         allow create: if active() && request.resource.data.senderId == request.auth.uid && (isAdmin() || isAssignedDoctor(uid)
+          || (isSelf(uid) && request.resource.data.data.type == 'session_assigned'
+            && request.resource.data.data.patientId == uid && id == 'schedule_' + request.resource.data.data.scheduleId
+            && request.resource.data.data.doctorId == profile(uid).get('doctorId', '')
+            && request.resource.data.createdAt == request.time && request.resource.data.read == false
+            && getAfter(/databases/$(database)/documents/exerciseAssignments/$(uid)).data.sourceScheduleId == request.resource.data.data.scheduleId
+            && getAfter(/databases/$(database)/documents/exerciseAssignments/$(uid)).data.updatedAt == request.time
+            && getAfter(/databases/$(database)/documents/exerciseSchedules/$(request.resource.data.data.scheduleId)).data.status == 'activated')
           || (profile(request.auth.uid).role == 'patient' && profile(request.auth.uid).get('doctorId', '') == uid));
       }
     }
@@ -70,19 +108,41 @@ service cloud.firestore {
     match /exerciseAssignments/{uid} {
       allow get: if isSelf(uid) || isAdmin() || isAssignedDoctor(uid);
       allow list: if isAdmin() || (isDoctor() && resource.data.doctorId == request.auth.uid);
-      allow create: if isAdmin() || (isAssignedDoctor(uid) && request.resource.data.doctorId == request.auth.uid && request.resource.data.patientId == uid);
-      allow update: if isAdmin() || (isAssignedDoctor(uid) && request.resource.data.doctorId == request.auth.uid && request.resource.data.patientId == uid)
+      allow create: if isAdmin() || dueScheduleActivation(uid) || (isAssignedDoctor(uid) && request.resource.data.doctorId == request.auth.uid && request.resource.data.patientId == uid);
+      allow update: if isAdmin() || (dueScheduleActivation(uid) && (!unfinished(resource.data) || expired(resource.data)))
+        || (isAssignedDoctor(uid) && request.resource.data.doctorId == request.auth.uid && request.resource.data.patientId == uid)
+        || (isSelf(uid) && unfinished(resource.data) && expired(resource.data)
+          && request.resource.data.status == 'expired' && request.resource.data.updatedAt == request.time
+          && request.resource.data.expiredAt == request.time
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'expiredAt', 'updatedAt']))
         || (isSelf(uid) && consent() && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'status', 'sessionId', 'currentExerciseIndex', 'currentExercise', 'completedCorrectReps', 'totalCompletedReps',
           'progressPercentage', 'exerciseProgress', 'lastUpdatedAt', 'completedAt', 'discardedAt', 'updatedAt'
         ]) && request.resource.data.status in ['in_progress', 'completed', 'paused', 'cancelled', 'discarded', 'abandoned']
-          && resource.data.status in ['assigned', 'in_progress', 'paused']
+          && resource.data.status in ['assigned', 'active', 'in_progress', 'paused']
+          && (resource.data.get('sessionId', null) in [null, '']
+            || request.resource.data.get('sessionId', null) == resource.data.sessionId)
           && (resource.data.get('scheduledAt', null) == null || resource.data.scheduledAt <= request.time)
-          && (resource.data.status != 'assigned' || resource.data.get('expiresAt', null) == null || resource.data.expiresAt > request.time));
+          && !expired(resource.data));
       allow delete: if isAdmin();
+      match /archive/{id} {
+        allow read: if patientAccess(uid);
+        allow create: if (isAdmin() || isAssignedDoctor(uid) || isSelf(uid))
+          && request.resource.data.patientId == uid
+          && get(/databases/$(database)/documents/exerciseAssignments/$(uid)).data.get('patientId', uid) == uid
+          && request.resource.data.archiveId == id && request.resource.data.archivedAt == request.time
+          && request.resource.data.status in ['expired', 'cancelled']
+          && request.resource.data.diff(get(/databases/$(database)/documents/exerciseAssignments/$(uid)).data)
+            .affectedKeys().hasOnly(['patientId', 'status', 'expiredAt', 'cancelledAt', 'cancelledBy', 'archiveId', 'archivedAt', 'updatedAt'])
+          && getAfter(/databases/$(database)/documents/exerciseAssignments/$(uid)).data.status == request.resource.data.status
+          && getAfter(/databases/$(database)/documents/exerciseAssignments/$(uid)).data.updatedAt == request.time
+          && (isAdmin() || isAssignedDoctor(uid) || (request.resource.data.status == 'expired'
+              && expired(get(/databases/$(database)/documents/exerciseAssignments/$(uid)).data)));
+        allow update, delete: if isAdmin();
+      }
     }
     match /exerciseScheduleSeries/{id} {
-      allow read: if isAdmin() || (isDoctor() && resource.data.doctorId == request.auth.uid);
+      allow read: if isAdmin() || isSelf(resource.data.patientId) || (isDoctor() && resource.data.doctorId == request.auth.uid);
       allow create: if isAdmin() || (isAssignedDoctor(request.resource.data.patientId)
         && request.resource.data.doctorId == request.auth.uid && request.resource.data.status == 'preparing'
         && request.resource.data.occurrenceCount is int && request.resource.data.occurrenceCount > 0
@@ -94,24 +154,34 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
     match /exerciseSchedules/{id} {
-      allow read: if isAdmin() || (isDoctor() && resource.data.doctorId == request.auth.uid);
+      allow read: if isAdmin() || isSelf(resource.data.patientId) || (isDoctor() && resource.data.doctorId == request.auth.uid);
       allow create: if isAdmin() || (isAssignedDoctor(request.resource.data.patientId) && request.resource.data.doctorId == request.auth.uid
         && request.resource.data.status == 'scheduled' && request.resource.data.scheduledAt is timestamp
         && request.resource.data.scheduledAt > request.time && request.resource.data.expiresAt > request.resource.data.scheduledAt
         && request.resource.data.sessionName is string && request.resource.data.sessionName.size() > 0
-        && request.resource.data.exercises is list && request.resource.data.exercises.size() > 0 && request.resource.data.exercises.size() <= 4
+        && request.resource.data.exercises is list && request.resource.data.exercises.size() > 0 && request.resource.data.exercises.size() <= 5
         && request.resource.data.exerciseProgress is list && request.resource.data.createdAt == request.time
         && (request.resource.data.get('managedSeries', false) == false || (
           get(/databases/$(database)/documents/exerciseScheduleSeries/$(request.resource.data.seriesId)).data.status == 'preparing'
           && get(/databases/$(database)/documents/exerciseScheduleSeries/$(request.resource.data.seriesId)).data.patientId == request.resource.data.patientId
           && get(/databases/$(database)/documents/exerciseScheduleSeries/$(request.resource.data.seriesId)).data.doctorId == request.auth.uid)));
-      allow update: if isAdmin() || (isAssignedDoctor(resource.data.patientId)
-        && resource.data.status == 'scheduled'
+      allow update: if isAdmin() || (isSelf(resource.data.patientId) && resource.data.status == 'scheduled'
+        && resource.data.scheduledAt <= request.time && !expired(resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])
+        && request.resource.data.status == 'activated' && request.resource.data.updatedAt == request.time
+        && getAfter(/databases/$(database)/documents/exerciseAssignments/$(resource.data.patientId)).data.sourceScheduleId == id
+        && getAfter(/databases/$(database)/documents/exerciseAssignments/$(resource.data.patientId)).data.updatedAt == request.time)
+        || (isAssignedDoctor(resource.data.patientId)
+        && resource.data.status in ['scheduled', 'activated']
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt']) && request.resource.data.status == 'cancelled');
+      allow update: if isSelf(resource.data.patientId) && resource.data.status in ['scheduled', 'activated']
+        && expired(resource.data) && request.resource.data.status == 'expired'
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt']);
       allow delete: if isAdmin();
     }
     match /assessmentSessions/{id} {
-      allow get: if isAdmin() || (signedIn() && id.matches(request.auth.uid + '_.*') && !exists(/databases/$(database)/documents/assessmentSessions/$(id)))
+      allow get: if isAdmin() || (signedIn() && (isDoctor() || id.matches(request.auth.uid + '_.*')) && !exists(/databases/$(database)/documents/assessmentSessions/$(id)))
         || isSelf(resource.data.patientId) || isAssignedDoctor(resource.data.patientId);
       allow list: if isSelf(resource.data.patientId) || isAdmin() || isAssignedDoctor(resource.data.patientId);
       allow create: if isAdmin() || (readyPatient() && isSelf(request.resource.data.patientId)
@@ -119,16 +189,26 @@ service cloud.firestore {
         && currentPair(request.auth.uid, request.resource.data.doctorId)
         && request.resource.data.recordingConsentVersion == '2026-10-02-v1' && request.resource.data.safetyConfirmedAt == request.time
         && request.resource.data.status == 'active'
-        && (request.resource.data.get('practice', false) == true || availableAssignment()));
+        && request.resource.data.get('practice', false) == false && availableAssignment()
+        && getAfter(/databases/$(database)/documents/exerciseAssignments/$(request.auth.uid)).data.sessionId == id);
       allow update: if isAdmin() || (isSelf(resource.data.patientId) && readyPatient()
         && resource.data.status in ['active', 'in_progress', 'paused']
+        && availableAssignment()
+        && getAfter(/databases/$(database)/documents/exerciseAssignments/$(request.auth.uid)).data.sessionId == id
         && currentPair(request.auth.uid, request.resource.data.doctorId)
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['patientId', 'sessionId', 'doctorId', 'originalDoctorId', 'report', 'reportGeneratedAt'])
         && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['startedAt'])
           || (resource.data.get('startedAt', null) == null && request.resource.data.startedAt == request.time))
         && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['practice'])
           || (resource.data.get('practice', null) == null && request.resource.data.practice is bool)))
-        || (isAssignedDoctor(resource.data.patientId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['doctorFeedback', 'doctorFeedbackBy', 'doctorFeedbackAt']));
+        || (isAssignedDoctor(resource.data.patientId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['doctorFeedback', 'doctorFeedbackBy', 'doctorFeedbackAt']))
+        || ((isSelf(resource.data.patientId) || isAssignedDoctor(resource.data.patientId))
+          && resource.data.status in ['active', 'in_progress', 'paused']
+          && request.resource.data.status in ['expired', 'cancelled']
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'expiredAt', 'cancelledAt', 'cancelledBy', 'updatedAt', 'lastUpdatedAt'])
+          && getAfter(/databases/$(database)/documents/exerciseAssignments/$(resource.data.patientId)).data.status == request.resource.data.status
+          && getAfter(/databases/$(database)/documents/exerciseAssignments/$(resource.data.patientId)).data.sessionId == id
+          && getAfter(/databases/$(database)/documents/exerciseAssignments/$(resource.data.patientId)).data.updatedAt == request.time);
       allow delete: if isAdmin();
     }
     match /conversations/{id} {
@@ -139,6 +219,7 @@ service cloud.firestore {
       match /messages/{messageId} {
         allow read: if isAdmin() || conversationPair(id);
         allow create: if (isAdmin() || conversationPair(id)) && request.resource.data.senderId == request.auth.uid && request.resource.data.conversationId == id
+          && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 2000
           && request.resource.data.patientId == id.split('_')[0] && request.resource.data.doctorId == id.split('_')[1];
         allow update: if isAdmin() || (conversationPair(id) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'readByPatient', 'readByDoctor']));
         allow delete: if isAdmin();

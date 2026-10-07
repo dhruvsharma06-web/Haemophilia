@@ -1,4 +1,6 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -6,6 +8,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'firebase_options.dart';
 import 'screens/auth/auth_gate.dart';
 import 'services/notification_service.dart';
+import 'services/local_test_config.dart';
 import 'utils/app_localizations.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -15,13 +18,42 @@ Future<void> main() async {
 
   await AppLocaleService.init();
 
+  if (LocalTestConfig.enabled && kReleaseMode) {
+    throw StateError('Local test mode is not allowed in release builds.');
+  }
+
   await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
+    name: LocalTestConfig.enabled ? LocalTestConfig.appName : null,
+    options: LocalTestConfig.enabled
+        ? LocalTestConfig.options
+        : DefaultFirebaseOptions.currentPlatform,
   );
 
-  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  if (LocalTestConfig.enabled) {
+    await LocalTestConfig.auth.useAuthEmulator(
+      LocalTestConfig.host,
+      9099,
+      automaticHostMapping: false,
+    );
+    LocalTestConfig.database.useFirestoreEmulator(
+      LocalTestConfig.host,
+      8089,
+      automaticHostMapping: false,
+    );
+    LocalTestConfig.database.settings = const Settings(
+      persistenceEnabled: false,
+    );
+    await LocalTestConfig.storage.useStorageEmulator(
+      LocalTestConfig.host,
+      9199,
+      automaticHostMapping: false,
+    );
+    NotificationService().setNavigatorKey(navigatorKey);
+  } else {
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
-  await NotificationService().initialize(navKey: navigatorKey);
+    await NotificationService().initialize(navKey: navigatorKey);
+  }
 
   runApp(const HaemophiliaApp());
 }
@@ -48,69 +80,74 @@ class HaemophiliaApp extends StatelessWidget {
             child: child!,
           ),
           theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: primary,
-          brightness: Brightness.light,
-        ),
-        dividerTheme: const DividerThemeData(color: Color(0xFFE1E7EA), thickness: 1),
-        navigationBarTheme: NavigationBarThemeData(
-          backgroundColor: Colors.white,
-          indicatorColor: const Color(0xFFDCECEE),
-          elevation: 0,
-          labelTextStyle: WidgetStateProperty.all(const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-        ),
-        scaffoldBackgroundColor: const Color(0xFFF5F7F8),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFFF5F7F8),
-          foregroundColor: Color(0xFF172033),
-          elevation: 0,
-          centerTitle: false,
-          scrolledUnderElevation: 0,
-        ),
-        cardTheme: CardThemeData(
-          color: Colors.white,
-          elevation: 0,
-          margin: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(16)),
-            side: BorderSide(color: Color(0xFFE8ECF3)),
-          ),
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: Colors.white,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 16,
-          ),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFFDCE2EC)),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFFDCE2EC)),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: primary, width: 1.5),
-          ),
-        ),
-        filledButtonTheme: FilledButtonThemeData(
-          style: FilledButton.styleFrom(
-            minimumSize: const Size(0, 52),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+            useMaterial3: true,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: primary,
+              brightness: Brightness.light,
             ),
-            textStyle: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
+            dividerTheme: const DividerThemeData(
+              color: Color(0xFFE1E7EA),
+              thickness: 1,
+            ),
+            navigationBarTheme: NavigationBarThemeData(
+              backgroundColor: Colors.white,
+              indicatorColor: const Color(0xFFDCECEE),
+              elevation: 0,
+              labelTextStyle: WidgetStateProperty.all(
+                const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+            ),
+            scaffoldBackgroundColor: const Color(0xFFF5F7F8),
+            appBarTheme: const AppBarTheme(
+              backgroundColor: Color(0xFFF5F7F8),
+              foregroundColor: Color(0xFF172033),
+              elevation: 0,
+              centerTitle: false,
+              scrolledUnderElevation: 0,
+            ),
+            cardTheme: CardThemeData(
+              color: Colors.white,
+              elevation: 0,
+              margin: EdgeInsets.zero,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.all(Radius.circular(16)),
+                side: BorderSide(color: Color(0xFFE8ECF3)),
+              ),
+            ),
+            inputDecorationTheme: InputDecorationTheme(
+              filled: true,
+              fillColor: Colors.white,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 16,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Color(0xFFDCE2EC)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Color(0xFFDCE2EC)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: primary, width: 1.5),
+              ),
+            ),
+            filledButtonTheme: FilledButtonThemeData(
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(0, 52),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
           ),
-        ),
-      ),
-      home: const AuthGate(),
+          home: const AuthGate(),
         );
       },
     );

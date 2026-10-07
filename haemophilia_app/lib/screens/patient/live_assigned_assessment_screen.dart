@@ -1,23 +1,20 @@
+import '../../services/local_test_config.dart';
 import '../../widgets/app_text.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+
 import 'package:flutter/material.dart';
 
 import '../assessment/live_assessment_screen.dart';
 import '../../utils/exercise_utils.dart';
 
 class AssignedAssessmentScreen extends StatefulWidget {
-  const AssignedAssessmentScreen({
-    super.key,
-  });
+  const AssignedAssessmentScreen({super.key});
 
   @override
   State<AssignedAssessmentScreen> createState() =>
       _AssignedAssessmentScreenState();
 }
 
-class _AssignedAssessmentScreenState
-    extends State<AssignedAssessmentScreen> {
+class _AssignedAssessmentScreenState extends State<AssignedAssessmentScreen> {
   bool _loading = true;
   String? _error;
 
@@ -38,96 +35,64 @@ class _AssignedAssessmentScreenState
 
   Future<void> _loadAssignment() async {
     try {
-      final user =
-          FirebaseAuth.instance.currentUser;
+      final user = LocalTestConfig.auth.currentUser;
 
       if (user == null) {
-        throw Exception(
-          'Please log in again.',
-        );
+        throw Exception('Please log in again.');
       }
 
-      final snapshot =
-          await FirebaseFirestore.instance
-              .collection('exerciseAssignments')
-              .doc(user.uid)
-              .get();
+      final snapshot = await LocalTestConfig.database
+          .collection('exerciseAssignments')
+          .doc(user.uid)
+          .get();
 
       if (!snapshot.exists) {
-        throw Exception(
-          'No exercise session has been assigned yet.',
-        );
+        throw Exception('No exercise session has been assigned yet.');
       }
 
-      final data =
-          snapshot.data();
+      final data = snapshot.data();
 
       if (data == null) {
-        throw Exception(
-          'Assignment data could not be loaded.',
-        );
+        throw Exception('Assignment data could not be loaded.');
       }
 
       // ----------------------------------------------------------
       // SESSION NAME
       // ----------------------------------------------------------
 
-      final sessionName =
-          data['sessionName']
-                  ?.toString()
-                  .trim() ??
-              '';
+      final sessionName = data['sessionName']?.toString().trim() ?? '';
 
       if (sessionName.isEmpty) {
-        throw Exception(
-          'The assigned session has no session name.',
-        );
+        throw Exception('The assigned session has no session name.');
       }
 
       // ----------------------------------------------------------
       // DOCTOR
       // ----------------------------------------------------------
 
-      final doctorId =
-          data['doctorId']
-                  ?.toString()
-                  .trim() ??
-              '';
+      final doctorId = data['doctorId']?.toString().trim() ?? '';
 
       if (doctorId.isEmpty) {
-        throw Exception(
-          'The assigned session has no doctor.',
-        );
+        throw Exception('The assigned session has no doctor.');
       }
 
       // ----------------------------------------------------------
       // EXERCISES
       // ----------------------------------------------------------
 
-      final rawExercises =
-          data['exercises'];
+      final rawExercises = data['exercises'];
 
       if (rawExercises is! List) {
-        throw Exception(
-          'No exercises were found in this session.',
-        );
+        throw Exception('No exercises were found in this session.');
       }
 
-      final exercises =
-          rawExercises
-              .whereType<Map>()
-              .map(
-                (exercise) =>
-                    Map<String, dynamic>.from(
-                  exercise,
-                ),
-              )
-              .toList();
+      final exercises = rawExercises
+          .whereType<Map>()
+          .map((exercise) => Map<String, dynamic>.from(exercise))
+          .toList();
 
       if (exercises.isEmpty) {
-        throw Exception(
-          'No exercises were assigned.',
-        );
+        throw Exception('No exercises were assigned.');
       }
 
       // ----------------------------------------------------------
@@ -135,32 +100,16 @@ class _AssignedAssessmentScreenState
       // ----------------------------------------------------------
 
       for (final exercise in exercises) {
-        final rawExercise =
-            exercise['exercise']
-                ?.toString()
-                .trim();
+        final rawExercise = exercise['exercise']?.toString().trim();
 
-        final rawName =
-            exercise['name']
-                ?.toString()
-                .trim();
+        final rawName = exercise['name']?.toString().trim();
 
-        final value =
-            (rawExercise?.isNotEmpty == true
-                    ? rawExercise
-                    : rawName)
-                ?.toLowerCase()
-                .replaceAll(
-                  '&',
-                  'and',
-                )
-                .replaceAll(
-                  ' ',
-                  '_',
-                );
+        final value = (rawExercise?.isNotEmpty == true ? rawExercise : rawName)
+            ?.toLowerCase()
+            .replaceAll('&', 'and')
+            .replaceAll(' ', '_');
 
-        if (value == null ||
-            value.isEmpty) {
+        if (value == null || value.isEmpty) {
           continue;
         }
 
@@ -171,19 +120,13 @@ class _AssignedAssessmentScreenState
       // SORT BY ASSIGNED ORDER
       // ----------------------------------------------------------
 
-      exercises.sort(
-        (a, b) {
-          final aOrder =
-              _toInt(a['order']);
+      exercises.sort((a, b) {
+        final aOrder = _toInt(a['order']);
 
-          final bOrder =
-              _toInt(b['order']);
+        final bOrder = _toInt(b['order']);
 
-          return aOrder.compareTo(
-            bOrder,
-          );
-        },
-      );
+        return aOrder.compareTo(bOrder);
+      });
 
       if (!mounted) return;
 
@@ -195,18 +138,13 @@ class _AssignedAssessmentScreenState
         _error = null;
       });
     } catch (e) {
-      debugPrint(
-        'ASSIGNED ASSESSMENT LOAD ERROR: $e',
-      );
+      debugPrint('ASSIGNED ASSESSMENT LOAD ERROR: $e');
 
       if (!mounted) return;
 
       setState(() {
         _loading = false;
-        _error = e.toString().replaceFirst(
-              'Exception: ',
-              '',
-            );
+        _error = e.toString().replaceFirst('Exception: ', '');
       });
     }
   }
@@ -220,31 +158,20 @@ class _AssignedAssessmentScreenState
       return value.toInt();
     }
 
-    return int.tryParse(
-          value?.toString() ?? '',
-        ) ??
-        0;
+    return int.tryParse(value?.toString() ?? '') ?? 0;
   }
 
-  String _exerciseTitle(
-    Map<String, dynamic> exercise,
-  ) {
-    final name =
-        exercise['name']
-            ?.toString()
-            .trim();
+  String _exerciseTitle(Map<String, dynamic> exercise) {
+    final name = exercise['name']?.toString().trim();
 
-    if (name != null &&
-        name.isNotEmpty) {
+    if (name != null && name.isNotEmpty) {
       return name;
     }
 
     return getExerciseDisplayName(exercise['exercise']?.toString());
   }
 
-  IconData _exerciseIcon(
-    Map<String, dynamic> exercise,
-  ) {
+  IconData _exerciseIcon(Map<String, dynamic> exercise) {
     return getExerciseIcon(exercise['exercise']?.toString());
   }
 
@@ -260,21 +187,16 @@ class _AssignedAssessmentScreenState
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (_) =>
-            LiveAssessmentScreen(
+        builder: (_) => LiveAssessmentScreen(
           exerciseName:
-              _exercises.first['exercise']
-                      ?.toString() ??
-                  'Assisted Shoulder Flexion',
+              _exercises.first['exercise']?.toString() ??
+              'Assisted Shoulder Flexion',
 
-          assignedExercises:
-              _exercises,
+          assignedExercises: _exercises,
 
-          assignedDoctorId:
-              _doctorId,
+          assignedDoctorId: _doctorId,
 
-          sessionName:
-              _sessionName,
+          sessionName: _sessionName,
         ),
       ),
     );
@@ -284,33 +206,18 @@ class _AssignedAssessmentScreenState
   // EXERCISE CARD
   // ============================================================
 
-  Widget _exerciseCard(
-    Map<String, dynamic> exercise,
-    int index,
-  ) {
-    final target =
-        _toInt(
-      exercise['targetCorrectReps'],
-    );
+  Widget _exerciseCard(Map<String, dynamic> exercise, int index) {
+    final target = _toInt(exercise['targetCorrectReps']);
 
     return Card(
       elevation: 0,
-      margin:
-          const EdgeInsets.only(
-        bottom: 12,
-      ),
-      shape:
-          RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.circular(18),
-        side: BorderSide(
-          color:
-              Colors.grey.shade200,
-        ),
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: Colors.grey.shade200),
       ),
       child: Padding(
-        padding:
-            const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Row(
           children: [
             // --------------------------------------------------
@@ -320,93 +227,52 @@ class _AssignedAssessmentScreenState
             Container(
               width: 44,
               height: 44,
-              decoration:
-                  BoxDecoration(
-                color: Theme.of(
-                  context,
-                )
-                    .colorScheme
-                    .primary
-                    .withValues(
-                      alpha: 0.09,
-                    ),
-                borderRadius:
-                    BorderRadius.circular(
-                  13,
-                ),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary
+                    .withValues(alpha: 0.09),
+                borderRadius: BorderRadius.circular(13),
               ),
-              alignment:
-                  Alignment.center,
+              alignment: Alignment.center,
               child: AppText(
                 '${index + 1}',
-                style:
-                    TextStyle(
-                  color:
-                      Theme.of(
-                    context,
-                  )
-                          .colorScheme
-                          .primary,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.primary,
                   fontSize: 17,
-                  fontWeight:
-                      FontWeight.w800,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
             ),
 
-            const SizedBox(
-              width: 13,
-            ),
+            const SizedBox(width: 13),
 
             // --------------------------------------------------
             // EXERCISE INFO
             // --------------------------------------------------
-
             Expanded(
               child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    _exerciseTitle(
-                      exercise,
-                    ),
-                    style:
-                        const TextStyle(
+                    _exerciseTitle(exercise),
+                    style: const TextStyle(
                       fontSize: 15,
-                      fontWeight:
-                          FontWeight.w800,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
 
-                  const SizedBox(
-                    height: 5,
-                  ),
+                  const SizedBox(height: 5),
 
                   AppText(
                     'Target: $target correct reps',
-                    style:
-                        TextStyle(
-                      fontSize: 12,
-                      color:
-                          Colors.grey
-                              .shade600,
-                    ),
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                   ),
                 ],
               ),
             ),
 
             Icon(
-              _exerciseIcon(
-                exercise,
-              ),
-              color:
-                  Theme.of(
-                context,
-              )
-                      .colorScheme
-                      .primary,
+              _exerciseIcon(exercise),
+              color: Theme.of(context).colorScheme.primary,
             ),
           ],
         ),
@@ -419,10 +285,7 @@ class _AssignedAssessmentScreenState
   // ============================================================
 
   Widget _buildLoading() {
-    return const Center(
-      child:
-          CircularProgressIndicator(),
-    );
+    return const Center(child: CircularProgressIndicator());
   }
 
   // ============================================================
@@ -432,64 +295,38 @@ class _AssignedAssessmentScreenState
   Widget _buildError() {
     return Center(
       child: Padding(
-        padding:
-            const EdgeInsets.all(28),
+        padding: const EdgeInsets.all(28),
         child: Column(
-          mainAxisSize:
-              MainAxisSize.min,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons
-                  .assignment_late_outlined,
+              Icons.assignment_late_outlined,
               size: 54,
-              color:
-                  Colors.grey.shade500,
+              color: Colors.grey.shade500,
             ),
 
-            const SizedBox(
-              height: 16,
-            ),
+            const SizedBox(height: 16),
 
             const AppText(
               'Unable to load session',
-              textAlign:
-                  TextAlign.center,
-              style: TextStyle(
-                fontSize: 19,
-                fontWeight:
-                    FontWeight.w800,
-              ),
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
             ),
 
-            const SizedBox(
-              height: 8,
-            ),
+            const SizedBox(height: 8),
 
             Text(
-              _error ??
-                  'Something went wrong.',
-              textAlign:
-                  TextAlign.center,
-              style: TextStyle(
-                color:
-                    Colors.grey.shade600,
-              ),
+              _error ?? 'Something went wrong.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey.shade600),
             ),
 
-            const SizedBox(
-              height: 20,
-            ),
+            const SizedBox(height: 20),
 
             FilledButton.icon(
-              onPressed:
-                  _loadAssignment,
-              icon: const Icon(
-                Icons.refresh,
-              ),
-              label:
-                  const AppText(
-                'Try Again',
-              ),
+              onPressed: _loadAssignment,
+              icon: const Icon(Icons.refresh),
+              label: const AppText('Try Again'),
             ),
           ],
         ),
@@ -502,268 +339,150 @@ class _AssignedAssessmentScreenState
   // ============================================================
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const AppText(
           'Assigned Session',
-          style: TextStyle(
-            fontWeight:
-                FontWeight.w800,
-          ),
+          style: TextStyle(fontWeight: FontWeight.w800),
         ),
       ),
 
       body: _loading
           ? _buildLoading()
           : _error != null
-              ? _buildError()
-              : SafeArea(
-                  child:
-                      SingleChildScrollView(
-                    padding:
-                        const EdgeInsets.fromLTRB(
-                      20,
-                      18,
-                      20,
-                      30,
-                    ),
-                    child:
-                        Center(
-                      child:
-                          ConstrainedBox(
-                        constraints:
-                            const BoxConstraints(
-                          maxWidth:
-                              700,
-                        ),
-                        child:
-                            Column(
-                          crossAxisAlignment:
-                              CrossAxisAlignment
-                                  .start,
-                          children: [
-                            // ==========================================
-                            // SESSION NAME
-                            // ==========================================
+          ? _buildError()
+          : SafeArea(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 30),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 700),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // ==========================================
+                        // SESSION NAME
+                        // ==========================================
 
-                            Card(
-                              elevation:
-                                  0,
-                              color:
-                                  Theme.of(
-                                context,
-                              )
-                                      .colorScheme
-                                      .primary
-                                      .withValues(
-                                        alpha:
-                                            0.06,
-                                      ),
-                              shape:
-                                  RoundedRectangleBorder(
-                                borderRadius:
-                                    BorderRadius
-                                        .circular(
-                                  20,
-                                ),
-                              ),
-                              child:
-                                  Padding(
-                                padding:
-                                    const EdgeInsets.all(
-                                  20,
-                                ),
-                                child:
-                                    Row(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment
-                                          .start,
-                                  children: [
-                                    Container(
-                                      width:
-                                          50,
-                                      height:
-                                          50,
-                                      decoration:
-                                          BoxDecoration(
-                                        color:
-                                            Theme.of(
-                                          context,
-                                        )
-                                                .colorScheme
-                                                .primary
-                                                .withValues(
-                                                  alpha:
-                                                      0.12,
-                                                ),
-                                        borderRadius:
-                                            BorderRadius
-                                                .circular(
-                                          15,
-                                        ),
-                                      ),
-                                      child:
-                                          Icon(
-                                        Icons
-                                            .assignment_rounded,
-                                        color:
-                                            Theme.of(
-                                          context,
-                                        )
-                                                .colorScheme
-                                                .primary,
-                                        size:
-                                            27,
-                                      ),
-                                    ),
-
-                                    const SizedBox(
-                                      width:
-                                          14,
-                                    ),
-
-                                    Expanded(
-                                      child:
-                                          Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment
-                                                .start,
-                                        children: [
-                                          AppText(
-                                            'Physiotherapy Session',
-                                            style:
-                                                TextStyle(
-                                              fontSize:
-                                                  12,
-                                              color:
-                                                  Colors.grey.shade600,
-                                              fontWeight:
-                                                  FontWeight.w600,
-                                            ),
-                                          ),
-
-                                          const SizedBox(
-                                            height:
-                                                4,
-                                          ),
-
-                                          Text(
-                                            _sessionName,
-                                            style:
-                                                const TextStyle(
-                                              fontSize:
-                                                  21,
-                                              fontWeight:
-                                                  FontWeight.w800,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-
-                            const SizedBox(
-                              height: 26,
-                            ),
-
-                            // ==========================================
-                            // EXERCISES
-                            // ==========================================
-
-                            const AppText(
-                              'Exercises',
-                              style:
-                                  TextStyle(
-                                fontSize:
-                                    21,
-                                fontWeight:
-                                    FontWeight
-                                        .w800,
-                              ),
-                            ),
-
-                            const SizedBox(
-                              height: 5,
-                            ),
-
-                            AppText(
-                              'Complete each exercise in order. '
-                              'Only correct repetitions count.',
-                              style:
-                                  TextStyle(
-                                color:
-                                    Colors.grey.shade600,
-                                fontSize:
-                                    13,
-                              ),
-                            ),
-
-                            const SizedBox(
-                              height: 18,
-                            ),
-
-                            ..._exercises
-                                .asMap()
-                                .entries
-                                .map(
-                              (entry) =>
-                                  _exerciseCard(
-                                entry
-                                    .value,
-                                entry
-                                    .key,
-                              ),
-                            ),
-
-                            const SizedBox(
-                              height: 14,
-                            ),
-
-                            // ==========================================
-                            // START BUTTON
-                            // ==========================================
-
-                            SizedBox(
-                              width:
-                                  double.infinity,
-                              height:
-                                  54,
-                              child:
-                                  FilledButton
-                                      .icon(
-                                onPressed:
-                                    _startAssessment,
-                                icon:
-                                    const Icon(
-                                  Icons
-                                      .play_arrow_rounded,
-                                ),
-                                label:
-                                    const AppText(
-                                  'Start Session',
-                                  style:
-                                      TextStyle(
-                                    fontSize:
-                                        16,
-                                    fontWeight:
-                                        FontWeight
-                                            .w700,
+                        Card(
+                          elevation: 0,
+                          color: Theme.of(context).colorScheme.primary
+                              .withValues(alpha: 0.06),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(20),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  width: 50,
+                                  height: 50,
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).colorScheme.primary
+                                        .withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(15),
+                                  ),
+                                  child: Icon(
+                                    Icons.assignment_rounded,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .primary,
+                                    size: 27,
                                   ),
                                 ),
+
+                                const SizedBox(width: 14),
+
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      AppText(
+                                        'Physiotherapy Session',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey.shade600,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+
+                                      const SizedBox(height: 4),
+
+                                      Text(
+                                        _sessionName,
+                                        style: const TextStyle(
+                                          fontSize: 21,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 26),
+
+                        // ==========================================
+                        // EXERCISES
+                        // ==========================================
+                        const AppText(
+                          'Exercises',
+                          style: TextStyle(
+                            fontSize: 21,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+
+                        const SizedBox(height: 5),
+
+                        AppText(
+                          'Complete each exercise in order. '
+                          'Only correct repetitions count.',
+                          style: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontSize: 13,
+                          ),
+                        ),
+
+                        const SizedBox(height: 18),
+
+                        ..._exercises.asMap().entries.map(
+                          (entry) => _exerciseCard(entry.value, entry.key),
+                        ),
+
+                        const SizedBox(height: 14),
+
+                        // ==========================================
+                        // START BUTTON
+                        // ==========================================
+                        SizedBox(
+                          width: double.infinity,
+                          height: 54,
+                          child: FilledButton.icon(
+                            onPressed: _startAssessment,
+                            icon: const Icon(Icons.play_arrow_rounded),
+                            label: const AppText(
+                              'Start Session',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
-                          ],
+                          ),
                         ),
-                      ),
+                      ],
                     ),
                   ),
                 ),
+              ),
+            ),
     );
   }
 }

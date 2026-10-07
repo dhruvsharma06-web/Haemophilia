@@ -25,7 +25,7 @@ async def assess_video(
             detail="No video file supplied.",
         )
 
-    if exercise != "assisted_shoulder_flexion":
+    if exercise not in {"assisted_shoulder_flexion", "shoulder_rotation", "assisted_elbow_flexion", "elbow_flexion", "elbow_flexion_extension"}:
         raise HTTPException(
             status_code=400,
             detail=f"Unsupported exercise: {exercise}",

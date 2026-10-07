@@ -1,5 +1,5 @@
 """Pure workflow decisions, independent of Firebase and the movement models."""
-from datetime import datetime
+from datetime import datetime, timedelta
 import math
 
 
@@ -26,6 +26,25 @@ def build_session_report(session, rows):
     }
 
 
+def session_expiry(data):
+    start, stored = data.get('scheduledAt') or data.get('createdAt') or data.get('startedAt'), data.get('expiresAt')
+    if start is None:
+        return stored
+    limit = start + timedelta(hours=1)
+    return min(stored, limit) if stored is not None else limit
+
+
+def assignment_key(data):
+    identifier = data.get('assignmentId') or data.get('scheduleId') or data.get('sourceScheduleId')
+    if identifier:
+        return str(identifier)
+    start = data.get('scheduledAt') or data.get('createdAt')
+    if isinstance(start, datetime):
+        delta = start - datetime(1970, 1, 1, tzinfo=start.tzinfo)
+        return 'legacy_' + str((delta.days * 86400 + delta.seconds) * 1000000 + delta.microseconds)
+    return str(data.get('sessionId') or 'legacy')
+
+
 def activation_decision(schedule, patient, doctor, assignment, now: datetime):
     if schedule.get('status') != 'scheduled':
         return 'ignore'
@@ -35,13 +54,11 @@ def activation_decision(schedule, patient, doctor, assignment, now: datetime):
         return 'cancelled'
     if patient.get('accountActive') is False:
         return 'cancelled'
-    if schedule['expiresAt'] <= now:
+    if session_expiry(schedule) is None or session_expiry(schedule) <= now:
         return 'missed'
     if schedule['scheduledAt'] > now:
         return 'ignore'
-    if assignment and assignment.get('status') in ('in_progress', 'paused'):
-        return 'wait'
-    if assignment and assignment.get('status') == 'assigned' and (assignment.get('expiresAt') is None or assignment['expiresAt'] > now):
+    if assignment and assignment.get('status') in ('assigned', 'active', 'in_progress', 'paused') and session_expiry(assignment) is not None and session_expiry(assignment) > now:
         return 'wait'
     return 'activate'
 
@@ -57,8 +74,9 @@ def notification_is_current(data, recipient, patient, doctor, assignment, now):
         return False
     if kind == 'session_assigned':
         return bool(assignment and recipient == patient_id and assignment.get('scheduleId') == data.get('scheduleId')
-                    and assignment.get('status') in ('assigned', 'in_progress', 'paused')
-                    and (assignment.get('status') != 'assigned' or assignment.get('expiresAt', now) > now))
+                    and (not data.get('assignmentId') or assignment.get('assignmentId') == data.get('assignmentId'))
+                    and assignment.get('status') == 'assigned'
+                    and session_expiry(assignment) is not None and session_expiry(assignment) > now)
     return True
 
 

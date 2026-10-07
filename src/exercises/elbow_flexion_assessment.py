@@ -8,8 +8,8 @@ import cv2
 import numpy as np
 import torch
 
-from src.features.elbow_features import build_features, resample
-from src.models.elbow_lstm import ElbowLSTM
+from src.features.elbow_features_v3 import build_live_features
+from src.models.elbow_lstm_v3 import ElbowLSTM
 
 
 def _extract_row(landmarks) -> Dict[str, float]:
@@ -35,47 +35,6 @@ def _get_joint_angle(a, b, c) -> float:
     return float(np.degrees(np.arccos(cosine)))
 
 
-def _classify_rep(pred: float, angles: List[float], wrist_path: List[List[float]]):
-    angles_arr = np.array(angles, dtype=np.float32)
-    range_motion = float(np.max(angles_arr) - np.min(angles_arr))
-    peak = float(np.max(angles_arr))
-    valley = float(np.min(angles_arr))
-
-    velocity = np.diff(angles_arr)
-    smoothness = float(np.std(velocity)) if len(velocity) > 0 else 0.0
-
-    wrist_arr = np.array(wrist_path, dtype=np.float32)
-    if len(wrist_arr) > 1:
-        wrist_movement = float(np.linalg.norm(wrist_arr[1:] - wrist_arr[:-1], axis=1).mean())
-    else:
-        wrist_movement = 0.0
-
-    # Hard penalty conditions
-    penalty = 0.0
-    if range_motion < 25.0:
-        penalty += 0.25
-    if peak < 125.0:
-        penalty += 0.20
-    if smoothness > 20.0:
-        penalty += 0.15
-    if wrist_movement > 0.04:
-        penalty += 0.15
-
-    # Balanced score
-    range_score = min(1.0, range_motion / 70.0)
-    smooth_score = max(0.0, 1.0 - smoothness / 25.0)
-
-    base_score = (
-        0.6 * pred +
-        0.2 * range_score +
-        0.2 * smooth_score
-    )
-
-    final_score = base_score - penalty
-
-    return final_score, range_motion, smoothness, peak, valley, wrist_movement
-
-
 class ElbowFlexionAssessment:
     """Real-time and batch assessment engine for Elbow Flexion & Extension."""
 
@@ -98,11 +57,11 @@ class ElbowFlexionAssessment:
         if model is not None:
             self.model = model
         else:
-            model_path = Path(__file__).resolve().parents[2] / "models" / "elbow_lstm.pth"
+            model_path = Path(__file__).resolve().parents[2] / "models" / "elbow_lstm_v3.pth"
             if not model_path.exists():
                 raise FileNotFoundError(f"haemophilia-final elbow model not found: {model_path}")
 
-            self.model = ElbowLSTM(input_size=8, hidden_size=128, num_layers=2)
+            self.model = ElbowLSTM(input_size=14, hidden_size=128, num_layers=2)
             self.model.load_state_dict(
                 torch.load(model_path, map_location=self.device, weights_only=True)
             )
@@ -111,7 +70,9 @@ class ElbowFlexionAssessment:
 
         # Tracking state
         self.ema_angle: Optional[float] = None
-        self.alpha = 0.25
+        self.alpha = 0.4
+        self.pred_buffer = deque(maxlen=4)
+        self.arm = None
         self.angle_buffer = deque(maxlen=5)
         self.prev_angle: Optional[float] = None
 
@@ -140,6 +101,11 @@ class ElbowFlexionAssessment:
     ) -> Optional[Dict]:
         """Process a single frame and return completed rep dictionary if completed."""
         if pose_landmarks is None:
+            self.rep_active = False
+            self.rep_angles = []
+            self.arm = None
+            self.ema_angle = self.prev_angle = None
+            self.angle_buffer.clear()
             return None
 
         # Select arm with higher visibility: right (12, 14, 16) vs left (11, 13, 15)
@@ -147,10 +113,20 @@ class ElbowFlexionAssessment:
         r_vis = float(getattr(lms[14], "visibility", 0.5))
         l_vis = float(getattr(lms[13], "visibility", 0.5))
 
-        if r_vis >= l_vis:
+        if self.arm is None:
+            self.arm = "right" if r_vis >= l_vis else "left"
+        if self.arm == "right":
             s_idx, e_idx, w_idx = 12, 14, 16
         else:
             s_idx, e_idx, w_idx = 11, 13, 15
+
+        if min(float(getattr(lms[i], "visibility", 0.0)) for i in (s_idx, e_idx, w_idx)) < 0.5:
+            self.rep_active = False
+            self.rep_angles = []
+            self.ema_angle = self.prev_angle = None
+            self.angle_buffer.clear()
+            self.arm = None
+            return None
 
         shoulder = [lms[s_idx].x, lms[s_idx].y, lms[s_idx].z]
         elbow = [lms[e_idx].x, lms[e_idx].y, lms[e_idx].z]
@@ -199,6 +175,10 @@ class ElbowFlexionAssessment:
             self.min_flexion_reached = angle
 
         # Accumulate ongoing rep frames
+        if self.rep_active and len(self.rep_angles) >= max(60, int(self.fps * 30)):
+            self.rep_active = False
+            self.arm = None
+            self.rep_angles = []
         if self.rep_active:
             self.rep_angles.append(angle)
             self.rep_rows.append(_extract_row(pose_landmarks))
@@ -217,7 +197,8 @@ class ElbowFlexionAssessment:
             if len(self.rep_angles) >= 15 and has_sufficient_flexion and has_extended_back and rom_so_far >= 20.0:
                 self.rep_active = False
                 self.rep_count += 1
-                self.cooldown = 10
+                self.cooldown = max(1, round(self.fps * 0.4))
+                self.arm = None
 
                 return self._finalize_rep(self.rep_angles, self.rep_rows, self.wrist_path)
 
@@ -230,9 +211,7 @@ class ElbowFlexionAssessment:
         wrist_path: List[List[float]],
     ) -> Dict:
         """Run LSTM inference and return completed rep contract."""
-        feat, _ = build_features(rows, fps=self.fps, angle_series=angles)
-        if len(feat) != 128:
-            feat = resample(feat, 128)
+        feat = build_live_features(angles)
 
         x = torch.tensor(feat, dtype=torch.float32).unsqueeze(0).to(self.device)
 
@@ -240,15 +219,20 @@ class ElbowFlexionAssessment:
             logit = self.model(x)
             pred = float(torch.sigmoid(logit).item())
 
-        final_score, range_motion, smoothness, peak, valley, wrist_movement = _classify_rep(
-            pred, angles, wrist_path
-        )
-
-        score_100 = float(round(max(0.0, min(100.0, final_score * 100.0)), 1))
-        is_correct = final_score > 0.58
-        form = "Correct" if is_correct else "Incorrect"
-
+        values = np.asarray(angles, dtype=np.float32)
+        range_motion = float(np.ptp(values))
+        smoothness = float(np.std(np.diff(values)))
+        peak = float(np.max(values))
+        self.pred_buffer.append(pred)
+        probability = float(np.mean(self.pred_buffer))
         duration = float(round(len(angles) / max(self.fps, 1.0), 2))
+        is_correct = probability > 0.75 or (probability >= 0.40 and range_motion > 40 and duration > 0.6)
+        form = "Correct" if is_correct else "Incorrect"
+        # Probability estimates correct form, rather than a clinical quality score.
+        score_100 = float(round(probability * 100.0, 1))
+        wrist_arr = np.asarray(wrist_path, dtype=np.float32)
+        wrist_movement = float(np.linalg.norm(np.diff(wrist_arr, axis=0), axis=1).mean()) if len(wrist_arr) > 1 else 0.0
+
         speed_val = (range_motion / duration) if duration > 0 else 0.0
         speed_str = "Fast" if speed_val > 65.0 else ("Slow" if speed_val < 20.0 else "Good")
 
@@ -264,11 +248,14 @@ class ElbowFlexionAssessment:
         elif wrist_movement > 0.03:
             error_type = "ARM_INSTABILITY"
             feedback = "Keep upper arm stable"
+        elif not is_correct:
+            error_type = "MODEL_FORM_REVIEW"
+            feedback = "The model flagged this repetition. Review the movement with your doctor."
         else:
             error_type = ""
-            feedback = "Good form! Excellent control."
+            feedback = "The model detected correct form. Keep the movement controlled and comfortable."
 
-        confidence_pct = float(round(pred * 100.0, 1))
+        confidence_pct = float(round((probability if is_correct else 1.0 - probability) * 100.0, 1))
 
         self.last_rom = range_motion
         self.last_score = score_100
@@ -287,6 +274,8 @@ class ElbowFlexionAssessment:
             "duration": duration,
             "confidence": confidence_pct,
             "lstm_confidence": confidence_pct,
+            "model_identity": "ElbowFlexionExtension_LSTM_V3",
+            "correct_form_probability": probability,
             "error_type": error_type,
             "feedback": feedback,
             "status": "COMPLETED",
@@ -326,9 +315,9 @@ class ElbowFlexionAssessment:
             "score": self.last_score,
             "range_of_motion": float(round(self.last_rom, 1)),
             "speed": "Good" if self.rep_count > 0 else "Waiting",
-            "smoothness": 0.0,
-            "error_type": "",
-            "feedback": "",
+            "smoothness": (self.last_completed_rep or {}).get("smoothness"),
+            "error_type": (self.last_completed_rep or {}).get("error_type", ""),
+            "feedback": (self.last_completed_rep or {}).get("feedback", ""),
             "landmarks": landmarks,
             "calibrated": True,
         }

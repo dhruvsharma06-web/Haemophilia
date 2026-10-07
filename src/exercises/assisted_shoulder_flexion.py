@@ -7,6 +7,8 @@ processed MediaPipe pose landmarks.
 """
 
 import json
+import base64
+from uuid import uuid4
 import os
 from datetime import datetime
 from pathlib import Path
@@ -258,13 +260,12 @@ def save_error_frame(
     rep_number,
     frame_number,
     error_frames_dir,
+    save_artifact=True,
 ):
     """Write the same red-skeleton, highlighted error artifact as the demo."""
 
-    os.makedirs(
-        error_frames_dir,
-        exist_ok=True,
-    )
+    if save_artifact:
+        os.makedirs(error_frames_dir, exist_ok=True)
 
     annotated_frame = frame.copy()
 
@@ -348,8 +349,12 @@ def save_error_frame(
         3,
     )
 
+    if not save_artifact:
+        ok, encoded = cv2.imencode('.jpg', annotated_frame, [cv2.IMWRITE_JPEG_QUALITY, 75])
+        return 'data:image/jpeg;base64,' + base64.b64encode(encoded).decode('ascii') if ok else None
+
     filename = (
-        f"assisted_flexion_rep_"
+        f"{uuid4().hex}_assisted_flexion_rep_"
         f"{rep_number:02d}_"
         f"{error_type}_"
         f"frame_{frame_number}.jpg"
@@ -810,24 +815,23 @@ class AssistedShoulderFlexionAssessment:
                     ),
                 }
 
-                if self.save_artifacts:
-
-                    self.error_frame_path = (
-                        save_error_frame(
-                            frame,
-                            pose_landmarks,
-                            get_advanced_error_type(
-                                self.first_error
-                            ),
-                            self.rep_count + 1,
-                            self.frame_number,
-                            self.error_frames_dir,
-                        )
+                self.error_frame_path = (
+                    save_error_frame(
+                        frame,
+                        pose_landmarks,
+                        get_advanced_error_type(
+                            self.first_error
+                        ),
+                        self.rep_count + 1,
+                        self.frame_number,
+                        self.error_frames_dir,
+                        save_artifact=self.save_artifacts,
                     )
+                )
 
-                    self.error_frame_number = (
-                        self.frame_number
-                    )
+                self.error_frame_number = (
+                    self.frame_number
+                )
 
         else:
             self.active_error = None
@@ -1275,7 +1279,6 @@ class AssistedShoulderFlexionAssessment:
         if (
             final_error is not None
             and self.error_frame_path is None
-            and self.save_artifacts
         ):
 
             self.error_frame_path = (
@@ -1286,6 +1289,7 @@ class AssistedShoulderFlexionAssessment:
                     self.rep_count,
                     self.frame_number,
                     self.error_frames_dir,
+                    save_artifact=self.save_artifacts,
                 )
             )
 
@@ -1732,6 +1736,7 @@ class AssistedShoulderFlexionAssessment:
             "form": form,
 
             "error_type": error_type,
+            "error_frame_path": self.error_frame_path,
 
             "feedback": feedback,
 

@@ -1,19 +1,23 @@
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+
+import '../utils/account_validation.dart';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../models/user_model.dart';
 import 'notification_service.dart';
 import 'onboarding_service.dart';
+import 'local_test_config.dart';
 import '../widgets/consent_form.dart';
 
 enum LoginPortal { patient, clinician }
 
 class AuthService {
   static final googleValidation = ValueNotifier<bool>(false);
-  FirebaseAuth get _auth => FirebaseAuth.instance;
-  FirebaseFirestore get _firestore => FirebaseFirestore.instance;
+  FirebaseAuth get _auth => LocalTestConfig.auth;
+  FirebaseFirestore get _firestore => LocalTestConfig.database;
   final GoogleSignIn _googleSignIn = GoogleSignIn();
 
   /// Institutional email domain requirement (e.g. '@somaiya.edu').
@@ -58,8 +62,19 @@ class AuthService {
     String? gender,
     String? phoneNumber,
   }) async {
-    if (!consentAccepted) throw StateError('Please accept the terms and consent first.');
+    if (!consentAccepted) {
+      throw StateError('Please accept the terms and consent first.');
+    }
     final cleanEmail = email.trim().toLowerCase();
+    if (!validEmail(cleanEmail)) {
+      throw StateError('Please enter a valid email address.');
+    }
+    if (passwordValidation(password) != null) {
+      throw StateError(passwordValidation(password)!);
+    }
+    if (phoneNumber != null && mobileValidation(phoneNumber) != null) {
+      throw StateError(mobileValidation(phoneNumber)!);
+    }
     if (requiredEmailDomain != null &&
         !cleanEmail.toLowerCase().endsWith(requiredEmailDomain!)) {
       throw Exception(
@@ -132,9 +147,20 @@ class AuthService {
     bool consentAccepted = false,
     bool researchConsent = false,
   }) async {
-    if (!consentAccepted) throw StateError('Please accept the terms and consent first.');
+    if (!consentAccepted) {
+      throw StateError('Please accept the terms and consent first.');
+    }
     final cleanEmail = email.trim().toLowerCase();
     final formattedName = formatFullName(fullName);
+    if (!validEmail(cleanEmail)) {
+      throw StateError('Please enter a valid email address.');
+    }
+    if (passwordValidation(password) != null) {
+      throw StateError(passwordValidation(password)!);
+    }
+    if (mobileValidation(mobileNumber) != null) {
+      throw StateError(mobileValidation(mobileNumber)!);
+    }
 
     final credential = await _auth.createUserWithEmailAndPassword(
       email: cleanEmail,
@@ -195,10 +221,21 @@ class AuthService {
   // ==========================================================
 
   Future<UserModel?> signInWithGoogle() async {
+    if (LocalTestConfig.enabled) {
+      throw StateError(
+        'Use the local email/password test accounts. Google sign-in is not connected in local test mode.',
+      );
+    }
     googleValidation.value = true;
-    try { return await _signInWithGoogle(); }
-    catch (_) { await _auth.signOut(); await _googleSignIn.signOut(); rethrow; }
-    finally { googleValidation.value = false; }
+    try {
+      return await _signInWithGoogle();
+    } catch (_) {
+      await _auth.signOut();
+      await _googleSignIn.signOut();
+      rethrow;
+    } finally {
+      googleValidation.value = false;
+    }
   }
 
   Future<UserModel?> _signInWithGoogle() async {
@@ -215,8 +252,9 @@ class AuthService {
       idToken: googleAuth.idToken,
     );
 
-    final UserCredential userCredential =
-        await _auth.signInWithCredential(credential);
+    final UserCredential userCredential = await _auth.signInWithCredential(
+      credential,
+    );
     final user = userCredential.user;
     if (user == null) {
       throw Exception('Google sign-in was not completed.');
@@ -224,15 +262,20 @@ class AuthService {
 
     final doc = await _firestore.collection('users').doc(user.uid).get();
     final data = doc.data();
-    if (!doc.exists || data == null || data['role'] != 'patient' ||
-        data['email']?.toString().trim().toLowerCase() != googleUser.email.toLowerCase() ||
+    if (!doc.exists ||
+        data == null ||
+        data['role'] != 'patient' ||
+        data['email']?.toString().trim().toLowerCase() !=
+            googleUser.email.toLowerCase() ||
         data['accountActive'] == false) {
       if (userCredential.additionalUserInfo?.isNewUser == true) {
         await user.delete();
       }
       await _auth.signOut();
       await _googleSignIn.signOut();
-      throw StateError('Register a patient account with this email before using Google sign-in.');
+      throw StateError(
+        'Register a patient account with this email before using Google sign-in.',
+      );
     }
 
     await NotificationService().syncUserToken();
@@ -258,23 +301,36 @@ class AuthService {
     googleValidation.value = true;
     try {
       final credential = await _auth.signInWithEmailAndPassword(
-        email: email.trim(), password: password,
+        email: email.trim(),
+        password: password,
       );
       final user = credential.user;
       if (user == null) throw FirebaseAuthException(code: 'invalid-credential');
       final document = await _firestore.collection('users').doc(user.uid).get();
       final data = document.data();
-      if (data == null) throw FirebaseAuthException(code: 'profile-not-found', message: 'User profile was not found.');
+      if (data == null) {
+        throw FirebaseAuthException(
+          code: 'profile-not-found',
+          message: 'User profile was not found.',
+        );
+      }
       final role = data['role']?.toString().trim().toLowerCase();
       final permitted = portal == LoginPortal.patient
-          ? {'patient', 'admin'} : {'doctor', 'pending_doctor', 'admin'};
+          ? {'patient', 'admin'}
+          : {'doctor', 'pending_doctor', 'admin'};
       if (!permitted.contains(role)) {
-        throw FirebaseAuthException(code: 'wrong-login-portal', message: portal == LoginPortal.patient
-            ? 'This is a doctor account. Please use Doctor Login.'
-            : 'This is a patient account. Please use Patient Login.');
+        throw FirebaseAuthException(
+          code: 'wrong-login-portal',
+          message: portal == LoginPortal.patient
+              ? 'This is a doctor account. Please use Doctor Login.'
+              : 'This is a patient account. Please use Patient Login.',
+        );
       }
       if (data['accountActive'] == false) {
-        throw FirebaseAuthException(code: 'account-inactive', message: 'Account inactive. Please contact the administrator.');
+        throw FirebaseAuthException(
+          code: 'account-inactive',
+          message: 'Account inactive. Please contact the administrator.',
+        );
       }
       await NotificationService().syncUserToken();
       return UserModel.fromMap(user.uid, data);

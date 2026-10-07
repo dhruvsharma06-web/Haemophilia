@@ -73,49 +73,20 @@ class AssessmentService:
         # Exercise processor dispatch
         # ---------------------------------------------------------
 
-        exercise_norm = (exercise or "").strip().lower().replace("-", "_").replace(" ", "_")
-
-        if "assisted_elbow" in exercise_norm or exercise_norm == "assisted_elbow_flexion":
-            from src.exercises.assisted_elbow_flexion import (
-                AssistedElbowFlexionAssessment,
-            )
-            model, device = model_registry.get_assisted_elbow_flexion()
-            assessment = AssistedElbowFlexionAssessment(
-                model=model,
-                device=device,
-                fps=fps,
-                data_dir="data",
-                save_artifacts=True,
-            )
-        elif "elbow" in exercise_norm or exercise_norm in {
-            "elbow_flexion",
-            "elbow_flexion_extension",
-            "elbow_flexion_and_extension",
-        }:
-            from src.exercises.elbow_flexion_assessment import (
-                ElbowFlexionAssessment,
-            )
-            model, device = model_registry.get_elbow_flexion_extension()
-            assessment = ElbowFlexionAssessment(
-                model=model,
-                device=device,
-                fps=fps,
-                data_dir="data",
-                save_artifacts=True,
-            )
-        elif "shoulder" in exercise_norm or exercise_norm == "assisted_shoulder_flexion":
-            model, device = model_registry.get_assisted_flexion()
-            assessment = AssistedShoulderFlexionAssessment(
-                model=model,
-                device=device,
-                fps=fps,
-                data_dir="data",
-                save_artifacts=True,
-            )
-        else:
-            raise ValueError(
-                f"Unsupported exercise: {exercise}"
-            )
+        from backend.app.services.exercise_factory import create_assessment
+        capture = cv2.VideoCapture(video_path)
+        if not capture.isOpened():
+            capture.release()
+            raise ValueError("Could not open the uploaded video")
+        fps = float(capture.get(cv2.CAP_PROP_FPS))
+        if not np.isfinite(fps) or fps <= 0:
+            fps = 20.0
+        assessment_id = str(uuid.uuid4())
+        try:
+            assessment = create_assessment(exercise, fps=fps)
+        except Exception:
+            capture.release()
+            raise
 
         reps = []
 
@@ -170,10 +141,16 @@ class AssessmentService:
                     # Send frame to existing exercise logic
                     # ---------------------------------------------
 
+                    extra = {}
+                    if getattr(assessment, "uses_world_landmarks", False):
+                        extra = {"world_landmarks": results.pose_world_landmarks, "timestamp_sec": frame_number / fps}
+                    elif getattr(assessment, "uses_timestamps", False):
+                        extra = {"timestamp_sec": frame_number / fps}
                     result = assessment.process_frame(
                         frame,
                         results.pose_landmarks,
                         frame_number=frame_number,
+                        **extra,
                     )
 
                     # ---------------------------------------------
@@ -305,6 +282,8 @@ class AssessmentService:
             ),
 
             "error_frame_url": error_frame_url,
+            "model_identity": rep.get("model_identity"),
+            "decision_score": to_python_value(rep.get("decision_score")),
 
             "measurements": {
                 "range_of_motion": to_python_value(
@@ -315,7 +294,7 @@ class AssessmentService:
                     rep.get("duration")
                 ),
 
-                "smoothness": None,
+                "smoothness": to_python_value(rep.get("smoothness")),
             },
         }
 

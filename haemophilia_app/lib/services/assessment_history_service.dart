@@ -1,3 +1,7 @@
+import 'local_test_config.dart';
+import 'session_lifecycle_service.dart';
+import '../utils/schedule_utils.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -5,9 +9,9 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class AssessmentHistoryService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseStorage _storage = FirebaseStorage.instance;
+  final FirebaseFirestore _firestore = LocalTestConfig.database;
+  final FirebaseAuth _auth = LocalTestConfig.auth;
+  final FirebaseStorage _storage = LocalTestConfig.storage;
 
   String? get currentUserId => _auth.currentUser?.uid;
 
@@ -43,65 +47,37 @@ class AssessmentHistoryService {
   /// Explicitly marks a session as abandoned so it does not linger in active/paused state.
   /// Historical completed sessions and completed assignments are NEVER modified.
   Future<void> abandonSession(String sessionId, [String? patientId]) async {
-    final now = FieldValue.serverTimestamp();
-    try {
-      final sessionDoc = await _firestore
-          .collection('assessmentSessions')
-          .doc(sessionId)
-          .get();
-      final sessionData = sessionDoc.data();
-      // Historical completed sessions must NEVER be marked abandoned or deleted!
-      if (sessionData?['status'] == 'completed') {
-        debugPrint('AssessmentHistoryService: Will NOT abandon completed session $sessionId');
+    final uid = patientId ?? _auth.currentUser?.uid;
+    if (uid == null) return;
+    await SessionLifecycleService().expire(uid);
+    final assignmentRef = _firestore.collection('exerciseAssignments').doc(uid);
+    final sessionRef = _firestore
+        .collection('assessmentSessions')
+        .doc(sessionId);
+    await _firestore.runTransaction((tx) async {
+      final assignment = (await tx.get(assignmentRef)).data();
+      final session = (await tx.get(sessionRef)).data();
+      if (assignment == null ||
+          session == null ||
+          assignment['sessionId'] != sessionId ||
+          !assignmentAvailable(assignment, DateTime.now()) ||
+          !unfinishedSessionStatuses.contains(session['status'])) {
         return;
       }
-
-      await _firestore
-          .collection('assessmentSessions')
-          .doc(sessionId)
-          .set({
+      final now = FieldValue.serverTimestamp();
+      tx.update(assignmentRef, {
+        'status': 'discarded',
+        'discardedAt': now,
+        'lastUpdatedAt': now,
+        'updatedAt': now,
+      });
+      tx.update(sessionRef, {
         'status': 'abandoned',
         'abandonedAt': now,
         'lastUpdatedAt': now,
         'updatedAt': now,
-      }, SetOptions(merge: true));
-
-      debugPrint('AssessmentHistoryService: Session $sessionId marked as abandoned');
-
-      if (patientId != null && patientId.isNotEmpty) {
-        final assignDoc = await _firestore
-            .collection('exerciseAssignments')
-            .doc(patientId)
-            .get();
-        final assignData = assignDoc.data();
-        final assignSessionId = assignData?['sessionId']?.toString();
-        final assignStatus = assignData?['status']?.toString().toLowerCase();
-
-        // Historical completed assignments must NEVER be marked abandoned!
-        if (assignStatus == 'completed') {
-          return;
-        }
-
-        // Only abandon the assignment if it corresponds to this abandoned session,
-        // or is currently paused/in_progress. Never overwrite a newly assigned session!
-        if (assignSessionId == sessionId ||
-            assignStatus == 'paused' ||
-            assignStatus == 'in_progress') {
-          await _firestore
-              .collection('exerciseAssignments')
-              .doc(patientId)
-              .set({
-            'status': 'discarded',
-            'discardedAt': now,
-            'lastUpdatedAt': now,
-            'updatedAt': now,
-          }, SetOptions(merge: true));
-          debugPrint('AssessmentHistoryService: Assignment for $patientId marked as discarded');
-        }
-      }
-    } catch (e) {
-      debugPrint('Error abandoning session $sessionId: $e');
-    }
+      });
+    });
   }
 
   Future<void> saveCompletedRep({
@@ -125,8 +101,8 @@ class AssessmentHistoryService {
     final frameUrl = (errorFrameUrl != null && errorFrameUrl.trim().isNotEmpty)
         ? errorFrameUrl.trim()
         : (rep['error_frame_url']?.toString().trim() ??
-            rep['errorFrameUrl']?.toString().trim() ??
-            '');
+              rep['errorFrameUrl']?.toString().trim() ??
+              '');
 
     if (frameUrl.isNotEmpty) {
       try {
@@ -141,7 +117,8 @@ class AssessmentHistoryService {
       }
     }
 
-    final resolvedSessionName = (sessionName != null && sessionName.trim().isNotEmpty)
+    final resolvedSessionName =
+        (sessionName != null && sessionName.trim().isNotEmpty)
         ? sessionName.trim()
         : (rep['sessionName']?.toString().trim() ?? '');
 
@@ -155,8 +132,22 @@ class AssessmentHistoryService {
       'rangeOfMotion': _number(rep['range_of_motion'] ?? rep['rom']),
       'duration': _number(rep['duration']),
       'speed': rep['speed']?.toString() ?? 'Unknown',
+      'modelIdentity': rep['model_identity']?.toString(),
+      'modelVersion': rep['model_version']?.toString(),
+      'decisionScore': _number(rep['decision_score']),
       'confidence': _number(rep['confidence'] ?? rep['lstm_confidence']),
-      'errorType': rep['error_type']?.toString() ?? rep['error']?.toString() ?? '',
+      'smoothness': _number(rep['smoothness']),
+      'minimumAngle': _number(rep['minimum_angle']),
+      'maximumAngle': _number(rep['maximum_angle']),
+      'returnCompletion': _number(rep['return_completion']),
+      'angularSpeed': _number(rep['angular_speed']),
+      'scoreKind': rep['score_kind']?.toString(),
+      'hand': rep['hand']?.toString(),
+      'feedbackDetails': rep['feedback_details'],
+      'angleTrace': rep['angle_trace'],
+      'experimental': rep['experimental'] == true,
+      'errorType':
+          rep['error_type']?.toString() ?? rep['error']?.toString() ?? '',
       'feedback': rep['feedback']?.toString() ?? '',
       'errorFramePath': rep['error_frame_path']?.toString() ?? '',
       'errorFrameUrl': uploadedErrorFrameUrl ?? '',
@@ -165,7 +156,9 @@ class AssessmentHistoryService {
     };
 
     final number = _number(rep['rep_number'])?.toInt();
-    final document = number == null ? _collection(uid).doc() : _collection(uid).doc('${sessionId}_rep_$number');
+    final document = number == null
+        ? _collection(uid).doc()
+        : _collection(uid).doc('${sessionId}_rep_$number');
     await _firestore.runTransaction((transaction) async {
       final existing = await transaction.get(document);
       if (!existing.exists) transaction.set(document, data);
@@ -203,10 +196,7 @@ class AssessmentHistoryService {
       'assessment_errors/$uid/$sessionId/rep_$safeRep.jpg',
     );
 
-    await ref.putData(
-      bytes,
-      SettableMetadata(contentType: 'image/jpeg'),
-    );
+    await ref.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
 
     return ref.getDownloadURL();
   }

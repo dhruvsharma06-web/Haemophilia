@@ -1,4 +1,6 @@
+import '../../services/local_test_config.dart';
 import '../../widgets/app_text.dart';
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -7,25 +9,21 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
+
 import '../../services/backend_config.dart';
 
 class AssignedAssessmentScreen extends StatefulWidget {
-  const AssignedAssessmentScreen({
-    super.key,
-  });
+  const AssignedAssessmentScreen({super.key});
 
   @override
   State<AssignedAssessmentScreen> createState() =>
       _AssignedAssessmentScreenState();
 }
 
-class _AssignedAssessmentScreenState
-    extends State<AssignedAssessmentScreen> {
-  final FirebaseFirestore _firestore =
-      FirebaseFirestore.instance;
+class _AssignedAssessmentScreenState extends State<AssignedAssessmentScreen> {
+  final FirebaseFirestore _firestore = LocalTestConfig.database;
 
-  final FirebaseAuth _auth =
-      FirebaseAuth.instance;
+  final FirebaseAuth _auth = LocalTestConfig.auth;
 
   WebSocketChannel? _channel;
   StreamSubscription? _socketSubscription;
@@ -47,18 +45,14 @@ class _AssignedAssessmentScreenState
 
   double _currentAverageScore = 0;
 
-  final Map<String, List<Map<String, dynamic>>>
-      _exerciseReps = {};
+  final Map<String, List<Map<String, dynamic>>> _exerciseReps = {};
 
   String get _currentExercise {
     if (_exercises.isEmpty) {
       return '';
     }
 
-    return _exercises[_currentIndex]
-            ['exercise']
-        ?.toString() ??
-        '';
+    return _exercises[_currentIndex]['exercise']?.toString() ?? '';
   }
 
   String get _currentExerciseName {
@@ -66,10 +60,7 @@ class _AssignedAssessmentScreenState
       return '';
     }
 
-    return _exercises[_currentIndex]
-            ['name']
-        ?.toString() ??
-        'Exercise';
+    return _exercises[_currentIndex]['name']?.toString() ?? 'Exercise';
   }
 
   int get _currentTarget {
@@ -78,18 +69,15 @@ class _AssignedAssessmentScreenState
     }
 
     return int.tryParse(
-          _exercises[_currentIndex]
-                  ['targetCorrectReps']
-              ?.toString() ??
-              '0',
+          _exercises[_currentIndex]['targetCorrectReps']?.toString() ?? '0',
         ) ??
         0;
   }
 
   String get _websocketUrl {
-    return BackendConfig.liveAssessmentUri.replace(
-      queryParameters: {'exercise': _currentExercise},
-    ).toString();
+    return BackendConfig.liveAssessmentUri
+        .replace(queryParameters: {'exercise': _currentExercise})
+        .toString();
   }
 
   @override
@@ -100,13 +88,10 @@ class _AssignedAssessmentScreenState
 
   Future<void> _loadAssignment() async {
     try {
-      final uid =
-          _auth.currentUser?.uid;
+      final uid = _auth.currentUser?.uid;
 
       if (uid == null) {
-        throw Exception(
-          'Patient account not found.',
-        );
+        throw Exception('Patient account not found.');
       }
 
       final doc = await _firestore
@@ -115,55 +100,31 @@ class _AssignedAssessmentScreenState
           .get();
 
       if (!doc.exists) {
-        throw Exception(
-          'No exercise assignment found.',
-        );
+        throw Exception('No exercise assignment found.');
       }
 
-      final data =
-          doc.data() ?? {};
+      final data = doc.data() ?? {};
 
-      final rawExercises =
-          data['exercises'];
+      final rawExercises = data['exercises'];
 
-      if (rawExercises is! List ||
-          rawExercises.isEmpty) {
-        throw Exception(
-          'No exercises have been assigned.',
-        );
+      if (rawExercises is! List || rawExercises.isEmpty) {
+        throw Exception('No exercises have been assigned.');
       }
 
-      final exercises =
-          rawExercises
-              .whereType<Map>()
-              .map(
-                (item) =>
-                    Map<String, dynamic>.from(
-                  item,
-                ),
-              )
-              .toList();
+      final exercises = rawExercises
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
 
       exercises.sort(
         (a, b) =>
-            ((a['order'] as num?) ??
-                    0)
-                .compareTo(
-              ((b['order'] as num?) ??
-                      0),
-            ),
+            ((a['order'] as num?) ?? 0).compareTo(((b['order'] as num?) ?? 0)),
       );
 
-      _sessionId =
-          DateTime.now()
-              .microsecondsSinceEpoch
-              .toString();
+      _sessionId = DateTime.now().microsecondsSinceEpoch.toString();
 
-      for (final exercise
-          in exercises) {
-        final key =
-            exercise['exercise']
-                .toString();
+      for (final exercise in exercises) {
+        final key = exercise['exercise'].toString();
 
         _exerciseReps[key] = [];
       }
@@ -189,94 +150,56 @@ class _AssignedAssessmentScreenState
   }
 
   Future<void> _createSession() async {
-    final uid =
-        _auth.currentUser?.uid;
+    final uid = _auth.currentUser?.uid;
 
-    if (uid == null ||
-        _sessionId == null) {
+    if (uid == null || _sessionId == null) {
       return;
     }
 
-    final assignment =
-        await _firestore
-            .collection('exerciseAssignments')
-            .doc(uid)
-            .get();
+    final assignment = await _firestore
+        .collection('exerciseAssignments')
+        .doc(uid)
+        .get();
 
-    final assignmentData =
-        assignment.data() ?? {};
+    final assignmentData = assignment.data() ?? {};
 
-    await _firestore
-        .collection('assessmentSessions')
-        .doc(_sessionId)
-        .set({
+    await _firestore.collection('assessmentSessions').doc(_sessionId).set({
       'patientId': uid,
-      'doctorId':
-          assignmentData['doctorId'],
+      'doctorId': assignmentData['doctorId'],
       'assignmentId': uid,
       'status': 'in_progress',
-      'startedAt':
-          FieldValue.serverTimestamp(),
+      'startedAt': FieldValue.serverTimestamp(),
       'endedAt': null,
-      'exercises':
-          _buildExerciseSummary(),
+      'exercises': _buildExerciseSummary(),
     });
   }
 
-  List<Map<String, dynamic>>
-      _buildExerciseSummary() {
+  List<Map<String, dynamic>> _buildExerciseSummary() {
     return _exercises.map((exercise) {
-      final key =
-          exercise['exercise']
-              .toString();
+      final key = exercise['exercise'].toString();
 
-      final reps =
-          _exerciseReps[key] ?? [];
+      final reps = _exerciseReps[key] ?? [];
 
-      final correct =
-          reps.where(
-        (rep) =>
-            rep['form']
-                ?.toString()
-                .toLowerCase() ==
-            'correct',
-      ).length;
+      final correct = reps
+          .where((rep) => rep['form']?.toString().toLowerCase() == 'correct')
+          .length;
 
       final total = reps.length;
 
       final scores = reps
-          .map(
-            (rep) =>
-                double.tryParse(
-                  rep['score']
-                          ?.toString() ??
-                      '',
-                ) ??
-                0,
-          )
+          .map((rep) => double.tryParse(rep['score']?.toString() ?? '') ?? 0)
           .toList();
 
-      final average =
-          scores.isEmpty
-              ? 0.0
-              : scores.reduce(
-                    (a, b) => a + b,
-                  ) /
-                  scores.length;
+      final average = scores.isEmpty
+          ? 0.0
+          : scores.reduce((a, b) => a + b) / scores.length;
 
       final target =
-          int.tryParse(
-                exercise[
-                        'targetCorrectReps']
-                    ?.toString() ??
-                    '0',
-              ) ??
-              0;
+          int.tryParse(exercise['targetCorrectReps']?.toString() ?? '0') ?? 0;
 
       String status;
 
-      if (correct >= target &&
-          target > 0) {
+      if (correct >= target && target > 0) {
         status = 'completed';
       } else if (total > 0) {
         status = 'incomplete';
@@ -287,15 +210,11 @@ class _AssignedAssessmentScreenState
       return {
         'exercise': key,
         'name': exercise['name'],
-        'targetCorrectReps':
-            target,
+        'targetCorrectReps': target,
         'correctReps': correct,
         'totalReps': total,
         'status': status,
-        'averageScore':
-            double.parse(
-          average.toStringAsFixed(1),
-        ),
+        'averageScore': double.parse(average.toStringAsFixed(1)),
       };
     }).toList();
   }
@@ -305,11 +224,9 @@ class _AssignedAssessmentScreenState
       return;
     }
 
-    final channel =
-        IOWebSocketChannel.connect(
+    final channel = IOWebSocketChannel.connect(
       Uri.parse(_websocketUrl),
-      connectTimeout:
-          const Duration(seconds: 10),
+      connectTimeout: const Duration(seconds: 10),
     );
 
     _channel = channel;
@@ -320,81 +237,53 @@ class _AssignedAssessmentScreenState
       if (!mounted) return;
 
       setState(() {
-        _error =
-            'Could not connect to AI: $e';
+        _error = 'Could not connect to AI: $e';
       });
 
       return;
     }
 
-    _socketSubscription =
-        channel.stream.listen(
+    _socketSubscription = channel.stream.listen(
       _handleSocketMessage,
       onError: (error) {
-        debugPrint(
-          'Assessment WebSocket error: $error',
-        );
+        debugPrint('Assessment WebSocket error: $error');
       },
       onDone: () {
-        debugPrint(
-          'Assessment WebSocket closed.',
-        );
+        debugPrint('Assessment WebSocket closed.');
       },
     );
   }
 
-  void _handleSocketMessage(
-    dynamic message,
-  ) {
+  void _handleSocketMessage(dynamic message) {
     if (message is! String) {
       return;
     }
 
     try {
-      final data =
-          jsonDecode(message)
-              as Map<String, dynamic>;
+      final data = jsonDecode(message) as Map<String, dynamic>;
 
       if (data['type'] == 'error') {
-        debugPrint(
-          'AI error: ${data['message']}',
-        );
+        debugPrint('AI error: ${data['message']}');
         return;
       }
 
-      if (data['type'] !=
-          'live_state') {
+      if (data['type'] != 'live_state') {
         return;
       }
 
-      final completed =
-          data['completed_rep'];
+      final completed = data['completed_rep'];
 
       if (completed is! Map) {
         return;
       }
 
-      final rep =
-          Map<String, dynamic>.from(
-        completed,
-      );
+      final rep = Map<String, dynamic>.from(completed);
 
-      final form =
-          rep['form']
-              ?.toString()
-              .toLowerCase() ??
-              '';
+      final form = rep['form']?.toString().toLowerCase() ?? '';
 
-      final score =
-          double.tryParse(
-                rep['score']
-                        ?.toString() ??
-                    '0',
-              ) ??
-              0;
+      final score = double.tryParse(rep['score']?.toString() ?? '0') ?? 0;
 
-      final exercise =
-          _currentExercise;
+      final exercise = _currentExercise;
 
       _currentTotalReps++;
 
@@ -402,43 +291,29 @@ class _AssignedAssessmentScreenState
         _currentCorrectReps++;
       }
 
-      _currentAverageScore =
-          _calculateRunningAverage(
+      _currentAverageScore = _calculateRunningAverage(
         _currentAverageScore,
         _currentTotalReps,
         score,
       );
 
-      _exerciseReps[
-              exercise]!
-          .add({
+      _exerciseReps[exercise]!.add({
         ...rep,
         'exercise': exercise,
-        'timestamp':
-            DateTime.now()
-                .toIso8601String(),
+        'timestamp': DateTime.now().toIso8601String(),
       });
 
       if (mounted) {
         setState(() {});
       }
 
-      unawaited(
-        _saveSessionProgress(),
-      );
+      unawaited(_saveSessionProgress());
 
-      if (
-          form == 'correct' &&
-          _currentCorrectReps >=
-              _currentTarget) {
-        unawaited(
-          _finishCurrentExercise(),
-        );
+      if (form == 'correct' && _currentCorrectReps >= _currentTarget) {
+        unawaited(_finishCurrentExercise());
       }
     } catch (e) {
-      debugPrint(
-        'Could not process assessment message: $e',
-      );
+      debugPrint('Could not process assessment message: $e');
     }
   }
 
@@ -451,44 +326,32 @@ class _AssignedAssessmentScreenState
       return newScore;
     }
 
-    return ((oldAverage *
-                (count - 1)) +
-            newScore) /
-        count;
+    return ((oldAverage * (count - 1)) + newScore) / count;
   }
 
-  Future<void> _finishCurrentExercise()
-      async {
-    if (_ending ||
-        _completed) {
+  Future<void> _finishCurrentExercise() async {
+    if (_ending || _completed) {
       return;
     }
 
-    if (_currentCorrectReps <
-        _currentTarget) {
+    if (_currentCorrectReps < _currentTarget) {
       return;
     }
 
     await _saveSessionProgress();
 
-    if (_currentIndex >=
-        _exercises.length - 1) {
+    if (_currentIndex >= _exercises.length - 1) {
       await _completeSession();
       return;
     }
 
-    final nextIndex =
-        _currentIndex + 1;
+    final nextIndex = _currentIndex + 1;
 
-    final nextExercise =
-        _exercises[nextIndex]
-                ['exercise']
-            .toString();
+    final nextExercise = _exercises[nextIndex]['exercise'].toString();
 
     if (mounted) {
       setState(() {
-        _currentIndex =
-            nextIndex;
+        _currentIndex = nextIndex;
         _currentCorrectReps = 0;
         _currentTotalReps = 0;
         _currentAverageScore = 0;
@@ -496,17 +359,11 @@ class _AssignedAssessmentScreenState
     }
 
     _channel?.sink.add(
-      jsonEncode({
-        'type':
-            'switch_exercise',
-        'exercise':
-            nextExercise,
-      }),
+      jsonEncode({'type': 'switch_exercise', 'exercise': nextExercise}),
     );
   }
 
-  Future<void>
-      _saveSessionProgress() async {
+  Future<void> _saveSessionProgress() async {
     final id = _sessionId;
 
     if (id == null) {
@@ -514,70 +371,48 @@ class _AssignedAssessmentScreenState
     }
 
     try {
-      await _firestore
-          .collection('assessmentSessions')
-          .doc(id)
-          .set({
+      await _firestore.collection('assessmentSessions').doc(id).set({
         'status': 'in_progress',
-        'exercises':
-            _buildExerciseSummary(),
-        'updatedAt':
-            FieldValue.serverTimestamp(),
+        'exercises': _buildExerciseSummary(),
+        'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     } catch (e) {
-      debugPrint(
-        'Could not save session progress: $e',
-      );
+      debugPrint('Could not save session progress: $e');
     }
   }
 
-  Future<void> _completeSession()
-      async {
+  Future<void> _completeSession() async {
     if (_completed) {
       return;
     }
 
     _completed = true;
 
-    await _firestore
-        .collection('assessmentSessions')
-        .doc(_sessionId)
-        .set({
+    await _firestore.collection('assessmentSessions').doc(_sessionId).set({
       'status': 'completed',
-      'exercises':
-          _buildExerciseSummary(),
-      'endedAt':
-          FieldValue.serverTimestamp(),
-      'updatedAt':
-          FieldValue.serverTimestamp(),
+      'exercises': _buildExerciseSummary(),
+      'endedAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
 
     _channel?.sink.close();
-    await _socketSubscription
-        ?.cancel();
+    await _socketSubscription?.cancel();
 
     if (!mounted) return;
 
-    await _showFinishedDialog(
-      completed: true,
-    );
+    await _showFinishedDialog(completed: true);
   }
 
-  Future<void> _endAssessment()
-      async {
-    if (_ending ||
-        _completed) {
+  Future<void> _endAssessment() async {
+    if (_ending || _completed) {
       return;
     }
 
-    final shouldEnd =
-        await showDialog<bool>(
+    final shouldEnd = await showDialog<bool>(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const AppText(
-            'End assessment?',
-          ),
+          title: const AppText('End assessment?'),
           content: const AppText(
             'Your current progress will be saved. '
             'Exercises that have not reached their '
@@ -585,24 +420,12 @@ class _AssignedAssessmentScreenState
           ),
           actions: [
             TextButton(
-              onPressed: () =>
-                  Navigator.pop(
-                context,
-                false,
-              ),
-              child: const AppText(
-                'Continue',
-              ),
+              onPressed: () => Navigator.pop(context, false),
+              child: const AppText('Continue'),
             ),
             FilledButton(
-              onPressed: () =>
-                  Navigator.pop(
-                context,
-                true,
-              ),
-              child: const AppText(
-                'End Assessment',
-              ),
+              onPressed: () => Navigator.pop(context, true),
+              child: const AppText('End Assessment'),
             ),
           ],
         );
@@ -618,29 +441,20 @@ class _AssignedAssessmentScreenState
     });
 
     try {
-      await _firestore
-          .collection('assessmentSessions')
-          .doc(_sessionId)
-          .set({
+      await _firestore.collection('assessmentSessions').doc(_sessionId).set({
         'status': 'incomplete',
-        'exercises':
-            _buildExerciseSummary(),
-        'endedAt':
-            FieldValue.serverTimestamp(),
-        'updatedAt':
-            FieldValue.serverTimestamp(),
+        'exercises': _buildExerciseSummary(),
+        'endedAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
       _channel?.sink.close();
 
-      await _socketSubscription
-          ?.cancel();
+      await _socketSubscription?.cancel();
 
       if (!mounted) return;
 
-      await _showFinishedDialog(
-        completed: false,
-      );
+      await _showFinishedDialog(completed: false);
     } catch (e) {
       if (!mounted) return;
 
@@ -648,21 +462,13 @@ class _AssignedAssessmentScreenState
         _ending = false;
       });
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(
-        SnackBar(
-          content: AppText(
-            'Could not end assessment: $e',
-          ),
-        ),
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: AppText('Could not end assessment: $e')),
       );
     }
   }
 
-  Future<void> _showFinishedDialog({
-    required bool completed,
-  }) async {
+  Future<void> _showFinishedDialog({required bool completed}) async {
     if (!mounted) return;
 
     await showDialog<void>(
@@ -671,29 +477,22 @@ class _AssignedAssessmentScreenState
       builder: (context) {
         return AlertDialog(
           title: Text(
-            completed
-                ? 'Assessment Complete'
-                : 'Assessment Incomplete',
+            completed ? 'Assessment Complete' : 'Assessment Incomplete',
           ),
           content: Text(
             completed
                 ? 'All assigned exercises have been completed.'
                 : 'Your progress has been saved. '
-                    'Incomplete exercises are marked accordingly.',
+                      'Incomplete exercises are marked accordingly.',
           ),
           actions: [
             FilledButton(
               onPressed: () {
                 Navigator.pop(context);
 
-                Navigator.pop(
-                  this.context,
-                  true,
-                );
+                Navigator.pop(this.context, true);
               },
-              child: const AppText(
-                'Done',
-              ),
+              child: const AppText('Done'),
             ),
           ],
         );
@@ -710,34 +509,18 @@ class _AssignedAssessmentScreenState
   }
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(
-        body: Center(
-          child:
-              CircularProgressIndicator(),
-        ),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     if (_error != null) {
       return Scaffold(
-        appBar: AppBar(
-          title: const AppText(
-            'Assessment',
-          ),
-        ),
+        appBar: AppBar(title: const AppText('Assessment')),
         body: Center(
           child: Padding(
-            padding:
-                const EdgeInsets.all(24),
-            child: Text(
-              _error!,
-              textAlign:
-                  TextAlign.center,
-            ),
+            padding: const EdgeInsets.all(24),
+            child: Text(_error!, textAlign: TextAlign.center),
           ),
         ),
       );
@@ -745,11 +528,7 @@ class _AssignedAssessmentScreenState
 
     if (_exercises.isEmpty) {
       return const Scaffold(
-        body: Center(
-          child: AppText(
-            'No exercises assigned.',
-          ),
-        ),
+        body: Center(child: AppText('No exercises assigned.')),
       );
     }
 
@@ -758,9 +537,7 @@ class _AssignedAssessmentScreenState
       appBar: AppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
-        title: Text(
-          _currentExerciseName,
-        ),
+        title: Text(_currentExerciseName),
       ),
       body: SafeArea(
         child: Column(
@@ -772,41 +549,21 @@ class _AssignedAssessmentScreenState
                 child: AppText(
                   'Camera assessment is active.\n'
                   'Use the live camera area here.',
-                  textAlign:
-                      TextAlign.center,
-                  style:
-                      const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                  ),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white, fontSize: 18),
                 ),
               ),
             ),
 
             Padding(
-              padding:
-                  const EdgeInsets.fromLTRB(
-                20,
-                8,
-                20,
-                20,
-              ),
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
               child: SizedBox(
                 width: double.infinity,
                 height: 52,
                 child: FilledButton.icon(
-                  onPressed:
-                      _ending
-                          ? null
-                          : _endAssessment,
-                  icon: const Icon(
-                    Icons.stop,
-                  ),
-                  label: Text(
-                    _ending
-                        ? 'Saving...'
-                        : 'End Assessment',
-                  ),
+                  onPressed: _ending ? null : _endAssessment,
+                  icon: const Icon(Icons.stop),
+                  label: Text(_ending ? 'Saving...' : 'End Assessment'),
                 ),
               ),
             ),
@@ -819,25 +576,15 @@ class _AssignedAssessmentScreenState
   Widget _buildProgressHeader() {
     return Container(
       width: double.infinity,
-      padding:
-          const EdgeInsets.fromLTRB(
-        18,
-        14,
-        18,
-        14,
-      ),
+      padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
       color: Colors.black87,
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           AppText(
             'Exercise ${_currentIndex + 1} '
             'of ${_exercises.length}',
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 12,
-            ),
+            style: const TextStyle(color: Colors.white70, fontSize: 12),
           ),
           const SizedBox(height: 6),
           Text(
@@ -845,8 +592,7 @@ class _AssignedAssessmentScreenState
             style: const TextStyle(
               color: Colors.white,
               fontSize: 18,
-              fontWeight:
-                  FontWeight.w800,
+              fontWeight: FontWeight.w800,
             ),
           ),
           const SizedBox(height: 10),
@@ -857,30 +603,22 @@ class _AssignedAssessmentScreenState
                 '$_currentTarget correct',
                 style: const TextStyle(
                   color: Colors.white,
-                  fontWeight:
-                      FontWeight.w700,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
               const Spacer(),
               AppText(
                 'Total reps: '
                 '$_currentTotalReps',
-                style: const TextStyle(
-                  color: Colors.white70,
-                ),
+                style: const TextStyle(color: Colors.white70),
               ),
             ],
           ),
           const SizedBox(height: 8),
           LinearProgressIndicator(
-            value:
-                _currentTarget <= 0
-                    ? 0
-                    : (_currentCorrectReps /
-                            _currentTarget)
-                        .clamp(
-                            0.0,
-                            1.0),
+            value: _currentTarget <= 0
+                ? 0
+                : (_currentCorrectReps / _currentTarget).clamp(0.0, 1.0),
           ),
         ],
       ),

@@ -6,6 +6,7 @@ import 'app_localizations.dart';
 const String kAssistedShoulderFlexion = 'assisted_shoulder_flexion';
 const String kShoulderRotation = 'shoulder_rotation';
 const String kAssistedElbowFlexion = 'assisted_elbow_flexion';
+const String kAssistedElbowFlexionV5 = 'assisted_elbow_flexion_v5';
 const String kElbowFlexionExtension = 'elbow_flexion_extension';
 
 /// Metadata for an exercise in the Haemophilia physiotherapy catalog.
@@ -31,7 +32,7 @@ class ExerciseMetadata {
   });
 }
 
-/// Catalog of all 4 supported exercises
+/// Catalog of supported exercises and model variants
 const List<ExerciseMetadata> kAllExercises = [
   ExerciseMetadata(
     id: kAssistedShoulderFlexion,
@@ -50,18 +51,18 @@ const List<ExerciseMetadata> kAllExercises = [
     targetJoint: 'Rotator Cuff',
     description: 'Bilateral internal and external rotation with elbows flexed 90° pinned to torso.',
     icon: Icons.rotate_right_rounded,
-    isWorkInProgress: true,
+    isWorkInProgress: false,
     statusLabel: 'Exercise demo available',
   ),
   ExerciseMetadata(
-    id: kAssistedElbowFlexion,
+    id: kAssistedElbowFlexionV5,
     displayName: 'Assisted Elbow Flexion',
     shortName: 'Assisted Elbow',
     targetJoint: 'Elbow Joint',
-    description: 'Supported elbow bending using contralateral hand guidance to protect recovering joints.',
+    description: 'Alternate left and right with opposite-hand support. Experimental model feedback.',
     icon: Icons.pan_tool_outlined,
     isWorkInProgress: false,
-    statusLabel: 'Clinically Validated',
+    statusLabel: 'Experimental model',
   ),
   ExerciseMetadata(
     id: kElbowFlexionExtension,
@@ -75,10 +76,16 @@ const List<ExerciseMetadata> kAllExercises = [
   ),
 ];
 
-/// Normalizes an exercise name or ID to one of the 4 canonical identifiers.
+/// Normalizes an exercise name or ID while preserving model variants.
 String normalizeExerciseId(String? exercise) {
-  if (exercise == null || exercise.trim().isEmpty) return kAssistedShoulderFlexion;
-  final normalized = exercise.trim().toLowerCase().replaceAll(' ', '_').replaceAll('-', '_');
+  if (exercise == null || exercise.trim().isEmpty) {
+    return kAssistedShoulderFlexion;
+  }
+  final normalized = exercise
+      .trim()
+      .toLowerCase()
+      .replaceAll(' ', '_')
+      .replaceAll('-', '_');
 
   if (normalized == 'assisted_shoulder_flexion' ||
       normalized == 'assisted_shoulder_flexion_with_bar' ||
@@ -87,14 +94,18 @@ String normalizeExerciseId(String? exercise) {
     return kAssistedShoulderFlexion;
   }
 
-  if (normalized == 'shoulder_rotation' ||
-      normalized.contains('rotation')) {
+  if (normalized == 'shoulder_rotation' || normalized.contains('rotation')) {
     return kShoulderRotation;
+  }
+
+  if (normalized == kAssistedElbowFlexionV5 ||
+      normalized == 'assisted_elbow_flexion_(updated_model)') {
+    return kAssistedElbowFlexionV5;
   }
 
   if (normalized == 'assisted_elbow_flexion' ||
       normalized.contains('assisted_elbow')) {
-    return kAssistedElbowFlexion;
+    return kAssistedElbowFlexionV5;
   }
 
   if (normalized == 'elbow_flexion' ||
@@ -106,20 +117,20 @@ String normalizeExerciseId(String? exercise) {
   return normalized;
 }
 
-/// Returns true if the exercise is Work In Progress (not yet fully production-ready / validated).
-/// Production-ready: Assisted Shoulder Flexion, Assisted Elbow Flexion, Elbow Flexion & Extension.
-/// Shoulder Rotation remains Work In Progress (to be provided later).
+/// Returns true if an exercise is an unlisted fallback without a demonstration.
 bool isWorkInProgressExercise(String? exerciseName) {
   if (exerciseName == null || exerciseName.trim().isEmpty) return false;
   final canonical = normalizeExerciseId(exerciseName);
 
   if (canonical == kAssistedShoulderFlexion ||
       canonical == kAssistedElbowFlexion ||
+      canonical == kAssistedElbowFlexionV5 ||
       canonical == kElbowFlexionExtension) {
     return false;
   }
 
-  // Work In Progress: Shoulder Rotation
+  if (canonical == kShoulderRotation) return false;
+
   return true;
 }
 
@@ -133,6 +144,8 @@ String getExerciseDisplayName(String? exercise) {
       return 'Assisted Shoulder Flexion with Bar';
     case kShoulderRotation:
       return 'Shoulder Rotation';
+    case kAssistedElbowFlexionV5:
+      return 'Assisted Elbow Flexion';
     case kAssistedElbowFlexion:
       return 'Assisted Elbow Flexion';
     case kElbowFlexionExtension:
@@ -150,6 +163,7 @@ IconData getExerciseIcon(String? exercise) {
       return Icons.accessibility_new_rounded;
     case kShoulderRotation:
       return Icons.rotate_right_rounded;
+    case kAssistedElbowFlexionV5:
     case kAssistedElbowFlexion:
       return Icons.pan_tool_outlined;
     case kElbowFlexionExtension:
@@ -160,10 +174,7 @@ IconData getExerciseIcon(String? exercise) {
 }
 
 /// Reusable preview badge widget.
-Widget buildWipBadge({
-  bool isDark = false,
-  bool compact = false,
-}) {
+Widget buildWipBadge({bool isDark = false, bool compact = false}) {
   final backgroundColor = isDark
       ? Colors.amber.withValues(alpha: 0.18)
       : const Color(0xFFFFF3E0); // Orange shade 50
@@ -173,9 +184,7 @@ Widget buildWipBadge({
   final textColor = isDark
       ? Colors.amberAccent
       : const Color(0xFFE65100); // Orange shade 900
-  final iconColor = isDark
-      ? Colors.amberAccent
-      : const Color(0xFFE65100);
+  final iconColor = isDark ? Colors.amberAccent : const Color(0xFFE65100);
 
   return Container(
     padding: EdgeInsets.symmetric(
@@ -185,10 +194,7 @@ Widget buildWipBadge({
     decoration: BoxDecoration(
       color: backgroundColor,
       borderRadius: BorderRadius.circular(6),
-      border: Border.all(
-        color: borderColor,
-        width: 1.0,
-      ),
+      border: Border.all(color: borderColor, width: 1.0),
     ),
     child: Row(
       mainAxisSize: MainAxisSize.min,

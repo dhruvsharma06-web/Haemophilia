@@ -1,12 +1,14 @@
+import '../../services/local_test_config.dart';
 import '../../widgets/app_text.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../assessment/live_assessment_screen.dart';
 import '../../utils/app_localizations.dart';
 import '../../utils/exercise_utils.dart';
 import '../../utils/schedule_utils.dart';
+import '../../services/due_session_service.dart';
 import '../../widgets/exercise_demo/exercise_demo_dialog.dart';
 
 class AssignedAssessmentScreen extends StatefulWidget {
@@ -17,13 +19,13 @@ class AssignedAssessmentScreen extends StatefulWidget {
       _AssignedAssessmentScreenState();
 }
 
-class _AssignedAssessmentScreenState
-    extends State<AssignedAssessmentScreen> {
+class _AssignedAssessmentScreenState extends State<AssignedAssessmentScreen> {
   bool _loading = true;
   String? _error;
   bool _isCompleted = false;
   bool _isNotAssigned = false;
   bool _isPaused = false;
+  String? _sourceAssignmentKey;
   String? _savedSessionId;
   int _savedExerciseIndex = 0;
   int _savedCorrectReps = 0;
@@ -61,13 +63,14 @@ class _AssignedAssessmentScreenState
 
   Future<void> _loadAssignment() async {
     try {
-      final user = FirebaseAuth.instance.currentUser;
+      final user = LocalTestConfig.auth.currentUser;
 
       if (user == null) {
         throw Exception('Patient is not logged in.');
       }
 
-      final doc = await FirebaseFirestore.instance
+      await DueSessionService().activate(user.uid);
+      final doc = await LocalTestConfig.database
           .collection('exerciseAssignments')
           .doc(user.uid)
           .get();
@@ -100,6 +103,7 @@ class _AssignedAssessmentScreenState
 
       // 2. Verify status is active 'assigned', 'paused', or 'in_progress'
       final status = data['status']?.toString().trim().toLowerCase() ?? '';
+      _sourceAssignmentKey = assignmentKey(data);
       if (!assignmentAvailable(data, DateTime.now())) {
         if (!mounted) return;
         setState(() {
@@ -115,8 +119,12 @@ class _AssignedAssessmentScreenState
 
       final isPaused = status == 'paused' || status == 'in_progress';
       final savedSessionId = isPaused ? data['sessionId']?.toString() : null;
-      final savedExerciseIndex = isPaused ? _toInt(data['currentExerciseIndex']) : 0;
-      final savedCorrectReps = isPaused ? _toInt(data['completedCorrectReps']) : 0;
+      final savedExerciseIndex = isPaused
+          ? _toInt(data['currentExerciseIndex'])
+          : 0;
+      final savedCorrectReps = isPaused
+          ? _toInt(data['completedCorrectReps'])
+          : 0;
       final savedTotalReps = isPaused ? _toInt(data['totalCompletedReps']) : 0;
       List<Map<String, dynamic>>? savedProg;
       final rawProg = data['exerciseProgress'];
@@ -210,7 +218,9 @@ class _AssignedAssessmentScreenState
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         content: Text(
-          tr('Are you sure you want to discard your progress? This session will be marked as discarded and cannot be resumed.'),
+          tr(
+            'Are you sure you want to discard your progress? This session will be marked as discarded and cannot be resumed.',
+          ),
           textAlign: TextAlign.center,
         ),
         actionsAlignment: MainAxisAlignment.center,
@@ -230,31 +240,31 @@ class _AssignedAssessmentScreenState
 
     if (confirmed != true || !mounted) return;
 
-    final user = FirebaseAuth.instance.currentUser;
+    final user = LocalTestConfig.auth.currentUser;
     if (user != null) {
-      await FirebaseFirestore.instance
+      await LocalTestConfig.database
           .collection('exerciseAssignments')
           .doc(user.uid)
           .set({
-        'status': 'discarded',
-        'discardedAt': FieldValue.serverTimestamp(),
-        'lastUpdatedAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+            'status': 'discarded',
+            'discardedAt': FieldValue.serverTimestamp(),
+            'lastUpdatedAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
 
       if (_savedSessionId != null && _savedSessionId!.isNotEmpty) {
-        await FirebaseFirestore.instance
+        await LocalTestConfig.database
             .collection('assessmentSessions')
             .doc(_savedSessionId)
             .set({
-          'sessionId': _savedSessionId,
-          'assignmentId': user.uid,
-          'patientId': user.uid,
-          'status': 'discarded',
-          'discardedAt': FieldValue.serverTimestamp(),
-          'lastUpdatedAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
+              'sessionId': _savedSessionId,
+              'assignmentId': user.uid,
+              'patientId': user.uid,
+              'status': 'discarded',
+              'discardedAt': FieldValue.serverTimestamp(),
+              'lastUpdatedAt': FieldValue.serverTimestamp(),
+              'updatedAt': FieldValue.serverTimestamp(),
+            }, SetOptions(merge: true));
       }
     }
 
@@ -266,19 +276,48 @@ class _AssignedAssessmentScreenState
     }
   }
 
-  void _startAssessment() {
+  Future<void> _startAssessment() async {
     if (_exercises.isEmpty) return;
 
-    final user = FirebaseAuth.instance.currentUser;
+    final user = LocalTestConfig.auth.currentUser;
+    if (user == null) return;
+    try {
+      final current =
+          (await LocalTestConfig.database
+                  .collection('exerciseAssignments')
+                  .doc(user.uid)
+                  .get())
+              .data();
+      if (current == null ||
+          !assignmentAvailable(current, DateTime.now()) ||
+          assignmentKey(current) != _sourceAssignmentKey) {
+        await _loadAssignment();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(tr('This session is no longer available.'))),
+          );
+        }
+        return;
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(tr('This session is no longer available.'))),
+        );
+      }
+      return;
+    }
+    if (!mounted) return;
     // VERY IMPORTANT: Only reuse _savedSessionId if session is genuinely paused/in_progress.
     // Starting a new assignment MUST ALWAYS generate a fresh unique sessionId.
-    final sessionId = (_isPaused && _savedSessionId != null && _savedSessionId!.isNotEmpty)
+    final sessionId =
+        (_isPaused && _savedSessionId != null && _savedSessionId!.isNotEmpty)
         ? _savedSessionId!
-        : (user != null
-            ? '${user.uid}_${DateTime.now().millisecondsSinceEpoch}'
-            : DateTime.now().microsecondsSinceEpoch.toString());
+        : '${user.uid}_${DateTime.now().millisecondsSinceEpoch}';
 
-    debugPrint('AssignedAssessment: launching session $sessionId (isPaused: $_isPaused, sessionName: $_sessionName)');
+    debugPrint(
+      'AssignedAssessment: launching session $sessionId (isPaused: $_isPaused, sessionName: $_sessionName)',
+    );
 
     final initialIndex = _isPaused
         ? _savedExerciseIndex.clamp(0, _exercises.length - 1)
@@ -287,7 +326,9 @@ class _AssignedAssessmentScreenState
 
     int currentExCorrect = 0;
     int currentExTotal = 0;
-    if (_isPaused && _savedExerciseProgress != null && initialIndex < _savedExerciseProgress!.length) {
+    if (_isPaused &&
+        _savedExerciseProgress != null &&
+        initialIndex < _savedExerciseProgress!.length) {
       final exProg = _savedExerciseProgress![initialIndex];
       currentExCorrect = _toInt(exProg['completedCorrectReps']);
       currentExTotal = _toInt(exProg['completedTotalReps']);
@@ -321,11 +362,7 @@ class _AssignedAssessmentScreenState
     final primary = Theme.of(context).colorScheme.primary;
 
     if (_loading) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     if (_isCompleted || _isNotAssigned) {
@@ -335,9 +372,7 @@ class _AssignedAssessmentScreenState
             tr('Assigned Assessment'),
             style: const TextStyle(fontWeight: FontWeight.w800),
           ),
-          actions: const [
-            LanguageToggleButton(),
-          ],
+          actions: const [LanguageToggleButton()],
         ),
         body: Center(
           child: Padding(
@@ -359,7 +394,9 @@ class _AssignedAssessmentScreenState
                         ? Icons.check_circle_outline_rounded
                         : Icons.assignment_late_outlined,
                     size: 38,
-                    color: _isCompleted ? Colors.green.shade600 : Colors.grey.shade600,
+                    color: _isCompleted
+                        ? Colors.green.shade600
+                        : Colors.grey.shade600,
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -373,7 +410,9 @@ class _AssignedAssessmentScreenState
                 const SizedBox(height: 8),
                 Text(
                   _isCompleted
-                      ? tr('Your doctor will assign your next session when you are ready.')
+                      ? tr(
+                          'Your doctor will assign your next session when you are ready.',
+                        )
                       : tr('No exercise session is currently assigned.'),
                   textAlign: TextAlign.center,
                   style: TextStyle(
@@ -402,9 +441,7 @@ class _AssignedAssessmentScreenState
             tr('Assigned Assessment'),
             style: const TextStyle(fontWeight: FontWeight.w800),
           ),
-          actions: const [
-            LanguageToggleButton(),
-          ],
+          actions: const [LanguageToggleButton()],
         ),
         body: Center(
           child: Padding(
@@ -421,10 +458,7 @@ class _AssignedAssessmentScreenState
                 Text(
                   _error!,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    height: 1.35,
-                  ),
+                  style: const TextStyle(fontSize: 16, height: 1.35),
                 ),
                 const SizedBox(height: 22),
                 FilledButton.icon(
@@ -451,9 +485,7 @@ class _AssignedAssessmentScreenState
           tr('Assigned Session'),
           style: const TextStyle(fontWeight: FontWeight.w800),
         ),
-        actions: const [
-          LanguageToggleButton(),
-        ],
+        actions: const [LanguageToggleButton()],
       ),
       body: SafeArea(
         child: Padding(
@@ -469,9 +501,7 @@ class _AssignedAssessmentScreenState
                 color: primary.withValues(alpha: 0.07),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
-                  side: BorderSide(
-                    color: primary.withValues(alpha: 0.15),
-                  ),
+                  side: BorderSide(color: primary.withValues(alpha: 0.15)),
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(18),
@@ -557,11 +587,10 @@ class _AssignedAssessmentScreenState
               ),
               const SizedBox(height: 4),
               Text(
-                tr('Complete each exercise in the assigned order. Only correct repetitions count.'),
-                style: TextStyle(
-                  color: Colors.grey.shade600,
-                  fontSize: 13,
+                tr(
+                  'Complete each exercise in the assigned order. Only correct repetitions count.',
                 ),
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
               ),
 
               const SizedBox(height: 14),
@@ -569,7 +598,8 @@ class _AssignedAssessmentScreenState
               Expanded(
                 child: ListView.separated(
                   itemCount: _exercises.length,
-                  separatorBuilder: (context, index) => const SizedBox(height: 10),
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(height: 10),
                   itemBuilder: (context, index) {
                     final exercise = _exercises[index];
                     final rawName = exercise['exercise'].toString();
@@ -593,17 +623,23 @@ class _AssignedAssessmentScreenState
                                 color: isDone
                                     ? Colors.green.withValues(alpha: 0.12)
                                     : (isCurrent
-                                        ? Colors.amber.withValues(alpha: 0.15)
-                                        : primary.withValues(alpha: 0.08)),
+                                          ? Colors.amber.withValues(alpha: 0.15)
+                                          : primary.withValues(alpha: 0.08)),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               alignment: Alignment.center,
                               child: isDone
-                                  ? const Icon(Icons.check, color: Colors.green, size: 22)
+                                  ? const Icon(
+                                      Icons.check,
+                                      color: Colors.green,
+                                      size: 22,
+                                    )
                                   : AppText(
                                       '${index + 1}',
                                       style: TextStyle(
-                                        color: isCurrent ? Colors.amber.shade900 : primary,
+                                        color: isCurrent
+                                            ? Colors.amber.shade900
+                                            : primary,
                                         fontSize: 17,
                                         fontWeight: FontWeight.w800,
                                       ),
@@ -614,7 +650,7 @@ class _AssignedAssessmentScreenState
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                   AppText(
+                                  AppText(
                                     '${tr('Exercise')} ${index + 1}',
                                     style: TextStyle(
                                       fontSize: 11,
@@ -661,15 +697,17 @@ class _AssignedAssessmentScreenState
                                           color: Colors.green,
                                         ),
                                         const SizedBox(width: 4),
-                                        Expanded(child: AppText(
-                                          '${tr('Completed')} ($target/$target ${tr('correct reps')})',
-                                          softWrap: true,
-                                          style: const TextStyle(
-                                            color: Colors.green,
-                                            fontSize: 11.5,
-                                            fontWeight: FontWeight.bold,
+                                        Expanded(
+                                          child: AppText(
+                                            '${tr('Completed')} ($target/$target ${tr('correct reps')})',
+                                            softWrap: true,
+                                            style: const TextStyle(
+                                              color: Colors.green,
+                                              fontSize: 11.5,
+                                              fontWeight: FontWeight.bold,
+                                            ),
                                           ),
-                                        )),
+                                        ),
                                       ],
                                     ),
                                   ] else if (isCurrent) ...[
@@ -682,15 +720,17 @@ class _AssignedAssessmentScreenState
                                           color: Colors.amber.shade800,
                                         ),
                                         const SizedBox(width: 4),
-                                        Expanded(child: AppText(
-                                          '${tr('In Progress')} • $_savedCorrectReps/$target ${tr('correct reps')}',
-                                          softWrap: true,
-                                          style: TextStyle(
-                                            color: Colors.amber.shade900,
-                                            fontSize: 11.5,
-                                            fontWeight: FontWeight.bold,
+                                        Expanded(
+                                          child: AppText(
+                                            '${tr('In Progress')} • $_savedCorrectReps/$target ${tr('correct reps')}',
+                                            softWrap: true,
+                                            style: TextStyle(
+                                              color: Colors.amber.shade900,
+                                              fontSize: 11.5,
+                                              fontWeight: FontWeight.bold,
+                                            ),
                                           ),
-                                        )),
+                                        ),
                                       ],
                                     ),
                                   ] else ...[
@@ -714,7 +754,9 @@ class _AssignedAssessmentScreenState
                                     },
                                     borderRadius: BorderRadius.circular(8),
                                     child: Padding(
-                                      padding: const EdgeInsets.symmetric(vertical: 2),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 2,
+                                      ),
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
@@ -740,7 +782,10 @@ class _AssignedAssessmentScreenState
                               ),
                             ),
                             IconButton(
-                              constraints: const BoxConstraints(minWidth: 36, minHeight: 40),
+                              constraints: const BoxConstraints(
+                                minWidth: 36,
+                                minHeight: 40,
+                              ),
                               padding: EdgeInsets.zero,
                               onPressed: () {
                                 showExerciseDemoDialog(
@@ -753,7 +798,9 @@ class _AssignedAssessmentScreenState
                                 _exerciseIcon(rawName),
                                 color: isDone
                                     ? Colors.green
-                                    : (isCurrent ? Colors.amber.shade800 : primary),
+                                    : (isCurrent
+                                          ? Colors.amber.shade800
+                                          : primary),
                                 size: 24,
                               ),
                             ),

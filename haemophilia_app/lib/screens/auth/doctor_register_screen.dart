@@ -1,5 +1,7 @@
 import '../../widgets/app_text.dart';
+import '../../utils/account_validation.dart';
 import '../../widgets/consent_form.dart';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -99,9 +101,7 @@ class _DoctorRegisterScreenState extends State<DoctorRegisterScreen> {
       SnackBar(
         behavior: SnackBarBehavior.floating,
         margin: const EdgeInsets.all(16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         content: Text(message),
       ),
     );
@@ -115,20 +115,20 @@ class _DoctorRegisterScreenState extends State<DoctorRegisterScreen> {
         return false;
       }
       final email = _emailController.text.trim();
-      if (email.isEmpty || !email.contains('@')) {
+      if (!validEmail(email)) {
         _showError(tr('Please enter a valid email address.'));
         return false;
       }
-      if (_mobileController.text.trim().isEmpty) {
-        _showError(tr('Please enter your mobile phone number.'));
+      if (mobileValidation(_mobileController.text) != null) {
+        _showError(tr(mobileValidation(_mobileController.text)!));
         return false;
       }
       if (_cityController.text.trim().isEmpty) {
         _showError(tr('Please enter your city.'));
         return false;
       }
-      if (_passwordController.text.length < 6) {
-        _showError(tr('Password must contain at least 6 characters.'));
+      if (passwordValidation(_passwordController.text) != null) {
+        _showError(tr(passwordValidation(_passwordController.text)!));
         return false;
       }
       if (_passwordController.text != _confirmPasswordController.text) {
@@ -143,29 +143,43 @@ class _DoctorRegisterScreenState extends State<DoctorRegisterScreen> {
         return false;
       }
       if (_councilController.text.trim().isEmpty) {
-        _showError(tr('Please specify your medical council or regulatory authority.'));
+        _showError(
+          tr('Please specify your medical council or regulatory authority.'),
+        );
         return false;
       }
       if (_qualificationController.text.trim().isEmpty) {
-        _showError(tr('Please enter your medical qualification (e.g. BPT, MPT).'));
+        _showError(
+          tr('Please enter your medical qualification (e.g. BPT, MPT).'),
+        );
         return false;
       }
       if (_hospitalController.text.trim().isEmpty) {
-        _showError(tr('Please enter your hospital or affiliated organization.'));
+        _showError(
+          tr('Please enter your hospital or affiliated organization.'),
+        );
         return false;
       }
       return true;
     } else if (step == 2) {
       // Documents - require at least one or prompt notice
       if (_registrationCertFile == null && _professionalIdFile == null) {
-        _showError(tr('Please attach your medical registration certificate or ID document.'));
+        _showError(
+          tr(
+            'Please attach your medical registration certificate or ID document.',
+          ),
+        );
         return false;
       }
       return true;
     } else if (step == 3) {
       // Declaration
       if (!_declarationChecked) {
-        _showError(tr('Please accept the declaration before submitting your registration.'));
+        _showError(
+          tr(
+            'Please accept the declaration before submitting your registration.',
+          ),
+        );
         return false;
       }
       return true;
@@ -192,7 +206,10 @@ class _DoctorRegisterScreenState extends State<DoctorRegisterScreen> {
   Future<void> _submit() async {
     if (!_validateStep(3)) return;
 
-    final researchConsent = await requestRegistrationConsent(context, patient: false);
+    final researchConsent = await requestRegistrationConsent(
+      context,
+      patient: false,
+    );
     if (researchConsent == null || !mounted) return;
     setState(() => _loading = true);
 
@@ -248,10 +265,7 @@ class _DoctorRegisterScreenState extends State<DoctorRegisterScreen> {
           tr('Doctor Registration'),
           style: const TextStyle(fontWeight: FontWeight.w800),
         ),
-        actions: const [
-          LanguageToggleButton(),
-          SizedBox(width: 8),
-        ],
+        actions: const [LanguageToggleButton(), SizedBox(width: 8)],
       ),
       body: SafeArea(
         child: Center(
@@ -381,8 +395,9 @@ class _DoctorRegisterScreenState extends State<DoctorRegisterScreen> {
                         ),
                       ),
                       TextButton(
-                        onPressed:
-                            _loading ? null : () => Navigator.pop(context),
+                        onPressed: _loading
+                            ? null
+                            : () => Navigator.pop(context),
                         child: Text(tr('Sign In')),
                       ),
                     ],
@@ -428,7 +443,9 @@ class _DoctorRegisterScreenState extends State<DoctorRegisterScreen> {
                         decoration: BoxDecoration(
                           color: isCurrent
                               ? primary
-                              : (isPast ? Colors.green.shade600 : Colors.grey.shade300),
+                              : (isPast
+                                    ? Colors.green.shade600
+                                    : Colors.grey.shade300),
                           shape: BoxShape.circle,
                         ),
                         child: Center(
@@ -457,8 +474,9 @@ class _DoctorRegisterScreenState extends State<DoctorRegisterScreen> {
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 10.5,
-                          fontWeight:
-                              isCurrent ? FontWeight.w800 : FontWeight.w600,
+                          fontWeight: isCurrent
+                              ? FontWeight.w800
+                              : FontWeight.w600,
                           color: isCurrent ? primary : Colors.grey.shade600,
                         ),
                       ),
@@ -763,7 +781,9 @@ class _DoctorRegisterScreenState extends State<DoctorRegisterScreen> {
         ),
         const SizedBox(height: 4),
         Text(
-          tr('Upload clear scans or photos of your credentials (PDF, JPG, PNG). Max 10MB.'),
+          tr(
+            'Upload clear scans or photos of your credentials (PDF, JPG, PNG). Max 10MB.',
+          ),
           style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600),
         ),
         const SizedBox(height: 18),
@@ -916,7 +936,9 @@ class _DoctorRegisterScreenState extends State<DoctorRegisterScreen> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  tr('All doctor and physiotherapist accounts require credential verification by an administrator before clinical dashboard access is granted. You will be notified once your registration is approved.'),
+                  tr(
+                    'All doctor and physiotherapist accounts require credential verification by an administrator before clinical dashboard access is granted. You will be notified once your registration is approved.',
+                  ),
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.blue.shade900,
@@ -946,9 +968,15 @@ class _DoctorRegisterScreenState extends State<DoctorRegisterScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              _summaryRow(tr('Name:'), 'Dr. ${_fullNameController.text.trim()}'),
+              _summaryRow(
+                tr('Name:'),
+                'Dr. ${_fullNameController.text.trim()}',
+              ),
               _summaryRow(tr('Email:'), _emailController.text.trim()),
-              _summaryRow(tr('Registration No:'), _regNumberController.text.trim()),
+              _summaryRow(
+                tr('Registration No:'),
+                _regNumberController.text.trim(),
+              ),
               _summaryRow(tr('Council:'), _councilController.text.trim()),
               _summaryRow(tr('Hospital:'), _hospitalController.text.trim()),
               _summaryRow(
@@ -961,11 +989,14 @@ class _DoctorRegisterScreenState extends State<DoctorRegisterScreen> {
         const SizedBox(height: 14),
         CheckboxListTile(
           value: _declarationChecked,
-          onChanged: (val) => setState(() => _declarationChecked = val ?? false),
+          onChanged: (val) =>
+              setState(() => _declarationChecked = val ?? false),
           contentPadding: EdgeInsets.zero,
           controlAffinity: ListTileControlAffinity.leading,
           title: Text(
-            tr('I hereby declare that all information and uploaded documents provided are authentic, accurate, and valid under medical regulatory authority guidelines.'),
+            tr(
+              'I hereby declare that all information and uploaded documents provided are authentic, accurate, and valid under medical regulatory authority guidelines.',
+            ),
             style: const TextStyle(fontSize: 12, height: 1.35),
           ),
         ),
@@ -995,10 +1026,7 @@ class _DoctorRegisterScreenState extends State<DoctorRegisterScreen> {
             flex: 3,
             child: Text(
               value.isEmpty ? 'â€”' : value,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-              ),
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
             ),
           ),
         ],

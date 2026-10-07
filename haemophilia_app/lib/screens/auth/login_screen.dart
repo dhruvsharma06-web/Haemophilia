@@ -1,4 +1,5 @@
 import '../../widgets/app_text.dart';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -46,10 +47,7 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _loading = true);
 
     try {
-      await _authService.login(
-        email: email,
-        password: password,
-      );
+      await _authService.login(email: email, password: password);
 
       if (!mounted) return;
 
@@ -59,9 +57,7 @@ class _LoginScreenState extends State<LoginScreen> {
     } on FirebaseAuthException catch (e) {
       _showError(_firebaseAuthError(e));
     } catch (e) {
-      _showError(
-        e.toString().replaceFirst('Exception: ', ''),
-      );
+      _showError(e.toString().replaceFirst('Exception: ', ''));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -114,13 +110,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    tr('Enter your registered email address to receive password reset instructions.'),
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: emailController,
@@ -169,7 +158,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                 SnackBar(
                                   behavior: SnackBarBehavior.floating,
                                   content: Text(
-                                    tr('Password reset link sent to your email.'),
+                                    tr(
+                                      'Password reset link sent to your email.',
+                                    ),
                                   ),
                                 ),
                               );
@@ -234,9 +225,7 @@ class _LoginScreenState extends State<LoginScreen> {
       SnackBar(
         behavior: SnackBarBehavior.floating,
         margin: const EdgeInsets.all(16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         content: Text(message),
       ),
     );
@@ -252,10 +241,7 @@ class _LoginScreenState extends State<LoginScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        actions: const [
-          LanguageToggleButton(),
-          SizedBox(width: 8),
-        ],
+        actions: const [LanguageToggleButton(), SizedBox(width: 8)],
       ),
       body: SafeArea(
         top: false,
@@ -285,16 +271,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    tr('Smart Physiotherapy Assistant'),
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.grey.shade600,
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
                   Card(
                     elevation: 0,
                     shape: RoundedRectangleBorder(
@@ -313,16 +289,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               fontWeight: FontWeight.w800,
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            tr('Sign in to continue your physiotherapy journey and track rehabilitation.'),
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontSize: 13,
-                              height: 1.35,
-                            ),
-                          ),
-                          const SizedBox(height: 22),
+                          const SizedBox(height: 18),
                           TextField(
                             controller: _emailController,
                             keyboardType: TextInputType.emailAddress,
@@ -429,8 +396,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           const SizedBox(height: 14),
                           OutlinedButton.icon(
-                            onPressed:
-                                _googleLoading ? null : _continueWithGoogle,
+                            onPressed: _googleLoading
+                                ? null
+                                : _continueWithGoogle,
                             icon: _googleLoading
                                 ? const SizedBox(
                                     width: 18,
@@ -456,13 +424,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             alignment: WrapAlignment.center,
                             crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
-                              Text(
-                                tr("Don't have an account?"),
-                                style: TextStyle(
-                                  color: Colors.grey.shade700,
-                                  fontSize: 13,
-                                ),
-                              ),
                               TextButton(
                                 onPressed: _loading
                                     ? null
@@ -515,22 +476,13 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                tr('Are you a Doctor / Physiotherapist?'),
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.grey.shade800,
-                                ),
-                              ),
                               const SizedBox(height: 1),
                               InkWell(
                                 onTap: () {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (_) =>
-                                          const DoctorLoginScreen(),
+                                      builder: (_) => const DoctorLoginScreen(),
                                     ),
                                   );
                                 },

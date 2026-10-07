@@ -1,4 +1,5 @@
 import json
+import time
 
 import cv2
 import mediapipe as mp
@@ -10,8 +11,8 @@ from backend.app.services.model_registry import model_registry
 from src.exercises.assisted_shoulder_flexion import (
     AssistedShoulderFlexionAssessment,
 )
-from src.exercises.assisted_elbow_flexion import (
-    AssistedElbowFlexionAssessment,
+from src.exercises.assisted_elbow_v2_assessment import (
+    AssistedElbowV2Assessment,
 )
 from src.exercises.elbow_flexion_assessment import (
     ElbowFlexionAssessment,
@@ -51,77 +52,7 @@ def make_json_safe(value):
     return value
 
 
-def _create_assessment(exercise: str):
-    exercise_normalized = (
-        (exercise or "")
-        .strip()
-        .lower()
-        .replace("-", "_")
-        .replace(" ", "_")
-    )
-
-    if (
-        "assisted_elbow" in exercise_normalized
-        or exercise_normalized in {
-            "assisted_elbow_flexion",
-            "assisted_elbow",
-        }
-    ):
-        model, device = model_registry.get_assisted_elbow_flexion()
-        return AssistedElbowFlexionAssessment(
-            model=model,
-            device=device,
-            fps=20.0,
-            data_dir="data",
-            save_artifacts=True,
-        )
-
-    if (
-        "elbow" in exercise_normalized
-        or exercise_normalized in {
-            "elbow_flexion",
-            "elbow_flexion_extension",
-            "elbow_flexion_and_extension",
-        }
-    ):
-        model, device = model_registry.get_elbow_flexion_extension()
-        return ElbowFlexionAssessment(
-            model=model,
-            device=device,
-            fps=20.0,
-            data_dir="data",
-            save_artifacts=True,
-        )
-
-    if (
-        "rotation" in exercise_normalized
-        or exercise_normalized in {
-            "shoulder_rotation",
-        }
-    ):
-        model, device = (
-            model_registry.get_shoulder_rotation()
-        )
-
-        return ShoulderRotationAssessment(
-            model=model,
-            device=device,
-            fps=20.0,
-            data_dir="data",
-            save_artifacts=True,
-        )
-
-    model, device = (
-        model_registry.get_assisted_flexion()
-    )
-
-    return AssistedShoulderFlexionAssessment(
-        model=model,
-        device=device,
-        fps=20.0,
-        data_dir="data",
-        save_artifacts=True,
-    )
+from backend.app.services.exercise_factory import create_assessment as _create_assessment
 
 
 @router.websocket("/live")
@@ -141,7 +72,9 @@ async def live_assessment(
     )
 
     try:
-        assessment = _create_assessment(exercise)
+        save_artifacts = websocket.query_params.get('practice', 'false').lower() != 'true'
+        assessment = _create_assessment(exercise, save_artifacts=save_artifacts,
+            starting_hand="Right" if websocket.query_params.get("starting_hand") == "Right" else "Left")
 
         with mp_pose.Pose(
             static_image_mode=False,
@@ -152,6 +85,7 @@ async def live_assessment(
         ) as pose:
 
             frame_number = 0
+            last_error_frame = None
 
             while True:
                 message = (
@@ -203,12 +137,14 @@ async def live_assessment(
 
                         assessment = (
                             _create_assessment(
-                                next_exercise
+                                next_exercise, save_artifacts=save_artifacts,
+                                starting_hand="Right" if control.get("starting_hand") == "Right" else "Left"
                             )
                         )
 
                         exercise = next_exercise
                         frame_number = 0
+                        last_error_frame = None
 
                         await websocket.send_json({
                             "type":
@@ -266,19 +202,25 @@ async def live_assessment(
                     rgb_frame
                 )
 
-                completed_rep = (
-                    assessment.process_frame(
-                        frame,
-                        results.pose_landmarks,
-                        frame_number=frame_number,
-                    )
-                )
+                extra = {}
+                if getattr(assessment, 'uses_world_landmarks', False):
+                    extra = {'world_landmarks': results.pose_world_landmarks,
+                             'timestamp_sec': time.monotonic()}
+                elif getattr(assessment, 'uses_timestamps', False):
+                    extra = {'timestamp_sec': time.monotonic()}
+                completed_rep = assessment.process_frame(
+                    frame, results.pose_landmarks, frame_number=frame_number, **extra)
 
                 live_state = (
                     assessment.get_live_state(
                         results.pose_landmarks
                     )
                 )
+
+                error_frame = live_state.pop('error_frame_path', None)
+                if error_frame and error_frame != last_error_frame:
+                    live_state['error_frame_path'] = error_frame
+                    last_error_frame = error_frame
 
                 response = {
                     "type": "live_state",

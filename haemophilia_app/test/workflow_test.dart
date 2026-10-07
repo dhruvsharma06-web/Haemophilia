@@ -83,7 +83,7 @@ void main() {
       throwsArgumentError,
     );
   });
-  test('sessions appear only when due, but paused sessions remain resumable after expiry', () {
+  test('sessions appear only when due; pausing never extends expiry', () {
     final now = DateTime(2026, 10, 2, 12);
     final data = {
       'status': 'assigned',
@@ -96,36 +96,37 @@ void main() {
     data['expiresAt'] = Timestamp.fromDate(now);
     expect(assignmentAvailable(data, now), false);
     data['status'] = 'paused';
-    expect(assignmentAvailable(data, now), true);
+    expect(assignmentAvailable(data, now), false);
   });
-  testWidgets('terms required; research remains optional and camera consent is separate', (
-    tester,
-  ) async {
-    bool? accepted;
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: SingleChildScrollView(
-            child: ConsentForm(
-              onAccept: (research) async {
-                accepted = research;
-              },
+  testWidgets(
+    'terms required; research remains optional and camera consent is separate',
+    (tester) async {
+      bool? accepted;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: ConsentForm(
+                onAccept: (research) async {
+                  accepted = research;
+                },
+              ),
             ),
           ),
         ),
-      ),
-    );
-    expect(
-      tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
-      isNull,
-    );
-    await tester.tap(find.byType(CheckboxListTile).at(0));
-    await tester.pump();
-    await tester.ensureVisible(find.byType(FilledButton));
-    await tester.tap(find.byType(FilledButton));
-    await tester.pump();
-    expect(accepted, false);
-  });
+      );
+      expect(
+        tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
+        isNull,
+      );
+      await tester.tap(find.byType(CheckboxListTile).at(0));
+      await tester.pump();
+      await tester.ensureVisible(find.byType(FilledButton));
+      await tester.tap(find.byType(FilledButton));
+      await tester.pump();
+      expect(accepted, false);
+    },
+  );
   testWidgets(
     'recording is blocked until both safety confirmations are checked',
     (tester) async {
@@ -183,7 +184,7 @@ void main() {
     expect(find.text('शुरू करने से पहले'), findsOneWidget);
   });
   testWidgets(
-    'report shows cumulative totals and readable date in both languages',
+    'report list card shows readable date and opens the report in both languages',
     (tester) async {
       final data = {
         'sessionName': 'Morning session',
@@ -196,21 +197,28 @@ void main() {
           'averageRangeOfMotion': 95,
         },
       };
+      var opened = 0;
       await tester.pumpWidget(
         MaterialApp(
-          home: Scaffold(body: SessionReportCard(data: data)),
+          home: Scaffold(
+            body: SessionReportCard(data: data, onTap: () => opened++),
+          ),
         ),
       );
       expect(find.textContaining('02/10/2026'), findsOneWidget);
-      expect(find.text('Completed Reps: 7'), findsOneWidget);
+      await tester.tap(find.text('Morning session'));
+      expect(opened, 1);
       AppLocaleService.currentLocale.value = 'hi';
       await tester.pumpWidget(
         MaterialApp(
-          home: Scaffold(body: SessionReportCard(data: data)),
+          home: Scaffold(
+            body: SessionReportCard(data: data, onTap: () => opened++),
+          ),
         ),
       );
-      expect(find.textContaining('80'), findsOneWidget);
-      expect(find.textContaining('95°'), findsOneWidget);
+      expect(find.textContaining('02/10/2026'), findsOneWidget);
+      await tester.tap(find.text('Morning session'));
+      expect(opened, 2);
     },
   );
 }

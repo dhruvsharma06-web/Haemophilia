@@ -2,7 +2,7 @@
 class BackendConfig {
   static const String baseUrl = String.fromEnvironment(
     'BACKEND_URL',
-    defaultValue: 'https://headers-auditor-plc-eternal.trycloudflare.com',
+    defaultValue: 'http://34.173.173.123:8000',
   );
 
   static Uri endpoint(String path) =>

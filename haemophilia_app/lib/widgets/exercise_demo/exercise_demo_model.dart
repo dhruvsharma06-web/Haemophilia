@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../utils/exercise_utils.dart';
 import 'shoulder_flexion_painter.dart';
 import 'shoulder_rotation_painter.dart';
@@ -75,6 +76,7 @@ class ExerciseDemoRegistry {
       case kShoulderRotation:
         return _shoulderRotationConfig;
 
+      case kAssistedElbowFlexionV5:
       case kAssistedElbowFlexion:
         return _assistedElbowFlexionConfig;
 
@@ -92,60 +94,55 @@ class ExerciseDemoRegistry {
 
   static final ExerciseDemoConfig _assistedShoulderFlexionConfig =
       ExerciseDemoConfig(
-    exerciseId: kAssistedShoulderFlexion,
-    displayName: 'Assisted Shoulder Flexion with Bar',
-    isWorkInProgress: false,
-    phases: const [
-      ExercisePhase(
-        phaseNumber: 1,
-        title: 'Starting Position',
-        description:
-            'Hold the bar horizontally with both hands at thigh level. Keep your back straight, chest open, and shoulders relaxed.',
-        startProgress: 0.0,
-        endProgress: 0.15,
-      ),
-      ExercisePhase(
-        phaseNumber: 2,
-        title: 'Upward Movement',
-        description:
-            'Slowly raise both arms forward and upward together. Keep elbows straight and use the unaffected arm to guide the movement.',
-        startProgress: 0.15,
-        endProgress: 0.50,
-      ),
-      ExercisePhase(
-        phaseNumber: 3,
-        title: 'Overhead Position',
-        description:
-            'Hold briefly at the comfortable top position. Maintain an upright posture and avoid arching your lower back.',
-        startProgress: 0.50,
-        endProgress: 0.60,
-      ),
-      ExercisePhase(
-        phaseNumber: 4,
-        title: 'Downward Movement',
-        description:
-            'Lower the bar smoothly along the same arc with steady control. Do not let the arms drop suddenly.',
-        startProgress: 0.60,
-        endProgress: 0.95,
-      ),
-      ExercisePhase(
-        phaseNumber: 5,
-        title: 'Return to Start',
-        description:
-            'Pause momentarily in the starting position before beginning the next repetition.',
-        startProgress: 0.95,
-        endProgress: 1.0,
-      ),
-    ],
-    keyTips: const [
-      'Keep both hands evenly spaced on the bar.',
-      'Maintain steady breathing — inhale on lift, exhale on lower.',
-      'Do not lean back or shrug your shoulders.',
-      'Stop if you experience sharp joint pain.',
-    ],
-    painterBuilder: (progress, {bool isDark = true}) =>
-        ShoulderFlexionPainter(progress: progress, isDark: isDark),
-  );
+        exerciseId: kAssistedShoulderFlexion,
+        displayName: 'Assisted Shoulder Flexion with Bar',
+        isWorkInProgress: false,
+        phases: const [
+          ExercisePhase(
+            phaseNumber: 1,
+            title: 'Starting Position',
+            description: 'Hold the bar horizontally with both hands at thigh level. Keep your back straight, chest open, and shoulders relaxed.',
+            startProgress: 0.0,
+            endProgress: 0.15,
+          ),
+          ExercisePhase(
+            phaseNumber: 2,
+            title: 'Upward Movement',
+            description: 'Slowly raise both arms forward and upward together. Keep elbows straight and use the unaffected arm to guide the movement.',
+            startProgress: 0.15,
+            endProgress: 0.50,
+          ),
+          ExercisePhase(
+            phaseNumber: 3,
+            title: 'Overhead Position',
+            description: 'Hold briefly at the comfortable top position. Maintain an upright posture and avoid arching your lower back.',
+            startProgress: 0.50,
+            endProgress: 0.60,
+          ),
+          ExercisePhase(
+            phaseNumber: 4,
+            title: 'Downward Movement',
+            description: 'Lower the bar smoothly along the same arc with steady control. Do not let the arms drop suddenly.',
+            startProgress: 0.60,
+            endProgress: 0.95,
+          ),
+          ExercisePhase(
+            phaseNumber: 5,
+            title: 'Return to Start',
+            description: 'Pause momentarily in the starting position before beginning the next repetition.',
+            startProgress: 0.95,
+            endProgress: 1.0,
+          ),
+        ],
+        keyTips: const [
+          'Keep both hands evenly spaced on the bar.',
+          'Maintain steady breathing — inhale on lift, exhale on lower.',
+          'Do not lean back or shrug your shoulders.',
+          'Stop if you experience sharp joint pain.',
+        ],
+        painterBuilder: (progress, {bool isDark = true}) =>
+            ShoulderFlexionPainter(progress: progress, isDark: isDark),
+      );
 
   // ============================================================
   // 2. SHOULDER ROTATION (WORK IN PROGRESS)
@@ -154,45 +151,40 @@ class ExerciseDemoRegistry {
   static final ExerciseDemoConfig _shoulderRotationConfig = ExerciseDemoConfig(
     exerciseId: kShoulderRotation,
     displayName: 'Shoulder Rotation',
-    isWorkInProgress: true,
+    isWorkInProgress: false,
     phases: const [
       ExercisePhase(
         phaseNumber: 1,
         title: 'Starting Position',
-        description:
-            'Stand upright facing forward with elbows bent at 90° tucked closely against your torso, forearms pointing straight forward.',
+        description: 'Stand upright facing forward with elbows bent at 90° tucked closely against your torso, forearms pointing straight forward.',
         startProgress: 0.0,
         endProgress: 0.20,
       ),
       ExercisePhase(
         phaseNumber: 2,
         title: 'Outward Rotation',
-        description:
-            'Slowly rotate both forearms outward away from the midline while keeping elbows pinned firmly against your sides.',
+        description: 'Slowly rotate both forearms outward away from the midline while keeping elbows pinned firmly against your sides.',
         startProgress: 0.20,
         endProgress: 0.50,
       ),
       ExercisePhase(
         phaseNumber: 3,
         title: 'Peak External Rotation',
-        description:
-            'Hold momentarily at your comfortable, pain-free outward rotation limit without twisting your torso.',
+        description: 'Hold momentarily at your comfortable, pain-free outward rotation limit without twisting your torso.',
         startProgress: 0.50,
         endProgress: 0.60,
       ),
       ExercisePhase(
         phaseNumber: 4,
         title: 'Inward Return',
-        description:
-            'Smoothly rotate forearms back toward the center with steady, controlled motion.',
+        description: 'Smoothly rotate forearms back toward the center with steady, controlled motion.',
         startProgress: 0.60,
         endProgress: 0.95,
       ),
       ExercisePhase(
         phaseNumber: 5,
         title: 'Return to Start',
-        description:
-            'Pause momentarily in the neutral starting position before beginning the next repetition.',
+        description: 'Pause momentarily in the neutral starting position before beginning the next repetition.',
         startProgress: 0.95,
         endProgress: 1.0,
       ),
@@ -213,60 +205,55 @@ class ExerciseDemoRegistry {
 
   static final ExerciseDemoConfig _assistedElbowFlexionConfig =
       ExerciseDemoConfig(
-    exerciseId: kAssistedElbowFlexion,
-    displayName: 'Assisted Elbow Flexion',
-    isWorkInProgress: false,
-    phases: const [
-      ExercisePhase(
-        phaseNumber: 1,
-        title: 'Starting Position',
-        description:
-            'Keep active arm relaxed at your side with the opposite hand gently supporting under the wrist or forearm.',
-        startProgress: 0.0,
-        endProgress: 0.20,
-      ),
-      ExercisePhase(
-        phaseNumber: 2,
-        title: 'Assisted Bending',
-        description:
-            'Use your supporting hand to guide and gently assist bending the recovering elbow upward.',
-        startProgress: 0.20,
-        endProgress: 0.50,
-      ),
-      ExercisePhase(
-        phaseNumber: 3,
-        title: 'Peak Flexion',
-        description:
-            'Pause briefly at the top position where the hand approaches shoulder height without strain.',
-        startProgress: 0.50,
-        endProgress: 0.60,
-      ),
-      ExercisePhase(
-        phaseNumber: 4,
-        title: 'Controlled Lowering',
-        description:
-            'Carefully lower the forearm back down with the supporting hand guiding the descent smoothly.',
-        startProgress: 0.60,
-        endProgress: 0.95,
-      ),
-      ExercisePhase(
-        phaseNumber: 5,
-        title: 'Return to Start',
-        description:
-            'Fully relax at the starting extension before beginning the next repetition.',
-        startProgress: 0.95,
-        endProgress: 1.0,
-      ),
-    ],
-    keyTips: const [
-      'Use your opposite hand to take weight off the recovering joint.',
-      'Keep the upper arm still and avoid swinging your elbow forward.',
-      'Move slowly and stop immediately if sharp discomfort occurs.',
-      'Follow your clinician’s guidance on repetition targets and pacing.',
-    ],
-    painterBuilder: (progress, {bool isDark = true}) =>
-        AssistedElbowFlexionPainter(progress: progress, isDark: isDark),
-  );
+        exerciseId: kAssistedElbowFlexion,
+        displayName: 'Assisted Elbow Flexion',
+        isWorkInProgress: false,
+        phases: const [
+          ExercisePhase(
+            phaseNumber: 1,
+            title: 'Starting Position',
+            description: 'Keep active arm relaxed at your side with the opposite hand gently supporting under the wrist or forearm.',
+            startProgress: 0.0,
+            endProgress: 0.20,
+          ),
+          ExercisePhase(
+            phaseNumber: 2,
+            title: 'Assisted Bending',
+            description: 'Use your supporting hand to guide and gently assist bending the recovering elbow upward.',
+            startProgress: 0.20,
+            endProgress: 0.50,
+          ),
+          ExercisePhase(
+            phaseNumber: 3,
+            title: 'Peak Flexion',
+            description: 'Pause briefly at the top position where the hand approaches shoulder height without strain.',
+            startProgress: 0.50,
+            endProgress: 0.60,
+          ),
+          ExercisePhase(
+            phaseNumber: 4,
+            title: 'Controlled Lowering',
+            description: 'Carefully lower the forearm back down with the supporting hand guiding the descent smoothly.',
+            startProgress: 0.60,
+            endProgress: 0.95,
+          ),
+          ExercisePhase(
+            phaseNumber: 5,
+            title: 'Return to Start',
+            description: 'Fully relax at the starting extension before beginning the next repetition.',
+            startProgress: 0.95,
+            endProgress: 1.0,
+          ),
+        ],
+        keyTips: const [
+          'Use your opposite hand to take weight off the recovering joint.',
+          'Keep the upper arm still and avoid swinging your elbow forward.',
+          'Move slowly and stop immediately if sharp discomfort occurs.',
+          'Follow your clinician’s guidance on repetition targets and pacing.',
+        ],
+        painterBuilder: (progress, {bool isDark = true}) =>
+            AssistedElbowFlexionPainter(progress: progress, isDark: isDark),
+      );
 
   // ============================================================
   // 4. ELBOW FLEXION & EXTENSION (CLINICALLY VALIDATED)
@@ -288,8 +275,7 @@ class ExerciseDemoRegistry {
       ExercisePhase(
         phaseNumber: 2,
         title: 'Bending (Flexion)',
-        description:
-            'Smoothly bend the elbow upward, keeping upper arm still against torso.',
+        description: 'Smoothly bend the elbow upward, keeping upper arm still against torso.',
         startProgress: 0.20,
         endProgress: 0.50,
       ),
@@ -349,16 +335,14 @@ class ExerciseDemoRegistry {
         ExercisePhase(
           phaseNumber: 2,
           title: 'Exercise Movement',
-          description:
-              'Perform the prescribed movement smoothly through your safe range of motion.',
+          description: 'Perform the prescribed movement smoothly through your safe range of motion.',
           startProgress: 0.25,
           endProgress: 0.75,
         ),
         ExercisePhase(
           phaseNumber: 3,
           title: 'Return to Rest',
-          description:
-              'Return with control to starting position and prepare for next rep.',
+          description: 'Return with control to starting position and prepare for next rep.',
           startProgress: 0.75,
           endProgress: 1.0,
         ),

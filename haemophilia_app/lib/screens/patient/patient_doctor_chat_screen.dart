@@ -1,11 +1,12 @@
+import '../../services/local_test_config.dart';
 import '../../utils/firebase_errors.dart';
 import '../../widgets/app_text.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/user_model.dart';
 import '../../services/clinical_data_service.dart';
-import '../../services/notification_service.dart';
 import '../../utils/app_localizations.dart';
 import 'patient_history.dart';
 
@@ -42,16 +43,20 @@ class _PatientDoctorChatScreenState extends State<PatientDoctorChatScreen> {
   }
 
   Future<void> _initConversation() async {
-    // 1. Migrate any legacy unthreaded messages for this pair
-    await _service.migrateLegacyMessagesIfAny(
-      widget.patient.uid,
-      widget.doctorId,
-    );
-    // 2. Mark unread messages as read by patient
-    await _service.markConversationAsRead(
-      conversationId: _conversationId,
-      userRole: 'patient',
-    );
+    try {
+      // 1. Migrate any legacy unthreaded messages for this pair
+      await _service.migrateLegacyMessagesIfAny(
+        widget.patient.uid,
+        widget.doctorId,
+      );
+      // 2. Mark unread messages as read by patient
+      await _service.markConversationAsRead(
+        conversationId: _conversationId,
+        userRole: 'patient',
+      );
+    } catch (e) {
+      debugPrint('Chat initialization: $e');
+    }
   }
 
   @override
@@ -77,25 +82,17 @@ class _PatientDoctorChatScreenState extends State<PatientDoctorChatScreen> {
         doctorName: widget.doctorName,
       );
       _controller.clear();
-
-      // Dispatch 1:1 notification strictly to this doctor
-      final preview =
-          text.length > 60 ? '${text.substring(0, 57)}...' : text;
-      await NotificationService().sendNotification(
-        targetUserId: widget.doctorId,
-        title: 'New message from ${widget.patient.name}',
-        body: preview,
-        data: {
-          'type': 'new_message',
-          'patientId': widget.patient.uid,
-          'doctorId': widget.doctorId,
-          'conversationId': _conversationId,
-        },
-      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(firebaseErrorMessage(e, fallback: 'Could not send message. Please try again.'))),
+        SnackBar(
+          content: Text(
+            firebaseErrorMessage(
+              e,
+              fallback: 'Could not send message. Please try again.',
+            ),
+          ),
+        ),
       );
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -124,10 +121,7 @@ class _PatientDoctorChatScreenState extends State<PatientDoctorChatScreen> {
               widget.doctorName.startsWith('Dr.')
                   ? widget.doctorName
                   : 'Dr. ${widget.doctorName}',
-              style: const TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 16,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
             ),
             Text(
               tr('Physician'),
@@ -139,9 +133,7 @@ class _PatientDoctorChatScreenState extends State<PatientDoctorChatScreen> {
             ),
           ],
         ),
-        actions: const [
-          LanguageToggleButton(),
-        ],
+        actions: const [LanguageToggleButton()],
       ),
       body: Column(
         children: [
@@ -153,7 +145,11 @@ class _PatientDoctorChatScreenState extends State<PatientDoctorChatScreen> {
                   return Center(
                     child: Padding(
                       padding: const EdgeInsets.all(24),
-                      child: Text(firebaseErrorMessage(snapshot.error, fallback: 'Could not load messages.'),
+                      child: Text(
+                        firebaseErrorMessage(
+                          snapshot.error,
+                          fallback: 'Could not load messages.',
+                        ),
                         textAlign: TextAlign.center,
                       ),
                     ),
@@ -164,7 +160,7 @@ class _PatientDoctorChatScreenState extends State<PatientDoctorChatScreen> {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                final docs = snapshot.data!.docs;
+                final docs = snapshot.data!.docs.reversed.toList();
 
                 // Whenever new messages arrive while this screen is active, mark read
                 if (docs.isNotEmpty) {
@@ -181,11 +177,7 @@ class _PatientDoctorChatScreenState extends State<PatientDoctorChatScreen> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
-                            Icons.forum_outlined,
-                            size: 52,
-                            color: primary,
-                          ),
+                          Icon(Icons.forum_outlined, size: 52, color: primary),
                           const SizedBox(height: 12),
                           Text(
                             tr('No messages yet'),
@@ -240,12 +232,14 @@ class _PatientDoctorChatScreenState extends State<PatientDoctorChatScreen> {
                             if (d['sessionContext'] != null)
                               _SessionReferenceCard(
                                 sessionContext: Map<String, dynamic>.from(
-                                    d['sessionContext'] as Map),
+                                  d['sessionContext'] as Map,
+                                ),
                                 onTap: () => _openSessionFromContext(
                                   context,
                                   widget.patient.uid,
                                   Map<String, dynamic>.from(
-                                      d['sessionContext'] as Map),
+                                    d['sessionContext'] as Map,
+                                  ),
                                 ),
                               ),
                             Text(
@@ -315,15 +309,13 @@ class _SessionReferenceCard extends StatelessWidget {
   final Map<String, dynamic> sessionContext;
   final VoidCallback? onTap;
 
-  const _SessionReferenceCard({
-    required this.sessionContext,
-    this.onTap,
-  });
+  const _SessionReferenceCard({required this.sessionContext, this.onTap});
 
   @override
   Widget build(BuildContext context) {
     AppLocaleScope.of(context);
-    final exercise = sessionContext['sessionName']?.toString() ??
+    final exercise =
+        sessionContext['sessionName']?.toString() ??
         sessionContext['exercise']?.toString() ??
         'Physiotherapy Session';
     final score = (sessionContext['score'] as num?)?.toDouble() ?? 0.0;
@@ -374,8 +366,10 @@ class _SessionReferenceCard extends StatelessWidget {
                   ),
                 ),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: scoreColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(6),
@@ -428,48 +422,49 @@ void _openSessionFromContext(
   Map<String, dynamic> sessionContext,
 ) {
   final sessionId = sessionContext['sessionId']?.toString() ?? '';
-  FirebaseFirestore.instance
+  LocalTestConfig.database
       .collection('users')
       .doc(patientId)
       .collection('assessments')
       .where('sessionId', isEqualTo: sessionId)
       .get()
       .then((snap) {
-    if (!context.mounted) return;
-    if (snap.docs.isNotEmpty) {
-      final sessions = groupAssessmentSessions(snap.docs);
-      if (sessions.isNotEmpty) {
+        if (!context.mounted) return;
+        if (snap.docs.isNotEmpty) {
+          final sessions = groupAssessmentSessions(snap.docs);
+          if (sessions.isNotEmpty) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => SessionDetails(session: sessions.first),
+              ),
+            );
+            return;
+          }
+        }
+
+        final dateStr = sessionContext['date']?.toString();
+        final dt = dateStr != null
+            ? DateTime.tryParse(dateStr) ?? DateTime.now()
+            : DateTime.now();
+        final score = (sessionContext['score'] as num?)?.toDouble() ?? 0.0;
+        final fallbackSession = AssessmentSession(
+          id: sessionId,
+          exercise: sessionContext['exercise']?.toString() ?? '',
+          sessionName: sessionContext['sessionName']?.toString() ?? 'Session',
+          date: dt,
+          repsData: [
+            {'score': score, 'form': 'Correct', 'repNumber': 1},
+          ],
+        );
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => SessionDetails(session: sessions.first),
+            builder: (_) => SessionDetails(session: fallbackSession),
           ),
         );
-        return;
-      }
-    }
-
-    final dateStr = sessionContext['date']?.toString();
-    final dt = dateStr != null
-        ? DateTime.tryParse(dateStr) ?? DateTime.now()
-        : DateTime.now();
-    final score = (sessionContext['score'] as num?)?.toDouble() ?? 0.0;
-    final fallbackSession = AssessmentSession(
-      id: sessionId,
-      exercise: sessionContext['exercise']?.toString() ?? '',
-      sessionName: sessionContext['sessionName']?.toString() ?? 'Session',
-      date: dt,
-      repsData: [
-        {'score': score, 'form': 'Correct', 'repNumber': 1}
-      ],
-    );
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => SessionDetails(session: fallbackSession),
-      ),
-    );
-  }).catchError((e) {
-    debugPrint('Could not load session details: $e');
-  });
+      })
+      .catchError((e) {
+        debugPrint('Could not load session details: $e');
+      });
 }

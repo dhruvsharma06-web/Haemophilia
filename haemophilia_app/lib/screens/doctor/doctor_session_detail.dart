@@ -1,4 +1,5 @@
 import '../../widgets/app_text.dart';
+
 import 'package:flutter/material.dart';
 
 import '../../models/user_model.dart';
@@ -6,6 +7,7 @@ import '../patient/patient_history.dart';
 import '../../utils/exercise_utils.dart';
 import '../../utils/app_localizations.dart';
 import 'doctor_messages.dart';
+import '../../widgets/rep_movement_stats.dart';
 
 class DoctorSessionDetail extends StatelessWidget {
   final String patientId;
@@ -28,23 +30,12 @@ class DoctorSessionDetail extends StatelessWidget {
 
     // Keep the doctor's review chronological.
     // Prefer the actual backend rep number when available.
-    final orderedReps =
-        List<Map<String, dynamic>>.from(
-      session.repsData,
-    );
+    final orderedReps = List<Map<String, dynamic>>.from(session.repsData);
 
     orderedReps.sort((a, b) {
-      final aNumber = _toInt(
-        a['rep_number'] ??
-            a['repNumber'] ??
-            a['rep'],
-      );
+      final aNumber = _toInt(a['rep_number'] ?? a['repNumber'] ?? a['rep']);
 
-      final bNumber = _toInt(
-        b['rep_number'] ??
-            b['repNumber'] ??
-            b['rep'],
-      );
+      final bNumber = _toInt(b['rep_number'] ?? b['repNumber'] ?? b['rep']);
 
       return aNumber.compareTo(bNumber);
     });
@@ -53,22 +44,12 @@ class DoctorSessionDetail extends StatelessWidget {
       appBar: AppBar(
         title: Text(
           tr('Session review'),
-          style: const TextStyle(
-            fontWeight: FontWeight.w800,
-          ),
+          style: const TextStyle(fontWeight: FontWeight.w800),
         ),
-        actions: const [
-          LanguageToggleButton(),
-          SizedBox(width: 8),
-        ],
+        actions: const [LanguageToggleButton(), SizedBox(width: 8)],
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(
-          20,
-          12,
-          20,
-          32,
-        ),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
         children: [
           // Doctor-assigned session name.
           Row(
@@ -105,9 +86,7 @@ class DoctorSessionDetail extends StatelessWidget {
 
           AppText(
             '${patient.name} • ${_date(session.date)}',
-            style: TextStyle(
-              color: Colors.grey.shade600,
-            ),
+            style: TextStyle(color: Colors.grey.shade600),
           ),
 
           const SizedBox(height: 18),
@@ -124,10 +103,7 @@ class DoctorSessionDetail extends StatelessWidget {
                 tr('Correct reps'),
                 '${session.correctReps}/${session.reps}',
               ),
-              _Stat(
-                tr('Success rate'),
-                '${rate.toStringAsFixed(0)}%',
-              ),
+              _Stat(tr('Success rate'), '${rate.toStringAsFixed(0)}%'),
               _Stat(
                 tr('Average ROM'),
                 '${session.averageRom.toStringAsFixed(0)}°',
@@ -138,7 +114,9 @@ class DoctorSessionDetail extends StatelessWidget {
               ),
               _Stat(
                 tr('AI confidence'),
-                '${session.averageConfidence.toStringAsFixed(1)}%',
+                session.repsData.any((rep) => rep['confidence'] != null)
+                    ? '${session.averageConfidence.toStringAsFixed(1)}%'
+                    : '—',
               ),
             ],
           ),
@@ -166,35 +144,24 @@ class DoctorSessionDetail extends StatelessWidget {
 
           Text(
             tr('Rep-by-rep review'),
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-            ),
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
           ),
 
           const SizedBox(height: 12),
 
-          ...orderedReps.asMap().entries.map(
-            (entry) {
-              final rep = entry.value;
+          ...orderedReps.asMap().entries.map((entry) {
+            final rep = entry.value;
 
-              final actualRepNumber = _toInt(
-                rep['rep_number'] ??
-                    rep['repNumber'] ??
-                    rep['rep'],
-              );
+            final actualRepNumber = _toInt(
+              rep['rep_number'] ?? rep['repNumber'] ?? rep['rep'],
+            );
 
-              final displayNumber =
-                  actualRepNumber > 0
-                      ? actualRepNumber
-                      : entry.key + 1;
+            final displayNumber = actualRepNumber > 0
+                ? actualRepNumber
+                : entry.key + 1;
 
-              return _RepReview(
-                rep: rep,
-                number: displayNumber,
-              );
-            },
-          ),
+            return _RepReview(rep: rep, number: displayNumber);
+          }),
         ],
       ),
     );
@@ -215,35 +182,27 @@ class _RepReview extends StatelessWidget {
   final Map<String, dynamic> rep;
   final int number;
 
-  const _RepReview({
-    required this.rep,
-    required this.number,
-  });
+  const _RepReview({required this.rep, required this.number});
 
   @override
   Widget build(BuildContext context) {
     AppLocaleScope.of(context);
     final d = rep;
 
-    final form =
-        d['form']?.toString() ?? 'Unknown';
+    final form = d['form']?.toString() ?? 'Unknown';
 
-    final incorrect =
-        form.toLowerCase().contains('incorrect');
+    final incorrect = form.toLowerCase().contains('incorrect');
 
-    final primary =
-        Theme.of(context).colorScheme.primary;
+    final primary = Theme.of(context).colorScheme.primary;
 
-    final url =
-        d['errorFrameUrl']?.toString() ?? '';
+    final url = d['errorFrameUrl']?.toString() ?? '';
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
-          crossAxisAlignment:
-              CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
@@ -251,9 +210,7 @@ class _RepReview extends StatelessWidget {
                   incorrect
                       ? Icons.warning_amber_rounded
                       : Icons.check_circle_outline,
-                  color: incorrect
-                      ? Colors.red.shade600
-                      : primary,
+                  color: incorrect ? Colors.red.shade600 : primary,
                 ),
 
                 const SizedBox(width: 9),
@@ -271,9 +228,7 @@ class _RepReview extends StatelessWidget {
                 AppText(
                   '${_num(d['score']).toStringAsFixed(0)}/100',
                   style: TextStyle(
-                    color: incorrect
-                        ? Colors.red.shade700
-                        : primary,
+                    color: incorrect ? Colors.red.shade700 : primary,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -288,27 +243,28 @@ class _RepReview extends StatelessWidget {
                   tr('ROM'),
                   '${_num(d['rangeOfMotion']).toStringAsFixed(0)}°',
                 ),
-                _M(
-                  tr('SPEED'),
-                  d['speed']?.toString() ?? '—',
-                ),
+                _M(tr('SPEED'), d['speed']?.toString() ?? '—'),
                 _M(
                   tr('DURATION'),
                   '${_num(d['duration']).toStringAsFixed(1)}s',
                 ),
                 _M(
                   tr('AI'),
-                  '${_num(d['confidence']).toStringAsFixed(1)}%',
+                  d['confidence'] == null
+                      ? '—'
+                      : '${_num(d['confidence']).toStringAsFixed(1)}%',
                 ),
               ],
             ),
+
+            const SizedBox(height: 10),
+            RepMovementStats(rep: d),
 
             if (incorrect && url.isNotEmpty) ...[
               const SizedBox(height: 13),
 
               ClipRRect(
-                borderRadius:
-                    BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(14),
                 child: GestureDetector(
                   onTap: () {
                     showDialog(
@@ -317,14 +273,10 @@ class _RepReview extends StatelessWidget {
                         child: InteractiveViewer(
                           child: Image.network(
                             url,
-                            errorBuilder:
-                                (_, error, stackTrace) {
+                            errorBuilder: (_, error, stackTrace) {
                               return const Padding(
-                                padding:
-                                    EdgeInsets.all(30),
-                                child: AppText(
-                                  'Error image unavailable.',
-                                ),
+                                padding: EdgeInsets.all(30),
+                                child: AppText('Error image unavailable.'),
                               );
                             },
                           ),
@@ -337,17 +289,12 @@ class _RepReview extends StatelessWidget {
                     height: 190,
                     width: double.infinity,
                     fit: BoxFit.cover,
-                    errorBuilder:
-                        (_, error, stackTrace) {
+                    errorBuilder: (_, error, stackTrace) {
                       return Container(
                         height: 120,
-                        color:
-                            Colors.grey.shade100,
-                        alignment:
-                            Alignment.center,
-                        child: const AppText(
-                          'Error image unavailable.',
-                        ),
+                        color: Colors.grey.shade100,
+                        alignment: Alignment.center,
+                        child: const AppText('Error image unavailable.'),
                       );
                     },
                   ),
@@ -359,10 +306,7 @@ class _RepReview extends StatelessWidget {
               const SizedBox(height: 13),
 
               Text(
-                d['errorType']
-                        ?.toString()
-                        .replaceAll('_', ' ')
-                        .toUpperCase() ??
+                d['errorType']?.toString().replaceAll('_', ' ').toUpperCase() ??
                     '',
                 style: TextStyle(
                   color: Colors.red.shade700,
@@ -375,10 +319,7 @@ class _RepReview extends StatelessWidget {
 
               Text(
                 d['feedback']?.toString() ?? '',
-                style: TextStyle(
-                  color: Colors.grey.shade700,
-                  height: 1.35,
-                ),
+                style: TextStyle(color: Colors.grey.shade700, height: 1.35),
               ),
             ],
           ],
@@ -390,10 +331,7 @@ class _RepReview extends StatelessWidget {
   double _num(dynamic value) {
     return value is num
         ? value.toDouble()
-        : double.tryParse(
-              value?.toString() ?? '',
-            ) ??
-            0;
+        : double.tryParse(value?.toString() ?? '') ?? 0;
   }
 }
 
@@ -401,18 +339,14 @@ class _M extends StatelessWidget {
   final String l;
   final String v;
 
-  const _M(
-    this.l,
-    this.v,
-  );
+  const _M(this.l, this.v);
 
   @override
   Widget build(BuildContext context) {
     AppLocaleScope.of(context);
     return Expanded(
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             l,
@@ -428,12 +362,8 @@ class _M extends StatelessWidget {
           Text(
             v,
             maxLines: 1,
-            overflow:
-                TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: 11,
-            ),
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11),
           ),
         ],
       ),
@@ -445,26 +375,20 @@ class _Stat extends StatelessWidget {
   final String l;
   final String v;
 
-  const _Stat(
-    this.l,
-    this.v,
-  );
+  const _Stat(this.l, this.v);
 
   @override
   Widget build(BuildContext context) {
     AppLocaleScope.of(context);
     final screenWidth = MediaQuery.sizeOf(context).width;
-    final statWidth = screenWidth < 380
-        ? (screenWidth - 48) / 2
-        : 160.0;
+    final statWidth = screenWidth < 380 ? (screenWidth - 48) / 2 : 160.0;
     return SizedBox(
       width: statWidth.clamp(130.0, 180.0),
       child: Card(
         child: Padding(
           padding: const EdgeInsets.all(15),
           child: Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 v,
@@ -478,10 +402,7 @@ class _Stat extends StatelessWidget {
 
               Text(
                 l,
-                style: TextStyle(
-                  color: Colors.grey.shade600,
-                  fontSize: 11,
-                ),
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 11),
               ),
             ],
           ),
@@ -496,8 +417,5 @@ int _toInt(dynamic value) {
     return value.toInt();
   }
 
-  return int.tryParse(
-        value?.toString() ?? '',
-      ) ??
-      0;
+  return int.tryParse(value?.toString() ?? '') ?? 0;
 }

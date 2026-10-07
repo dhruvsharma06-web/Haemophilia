@@ -1,4 +1,5 @@
 import '../../widgets/app_text.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
@@ -11,6 +12,7 @@ import '../support/help_screen.dart';
 import '../../services/clinical_data_service.dart';
 import '../../utils/app_localizations.dart';
 import 'add_doctor_screen.dart';
+import '../../widgets/notification_bell.dart';
 
 class AdminDashboard extends StatefulWidget {
   final UserModel user;
@@ -47,31 +49,39 @@ class _AdminDashboardState extends State<AdminDashboard> {
     final service = ClinicalDataService();
 
     return Scaffold(
-          appBar: AppBar(
-            title: Row(
-              children: [
-                Image.asset(
-                  'assets/icon/haemophysio_logo.png',
-                  width: 32,
-                  height: 32,
-                  fit: BoxFit.contain,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: AppText(
-                    tr('Admin'),
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
+      appBar: AppBar(
+        title: Row(
+          children: [
+            Image.asset(
+              'assets/icon/haemophysio_logo.png',
+              width: 32,
+              height: 32,
+              fit: BoxFit.contain,
             ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: AppText(
+                tr('Admin'),
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
         actions: [
+          const NotificationBell(),
           const LanguageToggleButton(),
-          IconButton(tooltip: tr('Add doctor'), icon: const Icon(Icons.person_add_alt_1), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddDoctorScreen()))),
+          IconButton(
+            tooltip: tr('Add doctor'),
+            icon: const Icon(Icons.person_add_alt_1),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AddDoctorScreen()),
+            ),
+          ),
           IconButton(
             tooltip: tr('Log out'),
             onPressed: _isLoggingOut ? null : _logout,
@@ -118,123 +128,168 @@ class _AdminDashboardState extends State<AdminDashboard> {
           );
         },
       ),
-      body: _section == 3 ? const HelpScreen(admin:true) : StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: service.watchAllUsers(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(firebaseErrorMessage(snapshot.error, fallback: 'Could not load users.'),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            );
-          }
-
-          if (snapshot.connectionState == ConnectionState.waiting &&
-              !snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          final allDocs = snapshot.data?.docs ?? [];
-          final docs = _section == 0
-              ? allDocs.where(_isNewPatient).toList()
-              : _section == 2
-              ? allDocs.where((doc) => doc.data()['role'] == 'pending_doctor' ||
-                  (doc.data()['role'] == 'doctor' && doc.data()['isApproved'] == false)).toList()
-              : allDocs.toList();
-          if (_section == 0) {
-            docs.sort((a, b) => _createdAt(b.data()).compareTo(_createdAt(a.data())));
-          }
-          final doctors =
-              allDocs.where((doc) => doc.data()['role'] == 'doctor').length;
-          final patients =
-              allDocs.where((doc) => doc.data()['role'] == 'patient').length;
-
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(20, 10, 20, 32),
-            children: [
-              _Hero(
-                title: '${tr('Welcome back,')} ${user.name}',
-                subtitle:
-                    tr('Manage accounts, doctor assignments and platform access.'),
-              ),
-              const SizedBox(height: 24),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final metrics = [
-                    _Metric(
-                      tr('Doctors'),
-                      '$doctors',
-                      Icons.medical_services_outlined,
-                    ),
-                    _Metric(
-                      tr('Patients'),
-                      '$patients',
-                      Icons.people_outline,
-                    ),
-                    _Metric(
-                      tr('Total Users'),
-                      '${allDocs.length}',
-                      Icons.groups_outlined,
-                    ),
-                  ];
-
-                  if (constraints.maxWidth < 650) {
-                    return Column(
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(child: metrics[0]),
-                            const SizedBox(width: 10),
-                            Expanded(child: metrics[1]),
-                          ],
+      body: _section == 3
+          ? const HelpScreen(admin: true)
+          : StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: service.watchAllUsers(),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        firebaseErrorMessage(
+                          snapshot.error,
+                          fallback: 'Could not load users.',
                         ),
-                        const SizedBox(height: 10),
-                        SizedBox(width: double.infinity, child: metrics[2]),
-                      ],
-                    );
-                  }
-
-                  return Row(
-                    children: [
-                      for (var i = 0; i < metrics.length; i++) ...[
-                        if (i > 0) const SizedBox(width: 10),
-                        Expanded(child: metrics[i]),
-                      ],
-                    ],
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
                   );
-                },
-              ),
-              const SizedBox(height: 28),
-              Text(
-                tr(_section == 0 ? 'New patients' : _section == 2 ? 'Doctor approvals' : 'Manage Users'),
-                style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                tr(_section == 0
-                    ? 'Patients waiting for a doctor. Review screening and assign a clinician.'
+                }
+
+                if (snapshot.connectionState == ConnectionState.waiting &&
+                    !snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                final allDocs = snapshot.data?.docs ?? [];
+                final docs = _section == 0
+                    ? allDocs.where(_isNewPatient).toList()
                     : _section == 2
-                    ? 'Review clinician applications before granting access.'
-                    : 'Manage existing accounts and doctor transfers.'),
-                style: TextStyle(color: Colors.grey.shade600),
-              ),
-              const SizedBox(height: 14),
-              if (docs.isEmpty)
-                _Empty(message: _section == 0 ? 'No patients are waiting for a doctor.' :
-                    _section == 2 ? 'No doctor applications are waiting.' : 'No users found.')
-              else
-                ...docs.map(
-                  (doc) => _section == 0
-                      ? _NewPatientCard(doc: doc)
-                      : _UserCard(doc: doc, currentAdminId: user.uid),
-                ),
-            ],
-          );
-        },
-      ),
+                    ? allDocs
+                          .where(
+                            (doc) =>
+                                doc.data()['accountActive'] != false &&
+                                (doc.data()['role'] == 'pending_doctor' ||
+                                    (doc.data()['role'] == 'doctor' &&
+                                        doc.data()['isApproved'] == false)),
+                          )
+                          .toList()
+                    : allDocs
+                          .where(
+                            (doc) => ![
+                              'rejected',
+                              'removed',
+                            ].contains(doc.data()['status']),
+                          )
+                          .toList();
+                if (_section == 0) {
+                  docs.sort(
+                    (a, b) =>
+                        _createdAt(b.data()).compareTo(_createdAt(a.data())),
+                  );
+                }
+                final doctors = allDocs
+                    .where((doc) => doc.data()['role'] == 'doctor')
+                    .length;
+                final patients = allDocs
+                    .where((doc) => doc.data()['role'] == 'patient')
+                    .length;
+
+                return ListView(
+                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 32),
+                  children: [
+                    _Hero(
+                      title: '${tr('Welcome back,')} ${user.name}',
+                      subtitle: tr(
+                        'Manage accounts, doctor assignments and platform access.',
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final metrics = [
+                          _Metric(
+                            tr('Doctors'),
+                            '$doctors',
+                            Icons.medical_services_outlined,
+                          ),
+                          _Metric(
+                            tr('Patients'),
+                            '$patients',
+                            Icons.people_outline,
+                          ),
+                          _Metric(
+                            tr('Total Users'),
+                            '${allDocs.length}',
+                            Icons.groups_outlined,
+                          ),
+                        ];
+
+                        if (constraints.maxWidth < 650) {
+                          return Column(
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(child: metrics[0]),
+                                  const SizedBox(width: 10),
+                                  Expanded(child: metrics[1]),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              SizedBox(
+                                width: double.infinity,
+                                child: metrics[2],
+                              ),
+                            ],
+                          );
+                        }
+
+                        return Row(
+                          children: [
+                            for (var i = 0; i < metrics.length; i++) ...[
+                              if (i > 0) const SizedBox(width: 10),
+                              Expanded(child: metrics[i]),
+                            ],
+                          ],
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 28),
+                    Text(
+                      tr(
+                        _section == 0
+                            ? 'New patients'
+                            : _section == 2
+                            ? 'Doctor approvals'
+                            : 'Manage Users',
+                      ),
+                      style: const TextStyle(
+                        fontSize: 21,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      tr(
+                        _section == 0
+                            ? 'Patients waiting for a doctor. Review screening and assign a clinician.'
+                            : _section == 2
+                            ? 'Review clinician applications before granting access.'
+                            : 'Manage existing accounts and doctor transfers.',
+                      ),
+                      style: TextStyle(color: Colors.grey.shade600),
+                    ),
+                    const SizedBox(height: 14),
+                    if (docs.isEmpty)
+                      _Empty(
+                        message: _section == 0
+                            ? 'No patients are waiting for a doctor.'
+                            : _section == 2
+                            ? 'No doctor applications are waiting.'
+                            : 'No users found.',
+                      )
+                    else
+                      ...docs.map(
+                        (doc) => _section == 0
+                            ? _NewPatientCard(doc: doc)
+                            : _UserCard(doc: doc, currentAdminId: user.uid),
+                      ),
+                  ],
+                );
+              },
+            ),
     );
   }
 }
@@ -242,17 +297,60 @@ class _AdminDashboardState extends State<AdminDashboard> {
 bool _isNewPatient(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
   final data = doc.data();
   final doctorId = data['doctorId']?.toString().trim();
-  return data['role'] == 'patient' && data['accountActive'] != false &&
+  return data['role'] == 'patient' &&
+      data['accountActive'] != false &&
       (doctorId == null || doctorId.isEmpty);
 }
 
 DateTime _createdAt(Map<String, dynamic> data) =>
-    (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.fromMillisecondsSinceEpoch(0);
+    (data['createdAt'] as Timestamp?)?.toDate() ??
+    DateTime.fromMillisecondsSinceEpoch(0);
 
 class _NewPatientCard extends StatelessWidget {
   final QueryDocumentSnapshot<Map<String, dynamic>> doc;
 
   const _NewPatientCard({required this.doc});
+
+  Future<void> _cancelApproval(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(tr('Cancel patient approval?')),
+        content: Text(doc.data()['name']?.toString() ?? tr('Patient')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(tr('Keep')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(tr('Cancel approval')),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await AdminService().restrictUser(
+        uid: doc.id,
+        action: 'rejected',
+        reason: 'Patient approval cancelled by administrator.',
+        requireUnassigned: true,
+      );
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              error is StateError
+                  ? tr(error.message.toString())
+                  : firebaseErrorMessage(error),
+            ),
+          ),
+        );
+      }
+    }
+  }
 
   Future<void> _assign(BuildContext context) async {
     final doctors = await ClinicalDataService().getDoctors();
@@ -285,12 +383,24 @@ class _NewPatientCard extends StatelessWidget {
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
                       initialValue: selectedDoctor,
-                      decoration: InputDecoration(labelText: tr('Approved doctor')),
-                      items: doctors.map((doctor) => DropdownMenuItem(
-                        value: doctor.id,
-                        child: Text(doctor.data()['name']?.toString() ?? tr('Doctor')),
-                      )).toList(),
-                      onChanged: saving ? null : (value) => setDialogState(() => selectedDoctor = value),
+                      decoration: InputDecoration(
+                        labelText: tr('Approved doctor'),
+                      ),
+                      items: doctors
+                          .map(
+                            (doctor) => DropdownMenuItem(
+                              value: doctor.id,
+                              child: Text(
+                                doctor.data()['name']?.toString() ??
+                                    tr('Doctor'),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: saving
+                          ? null
+                          : (value) =>
+                                setDialogState(() => selectedDoctor = value),
                     ),
                   ],
                 ),
@@ -302,32 +412,48 @@ class _NewPatientCard extends StatelessWidget {
                 child: Text(tr('Cancel')),
               ),
               FilledButton(
-                onPressed: saving || selectedDoctor == null ? null : () async {
-                  setDialogState(() => saving = true);
-                  try {
-                    await AdminService().manageUser(
-                      uid: doc.id, role: 'patient', active: true,
-                      doctorId: selectedDoctor, requireUnassigned: true,
-                    );
-                    if (dialogContext.mounted) Navigator.pop(dialogContext);
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(tr('Doctor assigned.'))),
-                      );
-                    }
-                  } catch (error) {
-                    if (dialogContext.mounted) setDialogState(() => saving = false);
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(error is StateError
-                            ? tr(error.message.toString())
-                            : error is FirebaseException && error.code == 'permission-denied'
-                                ? tr('Firebase access settings are blocking patient assignment. Contact the project owner.')
-                                : firebaseErrorMessage(error))),
-                      );
-                    }
-                  }
-                },
+                onPressed: saving || selectedDoctor == null
+                    ? null
+                    : () async {
+                        setDialogState(() => saving = true);
+                        try {
+                          await AdminService().manageUser(
+                            uid: doc.id,
+                            role: 'patient',
+                            active: true,
+                            doctorId: selectedDoctor,
+                            requireUnassigned: true,
+                          );
+                          if (dialogContext.mounted) {
+                            Navigator.pop(dialogContext);
+                          }
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(tr('Doctor assigned.'))),
+                            );
+                          }
+                        } catch (error) {
+                          if (dialogContext.mounted) {
+                            setDialogState(() => saving = false);
+                          }
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  error is StateError
+                                      ? tr(error.message.toString())
+                                      : error is FirebaseException &&
+                                            error.code == 'permission-denied'
+                                      ? tr(
+                                          'Firebase access settings are blocking patient assignment. Contact the project owner.',
+                                        )
+                                      : firebaseErrorMessage(error),
+                                ),
+                              ),
+                            );
+                          }
+                        }
+                      },
                 child: Text(tr('Assign')),
               ),
             ],
@@ -350,11 +476,16 @@ class _NewPatientCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(data['name']?.toString() ?? tr('Patient'),
-                style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              data['name']?.toString() ?? tr('Patient'),
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: 3),
             Text(data['patientId']?.toString() ?? doc.id),
-            if (hasDate) Text('${tr('Registered')}: ${createdAt.day}/${createdAt.month}/${createdAt.year}'),
+            if (hasDate)
+              Text(
+                '${tr('Registered')}: ${createdAt.day}/${createdAt.month}/${createdAt.year}',
+              ),
             const SizedBox(height: 12),
             PatientScreeningCard(data: data),
             const SizedBox(height: 12),
@@ -362,11 +493,19 @@ class _NewPatientCard extends StatelessWidget {
               width: double.infinity,
               child: FilledButton.icon(
                 onPressed: () async {
-                  try { await _assign(context); }
-                  catch (error) {
+                  try {
+                    await _assign(context);
+                  } catch (error) {
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(firebaseErrorMessage(error, fallback: 'Could not load doctors.'))),
+                        SnackBar(
+                          content: Text(
+                            firebaseErrorMessage(
+                              error,
+                              fallback: 'Could not load doctors.',
+                            ),
+                          ),
+                        ),
                       );
                     }
                   }
@@ -374,6 +513,11 @@ class _NewPatientCard extends StatelessWidget {
                 icon: const Icon(Icons.person_add_alt_1),
                 label: Text(tr('Assign doctor')),
               ),
+            ),
+            TextButton.icon(
+              onPressed: () => _cancelApproval(context),
+              icon: const Icon(Icons.person_remove_outlined),
+              label: Text(tr('Cancel approval')),
             ),
           ],
         ),
@@ -386,10 +530,7 @@ class _UserCard extends StatelessWidget {
   final QueryDocumentSnapshot<Map<String, dynamic>> doc;
   final String currentAdminId;
 
-  const _UserCard({
-    required this.doc,
-    required this.currentAdminId,
-  });
+  const _UserCard({required this.doc, required this.currentAdminId});
 
   @override
   Widget build(BuildContext context) {
@@ -410,10 +551,7 @@ class _UserCard extends StatelessWidget {
                 data['name']?.toString().isNotEmpty == true
                     ? data['name'].toString()[0].toUpperCase()
                     : 'U',
-                style: TextStyle(
-                  color: primary,
-                  fontWeight: FontWeight.w700,
-                ),
+                style: TextStyle(color: primary, fontWeight: FontWeight.w700),
               ),
             ),
             const SizedBox(width: 12),
@@ -428,10 +566,7 @@ class _UserCard extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     data['email']?.toString() ?? '',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.grey.shade600,
-                    ),
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                   ),
                   const SizedBox(height: 7),
                   Container(
@@ -456,10 +591,27 @@ class _UserCard extends StatelessWidget {
               ),
             ),
             if (doc.id != currentAdminId)
-              IconButton(
+              PopupMenuButton<String>(
                 tooltip: tr('Manage'),
-                onPressed: () => _manage(context, doc),
                 icon: const Icon(Icons.tune_rounded),
+                onSelected: (action) => action == 'manage'
+                    ? _manage(context, doc)
+                    : action == 'approve'
+                    ? _approve(context, doc)
+                    : _restrict(context, doc, action),
+                itemBuilder: (_) => [
+                  PopupMenuItem(value: 'manage', child: Text(tr('Manage'))),
+                  if (role == 'pending_doctor' ||
+                      role == 'doctor' && data['isApproved'] == false)
+                    PopupMenuItem(
+                      value: 'approve',
+                      child: Text(tr('Approve doctor')),
+                    ),
+                  if (role != 'admin') ...[
+                    PopupMenuItem(value: 'rejected', child: Text(tr('Reject'))),
+                    PopupMenuItem(value: 'removed', child: Text(tr('Remove'))),
+                  ],
+                ],
               ),
           ],
         ),
@@ -475,7 +627,9 @@ class _UserCard extends StatelessWidget {
     final data = doc.data();
 
     var role = data['role']?.toString() ?? 'patient';
-    if (!['patient','pending_doctor','doctor','admin'].contains(role)) role='patient';
+    if (!['patient', 'pending_doctor', 'doctor', 'admin'].contains(role)) {
+      role = 'patient';
+    }
     String? doctorId = data['doctorId']?.toString();
     var active = data['accountActive'] != false;
     var saving = false;
@@ -484,10 +638,20 @@ class _UserCard extends StatelessWidget {
     try {
       doctors = await service.getDoctors();
     } catch (error) {
-      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(firebaseErrorMessage(error, fallback: 'Could not load doctors.'))));
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              firebaseErrorMessage(error, fallback: 'Could not load doctors.'),
+            ),
+          ),
+        );
+      }
       return;
     }
-    if (doctorId != null && !doctors.any((doc)=>doc.id==doctorId)) doctorId=null;
+    if (doctorId != null && !doctors.any((doc) => doc.id == doctorId)) {
+      doctorId = null;
+    }
     if (!context.mounted) return;
 
     await showDialog<void>(
@@ -504,9 +668,7 @@ class _UserCard extends StatelessWidget {
               ...doctors.map(
                 (doctor) => DropdownMenuItem<String?>(
                   value: doctor.id,
-                  child: Text(
-                    doctor.data()['name']?.toString() ?? 'Doctor',
-                  ),
+                  child: Text(doctor.data()['name']?.toString() ?? 'Doctor'),
                 ),
               ),
             ];
@@ -515,49 +677,79 @@ class _UserCard extends StatelessWidget {
               title: Text(data['name']?.toString() ?? 'User'),
               content: SizedBox(
                 width: 420,
-                child: SingleChildScrollView(child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    DropdownButtonFormField<String>(
-                      initialValue: role,
-                      decoration: InputDecoration(labelText: tr('Role')),
-                      items: const ['patient', 'pending_doctor', 'doctor', 'admin']
-                          .map(
-                            (value) => DropdownMenuItem<String>(
-                              value: value,
-                              child: Text(tr(value)),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (value) {
-                        if (value != null) {
-                          setDialogState(() => role = value);
-                        }
-                      },
-                    ),
-                    SwitchListTile(title: Text(tr('Account active')), value: active, onChanged: saving ? null : (v) => setDialogState(() => active = v)),
-                    Text(tr('Set the role to Doctor to approve an application. Disable account access to remove a doctor while retaining records.')),
-                    if (data['registrationNumber'] != null) AppText('${tr('Medical Registration Number')}: ${data['registrationNumber']}'),
-                    if (data['qualification'] != null) AppText('${tr('Qualification')}: ${data['qualification']}'),
-                    if (data['specialization'] != null) AppText('${tr('Specialization')}: ${data['specialization']}'),
-                    if (data['hospital'] != null) AppText('${tr('Hospital / Clinic')}: ${data['hospital']}'),
-                    if (role == 'patient') PatientScreeningCard(data: data),
-                    const SizedBox(height: 14),
-                    if (role == 'patient')
-                      DropdownButtonFormField<String?>(
-                        initialValue: doctors.any((d) => d.id == doctorId)
-                            ? doctorId
-                            : null,
-                        decoration: InputDecoration(
-                          labelText: tr('Assigned doctor'),
-                        ),
-                        items: doctorItems,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      DropdownButtonFormField<String>(
+                        initialValue: role,
+                        decoration: InputDecoration(labelText: tr('Role')),
+                        items:
+                            const [
+                                  'patient',
+                                  'pending_doctor',
+                                  'doctor',
+                                  'admin',
+                                ]
+                                .map(
+                                  (value) => DropdownMenuItem<String>(
+                                    value: value,
+                                    child: Text(tr(value)),
+                                  ),
+                                )
+                                .toList(),
                         onChanged: (value) {
-                          setDialogState(() => doctorId = value);
+                          if (value != null) {
+                            setDialogState(() => role = value);
+                          }
                         },
                       ),
-                  ],
-                )),
+                      SwitchListTile(
+                        title: Text(tr('Account active')),
+                        value: active,
+                        onChanged: saving
+                            ? null
+                            : (v) => setDialogState(() => active = v),
+                      ),
+                      Text(
+                        tr(
+                          'Set the role to Doctor to approve an application. Disable account access to remove a doctor while retaining records.',
+                        ),
+                      ),
+                      if (data['registrationNumber'] != null)
+                        AppText(
+                          '${tr('Medical Registration Number')}: ${data['registrationNumber']}',
+                        ),
+                      if (data['qualification'] != null)
+                        AppText(
+                          '${tr('Qualification')}: ${data['qualification']}',
+                        ),
+                      if (data['specialization'] != null)
+                        AppText(
+                          '${tr('Specialization')}: ${data['specialization']}',
+                        ),
+                      if (data['hospital'] != null)
+                        AppText(
+                          '${tr('Hospital / Clinic')}: ${data['hospital']}',
+                        ),
+                      if (role == 'patient') PatientScreeningCard(data: data),
+                      const SizedBox(height: 14),
+                      if (role == 'patient')
+                        DropdownButtonFormField<String?>(
+                          initialValue: doctors.any((d) => d.id == doctorId)
+                              ? doctorId
+                              : null,
+                          decoration: InputDecoration(
+                            labelText: tr('Assigned doctor'),
+                          ),
+                          items: doctorItems,
+                          onChanged: (value) {
+                            setDialogState(() => doctorId = value);
+                          },
+                        ),
+                    ],
+                  ),
+                ),
               ),
               actions: [
                 TextButton(
@@ -565,28 +757,44 @@ class _UserCard extends StatelessWidget {
                   child: const AppText('Cancel'),
                 ),
                 FilledButton(
-                  onPressed: saving ? null : () async {
-                    try {
-                      setDialogState(() => saving = true);
-                      await AdminService().manageUser(uid: doc.id, role: role, active: active, doctorId: role == 'patient' ? doctorId : null);
+                  onPressed: saving
+                      ? null
+                      : () async {
+                          try {
+                            setDialogState(() => saving = true);
+                            await AdminService().manageUser(
+                              uid: doc.id,
+                              role: role,
+                              active: active,
+                              doctorId: role == 'patient' ? doctorId : null,
+                            );
 
-                      if (!dialogContext.mounted) return;
-                      Navigator.pop(dialogContext);
+                            if (!dialogContext.mounted) return;
+                            Navigator.pop(dialogContext);
 
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: AppText('User updated.')),
-                      );
-                    } catch (e) {
-                      if (dialogContext.mounted) setDialogState(() => saving = false);
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(e is StateError ? tr(e.message.toString()) : firebaseErrorMessage(e, fallback: 'Could not update user. Please try again.')),
-                        ),
-                      );
-                    }
-                  },
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: AppText('User updated.')),
+                            );
+                          } catch (e) {
+                            if (dialogContext.mounted) {
+                              setDialogState(() => saving = false);
+                            }
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  e is StateError
+                                      ? tr(e.message.toString())
+                                      : firebaseErrorMessage(
+                                          e,
+                                          fallback: 'Could not update user. Please try again.',
+                                        ),
+                                ),
+                              ),
+                            );
+                          }
+                        },
                   child: const AppText('Save'),
                 ),
               ],
@@ -595,6 +803,128 @@ class _UserCard extends StatelessWidget {
         );
       },
     );
+  }
+
+  Future<void> _restrict(
+    BuildContext context,
+    QueryDocumentSnapshot<Map<String, dynamic>> doc,
+    String action,
+  ) async {
+    var reason = '';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(
+          '${tr(action == 'rejected' ? 'Reject' : 'Remove')}: ${doc.data()['name'] ?? ''}',
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                tr(
+                  'Access will be disabled. Records are retained. Transfer patients before removing their doctor.',
+                ),
+              ),
+              TextField(
+                maxLength: 500,
+                onChanged: (value) => reason = value,
+                decoration: InputDecoration(labelText: tr('Reason')),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(tr('Cancel')),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (reason.trim().isNotEmpty) Navigator.pop(ctx, true);
+            },
+            child: Text(tr('Confirm')),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await AdminService().restrictUser(
+        uid: doc.id,
+        action: action,
+        reason: reason,
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              e is StateError
+                  ? tr(e.message.toString())
+                  : firebaseErrorMessage(e),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _approve(
+    BuildContext context,
+    QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  ) async {
+    final approved = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Approve doctor')),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(doc.data()['name']?.toString() ?? ''),
+              for (final field in [
+                'registrationNumber',
+                'qualification',
+                'specialization',
+                'hospital',
+              ])
+                Text(doc.data()[field]?.toString() ?? tr('Not available')),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(tr('Cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(tr('Approve')),
+          ),
+        ],
+      ),
+    );
+    if (approved != true) return;
+    try {
+      await AdminService().manageUser(
+        uid: doc.id,
+        role: 'doctor',
+        active: true,
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              e is StateError
+                  ? tr(e.message.toString())
+                  : firebaseErrorMessage(e),
+            ),
+          ),
+        );
+      }
+    }
   }
 }
 
@@ -662,17 +992,11 @@ class _Metric extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               value,
-              style: const TextStyle(
-                fontSize: 21,
-                fontWeight: FontWeight.w700,
-              ),
+              style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w700),
             ),
             Text(
               label,
-              style: TextStyle(
-                fontSize: 10,
-                color: Colors.grey.shade600,
-              ),
+              style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
             ),
           ],
         ),

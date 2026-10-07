@@ -39,10 +39,26 @@ class ServerEmulatorTests(unittest.TestCase):
         self.assertIn('सत्र',notices[0].to_dict()['title'])
 
     def test_active_assignment_is_not_overwritten(self):
-        self.assignment.set({'status':'paused','sessionId':'existing','totalCompletedReps':7})
+        self.assignment.set({'status':'paused','sessionId':'existing','scheduledAt':self.now,'totalCompletedReps':7})
         main._activate(self.db.transaction(),self.schedule,self.now)
         self.assertEqual(self.assignment.get().to_dict()['totalCompletedReps'],7)
         self.assertEqual(self.schedule.get().to_dict()['status'],'scheduled')
+
+    def test_expiration_archives_once_and_preserves_recording_before_next_activation(self):
+        session = self.db.collection('assessmentSessions').document(self.patient + '_old')
+        session.set({'patientId':self.patient,'doctorId':self.doctor,'status':'paused','totalReps':7})
+        self.assignment.set({'patientId':self.patient,'doctorId':self.doctor,'assignmentId':'old',
+                             'status':'paused','sessionId':session.id,'scheduledAt':self.now-timedelta(hours=1),
+                             'expiresAt':self.now+timedelta(days=1),'totalCompletedReps':7})
+        main._expire_assignment(self.db.transaction(), self.assignment, self.now)
+        main._expire_assignment(self.db.transaction(), self.assignment, self.now)
+        archived = list(self.assignment.collection('archive').stream())
+        self.assertEqual(len(archived), 1)
+        self.assertEqual(archived[0].to_dict()['totalCompletedReps'], 7)
+        self.assertEqual(session.get().to_dict()['status'], 'expired')
+        main._activate(self.db.transaction(), self.schedule, self.now)
+        self.assertEqual(self.assignment.get().to_dict()['status'], 'assigned')
+        self.assertEqual(archived[0].reference.get().to_dict()['status'], 'expired')
 
     def test_transfer_routing_and_old_schedule_cancellation_use_current_profile(self):
         session=self.db.collection('assessmentSessions').document(self.patient+'_session')
@@ -95,7 +111,7 @@ class ServerEmulatorTests(unittest.TestCase):
 
     def test_admin_doctor_creation_is_idempotent_and_stores_no_password(self):
         self.patient_ref.update({'role':'admin'})
-        data={'name':'Doctor Example','email':'doctor@example.com','phoneNumber':'1234567890','registrationNumber':'REG-123','qualification':'MPT','specialization':'Physiotherapy','hospital':'Example hospital','password':'example-only-password','requestId':self.suffix}
+        data={'name':'Doctor Example','email':'doctor@example.com','phoneNumber':'9876543210','registrationNumber':'REG-123','qualification':'MPT','specialization':'Physiotherapy','hospital':'Example hospital','password':'example-only-password-123','requestId':self.suffix}
         request=SimpleNamespace(auth=SimpleNamespace(uid=self.patient),data=data)
         with patch.object(main.auth,'create_user') as create:
             first=unwrap(main.create_doctor_account)(request)

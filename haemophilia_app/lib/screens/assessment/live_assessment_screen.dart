@@ -1,20 +1,27 @@
+import '../../services/local_test_config.dart';
 import '../../utils/firebase_errors.dart';
 import '../../widgets/app_text.dart';
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:camera/camera.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+
 import '../../widgets/session_safety_dialog.dart';
+
 import 'package:image/image.dart' as img;
 import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../../services/assessment_history_service.dart';
+import '../../services/api_service.dart';
+import '../../services/session_lifecycle_service.dart';
+import '../../utils/schedule_utils.dart';
+import '../../widgets/session_deadline.dart';
 import '../../services/backend_config.dart';
 import '../../services/notification_service.dart';
 import '../../utils/app_localizations.dart';
@@ -71,10 +78,7 @@ Uint8List? _convertFrameToJpegIsolate(_CameraFrameData data) {
     final int outW = (rotate90or270 ? srcH : srcW) ~/ step;
     final int outH = (rotate90or270 ? srcW : srcH) ~/ step;
 
-    final img.Image rgbImage = img.Image(
-      width: outW,
-      height: outH,
-    );
+    final img.Image rgbImage = img.Image(width: outW, height: outH);
 
     final Uint8List yBytes = data.yBytes;
     final Uint8List uBytes = data.uBytes;
@@ -182,25 +186,21 @@ class LiveAssessmentScreen extends StatefulWidget {
   });
 
   bool get isAssignedSession =>
-      assignedExercises != null &&
-      assignedExercises!.isNotEmpty;
+      assignedExercises != null && assignedExercises!.isNotEmpty;
 
   @override
-  State<LiveAssessmentScreen> createState() =>
-      _LiveAssessmentScreenState();
+  State<LiveAssessmentScreen> createState() => _LiveAssessmentScreenState();
 }
 
-class _LiveAssessmentScreenState
-    extends State<LiveAssessmentScreen> with WidgetsBindingObserver {
-
+class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
+    with WidgetsBindingObserver, SingleTickerProviderStateMixin {
   // ============================================================
   // CONFIGURATION
   // ============================================================
 
   static final String websocketUrl = BackendConfig.liveAssessmentUri.toString();
 
-  static const Duration frameInterval =
-      Duration(milliseconds: 50);
+  static const Duration frameInterval = Duration(milliseconds: 50);
 
   // ============================================================
   // CAMERA
@@ -222,6 +222,64 @@ class _LiveAssessmentScreenState
 
   bool _socketConnecting = false;
   bool _socketConnected = false;
+  Timer? _reconnectTimer;
+  int _reconnectAttempts = 0;
+  late final AnimationController _poseAnimation;
+  List<LiveLandmark> _poseFrom = [];
+  List<LiveLandmark> _poseTo = [];
+  DateTime? _lastPoseReceived;
+  double _poseIntervalMs = 80;
+  String? _latestErrorFrame;
+
+  void _queueReconnect() {
+    if (!mounted ||
+        _isExitingOrSaving ||
+        _completed ||
+        _backgroundPaused ||
+        !_safetyAccepted ||
+        _reconnectTimer?.isActive == true ||
+        _reconnectAttempts >= 5) {
+      return;
+    }
+    _reconnectAttempts++;
+    _reconnectTimer = Timer(
+      Duration(seconds: _reconnectAttempts * 2),
+      () => unawaited(_retryConnection()),
+    );
+  }
+
+  Future<void> _retryConnection() async {
+    if (!mounted || _isExitingOrSaving || _completed || _backgroundPaused) {
+      return;
+    }
+    await _socketSubscription?.cancel();
+    _socketSubscription = null;
+    final oldChannel = _channel;
+    _channel = null;
+    try {
+      await oldChannel?.sink.close();
+    } catch (_) {}
+    _socketConnected = false;
+    _socketConnecting = false;
+    _inFlightFrames = 0;
+    await _connectWebSocket();
+    if (_socketConnected && mounted) {
+      try {
+        if (!_sessionStarted) await _startActiveSessionInFirestore();
+        if (!mounted) return;
+        setState(() => _initializing = false);
+        await _startImageStream();
+      } catch (e) {
+        if (mounted) {
+          setState(
+            () => _connectionError = e is StateError
+                ? tr(e.message.toString())
+                : firebaseErrorMessage(e),
+          );
+        }
+      }
+    }
+  }
 
   String _connectionStatus = 'Connecting...';
   String? _connectionError;
@@ -242,8 +300,7 @@ class _LiveAssessmentScreenState
 
   final ValueNotifier<List<LiveLandmark>> _landmarksNotifier =
       ValueNotifier<List<LiveLandmark>>([]);
-  final ValueNotifier<String> _formNotifier =
-      ValueNotifier<String>('Waiting');
+  final ValueNotifier<String> _formNotifier = ValueNotifier<String>('Waiting');
 
   int _repCount = 0;
 
@@ -252,6 +309,8 @@ class _LiveAssessmentScreenState
   String _feedback = 'Position yourself in front of the camera.';
 
   double _score = 0;
+  bool _scoreAvailable = false;
+  Map<String, dynamic> _movementMetrics = {};
   double _rom = 0;
   String _speed = 'Waiting';
   DateTime _lastActiveSessionSync = DateTime.fromMillisecondsSinceEpoch(0);
@@ -259,8 +318,7 @@ class _LiveAssessmentScreenState
   // Last completed rep returned by the backend.
   Map<String, dynamic>? _lastCompletedRep;
 
-  final AssessmentHistoryService _historyService =
-      AssessmentHistoryService();
+  final AssessmentHistoryService _historyService = AssessmentHistoryService();
   String? _lastSavedRepSignature;
   int _sessionRepSequence = 0;
 
@@ -283,6 +341,98 @@ class _LiveAssessmentScreenState
   final List<Future<void>> _pendingRepWrites = [];
   Future<void> _progressWrites = Future<void>.value();
   bool _backgroundPaused = false;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _assignmentWatch;
+  Timer? _deadlineTimer;
+  DateTime? _assignmentDeadline;
+  String? _assignmentKey;
+  bool _terminalSession = false;
+
+  void _watchAssignment() {
+    final uid = LocalTestConfig.auth.currentUser?.uid;
+    if (!_assignedMode || uid == null) return;
+    _assignmentWatch = LocalTestConfig.database
+        .collection('exerciseAssignments')
+        .doc(uid)
+        .snapshots()
+        .listen(
+          (doc) {
+            if (!mounted || _completed || _terminalSession) return;
+            final data = doc.data();
+            if (data == null ||
+                !assignmentAvailable(data, DateTime.now()) ||
+                (_assignmentKey != null &&
+                    _assignmentKey != assignmentKey(data))) {
+              unawaited(
+                _endUnavailableSession(
+                  data?['status'] == 'cancelled' ? 'cancelled' : 'expired',
+                ),
+              );
+              return;
+            }
+            _assignmentKey ??= assignmentKey(data);
+            _assignmentDeadline = sessionExpiry(data);
+            _deadlineTimer?.cancel();
+            _deadlineTimer = Timer(
+              _assignmentDeadline!.difference(DateTime.now()),
+              () {
+                unawaited(_endUnavailableSession('expired'));
+              },
+            );
+          },
+          onError: (Object error) {
+            debugPrint('Assignment status listener: $error');
+          },
+        );
+  }
+
+  Future<void> _endUnavailableSession(String reason) async {
+    if (_terminalSession || _completed) return;
+    _terminalSession = true;
+    _completed = true;
+    _isExitingOrSaving = true;
+    _reconnectTimer?.cancel();
+    _deadlineTimer?.cancel();
+    try {
+      if (_controller?.value.isStreamingImages == true) {
+        await _controller!.stopImageStream();
+      }
+      await _socketSubscription?.cancel();
+      await _channel?.sink.close();
+    } catch (e) {
+      debugPrint('Stopping terminal session: $e');
+    }
+    final uid = LocalTestConfig.auth.currentUser?.uid;
+    if (reason == 'expired' && uid != null) {
+      try {
+        await SessionLifecycleService().expire(uid);
+      } catch (e) {
+        debugPrint('Session expiry persistence: $e');
+      }
+    }
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: Text(
+          tr(reason == 'cancelled' ? 'Session cancelled' : 'Session expired'),
+        ),
+        content: Text(
+          tr(
+            reason == 'cancelled' ? 'Your doctor cancelled this session.' : 'The one-hour session window has ended. Your recorded progress remains in history.',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(tr('OK')),
+          ),
+        ],
+      ),
+    );
+    if (mounted) Navigator.of(context).pop();
+  }
+
   Future<void> _backgroundPauseWrite = Future<void>.value();
 
   int _currentAssignedIndex = 0;
@@ -305,32 +455,43 @@ class _LiveAssessmentScreenState
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _poseAnimation = AnimationController(vsync: this, duration: frameInterval)
+      ..addListener(() {
+        if (_poseFrom.length != 33 || _poseTo.length != 33) return;
+        final t = _poseAnimation.value;
+        _landmarksNotifier.value = List.generate(33, (i) {
+          final a = _poseFrom[i];
+          final b = _poseTo[i];
+          return LiveLandmark(
+            x: a.x + (b.x - a.x) * t,
+            y: a.y + (b.y - a.y) * t,
+            z: a.z + (b.z - a.z) * t,
+            visibility: a.visibility + (b.visibility - a.visibility) * t,
+          );
+        });
+      });
 
     _resolvedDoctorId = widget.assignedDoctorId ?? '';
 
-    final user = FirebaseAuth.instance.currentUser;
+    final user = LocalTestConfig.auth.currentUser;
     _sessionId = (widget.sessionId != null && widget.sessionId!.isNotEmpty)
         ? widget.sessionId!
         : (user != null
-            ? '${user.uid}_${DateTime.now().millisecondsSinceEpoch}'
-            : DateTime.now().microsecondsSinceEpoch.toString());
+              ? '${user.uid}_${DateTime.now().millisecondsSinceEpoch}'
+              : DateTime.now().microsecondsSinceEpoch.toString());
 
     if (widget.assignedExercises != null &&
         widget.assignedExercises!.isNotEmpty) {
       _assignedMode = true;
 
       _assignedExercises = widget.assignedExercises!
-          .map(
-            (exercise) => Map<String, dynamic>.from(exercise),
-          )
+          .map((exercise) => Map<String, dynamic>.from(exercise))
           .toList();
 
       // Defensive sort so the live screen always follows the doctor's
       // intended sequence even if the caller did not pre-sort the list.
       _assignedExercises.sort(
-        (a, b) => _toInt(a['order']).compareTo(
-          _toInt(b['order']),
-        ),
+        (a, b) => _toInt(a['order']).compareTo(_toInt(b['order'])),
       );
 
       final safeIndex = widget.initialExerciseIndex.clamp(
@@ -353,7 +514,9 @@ class _LiveAssessmentScreenState
           final target = _toInt(e['targetCorrectReps']);
           return {
             'exercise': e['exercise'],
-            'name': _assignedExerciseDisplayName(e['exercise']?.toString() ?? ''),
+            'name': _assignedExerciseDisplayName(
+              e['exercise']?.toString() ?? '',
+            ),
             'targetCorrectReps': target,
             'completedCorrectReps': 0,
             'completedTotalReps': 0,
@@ -365,8 +528,10 @@ class _LiveAssessmentScreenState
       if (_currentAssignedIndex < _exerciseProgress.length) {
         if (_exerciseProgress[_currentAssignedIndex]['status'] != 'completed') {
           _exerciseProgress[_currentAssignedIndex]['status'] = 'in_progress';
-          _exerciseProgress[_currentAssignedIndex]['completedCorrectReps'] = _currentCorrectReps;
-          _exerciseProgress[_currentAssignedIndex]['completedTotalReps'] = _currentTotalReps;
+          _exerciseProgress[_currentAssignedIndex]['completedCorrectReps'] =
+              _currentCorrectReps;
+          _exerciseProgress[_currentAssignedIndex]['completedTotalReps'] =
+              _currentTotalReps;
         }
       }
     }
@@ -377,6 +542,7 @@ class _LiveAssessmentScreenState
       _sessionRepSequence = widget.initialRepSequence;
       _repCount = widget.initialTotalReps;
     }
+    _watchAssignment();
     _initialize();
   }
 
@@ -387,8 +553,7 @@ class _LiveAssessmentScreenState
       return widget.exerciseName;
     }
 
-    return _assignedExercises[_currentAssignedIndex]['exercise']
-            ?.toString() ??
+    return _assignedExercises[_currentAssignedIndex]['exercise']?.toString() ??
         widget.exerciseName;
   }
 
@@ -413,9 +578,7 @@ class _LiveAssessmentScreenState
       return widget.exerciseName;
     }
 
-    return _assignedExerciseDisplayName(
-      _currentAssignedExercise(),
-    );
+    return _assignedExerciseDisplayName(_currentAssignedExercise());
   }
 
   Future<void> _initialize() async {
@@ -424,7 +587,10 @@ class _LiveAssessmentScreenState
       if (!mounted) return;
       final accepted = await confirmSessionSafety(context);
       if (!mounted) return;
-      if (!accepted) { await _popAssessment(); return; }
+      if (!accepted) {
+        await _popAssessment();
+        return;
+      }
       _safetyAccepted = true;
       await _initializeCamera();
       await _connectWebSocket();
@@ -444,25 +610,54 @@ class _LiveAssessmentScreenState
 
       setState(() {
         _initializing = false;
-        _connectionError = e is StateError ? tr(e.message.toString()) : firebaseErrorMessage(e, fallback: 'Could not connect to AI. Please try again.');
+        _connectionError = e is StateError
+            ? tr(e.message.toString())
+            : firebaseErrorMessage(
+                e,
+                fallback: 'Could not connect to AI. Please try again.',
+              );
       });
     }
   }
 
   Future<void> _startActiveSessionInFirestore() async {
-    final user = FirebaseAuth.instance.currentUser;
+    if (!_assignedMode) {
+      _sessionStarted = true;
+      return;
+    }
+    final user = LocalTestConfig.auth.currentUser;
     if (user == null) throw StateError('Please sign in.');
     final patientId = user.uid;
+    final assignment = await LocalTestConfig.database
+        .collection('exerciseAssignments')
+        .doc(patientId)
+        .get();
+    final assignedData = assignment.data();
+    if (_terminalSession ||
+        assignedData == null ||
+        !assignmentAvailable(assignedData, DateTime.now()) ||
+        (_assignmentKey != null &&
+            _assignmentKey != assignmentKey(assignedData))) {
+      throw StateError('This session is no longer available.');
+    }
+    _assignmentDeadline = sessionExpiry(assignedData);
+    _assignmentKey = assignmentKey(assignedData);
     _resolvedPatientName = user.displayName ?? '';
 
-    final userDoc = await FirebaseFirestore.instance.collection('users').doc(patientId).get();
+    final userDoc = await LocalTestConfig.database
+        .collection('users')
+        .doc(patientId)
+        .get();
     final userData = userDoc.data();
     _resolvedDoctorId = userData?['doctorId']?.toString().trim() ?? '';
-    if (_resolvedDoctorId.isEmpty || userData?['accountActive'] == false) throw StateError('An active doctor assignment is required.');
-    _resolvedPatientName = userData?['name']?.toString() ?? _resolvedPatientName;
+    if (_resolvedDoctorId.isEmpty || userData?['accountActive'] == false) {
+      throw StateError('An active doctor assignment is required.');
+    }
+    _resolvedPatientName =
+        userData?['name']?.toString() ?? _resolvedPatientName;
 
     try {
-      final docRef = FirebaseFirestore.instance
+      final docRef = LocalTestConfig.database
           .collection('assessmentSessions')
           .doc(_sessionId);
       final existingDoc = await docRef.get();
@@ -482,6 +677,9 @@ class _LiveAssessmentScreenState
         'practice': !_assignedMode,
         'safetyConfirmedAt': FieldValue.serverTimestamp(),
         'recordingConsentVersion': '2026-10-02-v1',
+        'scheduledAt': assignedData['scheduledAt'] ?? assignedData['createdAt'],
+        'expiresAt': Timestamp.fromDate(_assignmentDeadline!),
+        'assignmentId': _assignmentKey,
         'currentRepCount': math.max(_repCount, _currentTotalReps),
         'currentScore': _score,
         'currentForm': _form,
@@ -494,19 +692,28 @@ class _LiveAssessmentScreenState
         sessionData['resumedAt'] = FieldValue.serverTimestamp();
       }
 
-      final batch = FirebaseFirestore.instance.batch();
+      final batch = LocalTestConfig.database.batch();
       batch.set(docRef, sessionData, SetOptions(merge: true));
       if (_assignedMode) {
-        batch.set(FirebaseFirestore.instance.collection('exerciseAssignments').doc(patientId), {
-          'status': 'in_progress', 'sessionId': _sessionId,
-          'lastUpdatedAt': FieldValue.serverTimestamp(), 'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
+        batch.set(
+          LocalTestConfig.database
+              .collection('exerciseAssignments')
+              .doc(patientId),
+          {
+            'status': 'in_progress',
+            'sessionId': _sessionId,
+            'lastUpdatedAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true),
+        );
       }
       await batch.commit();
       _sessionStarted = true;
 
       debugPrint(
-          'Active session initialized in Firestore: $_sessionId (resumed: $alreadyExists, doctorId: $_resolvedDoctorId)');
+        'Active session initialized in Firestore: $_sessionId (resumed: $alreadyExists, doctorId: $_resolvedDoctorId)',
+      );
     } catch (e) {
       debugPrint('Error initializing active session in Firestore: $e');
       rethrow;
@@ -514,7 +721,13 @@ class _LiveAssessmentScreenState
   }
 
   void _syncActiveSessionProgress({bool force = false}) {
-    if (_completed || _isExitingOrSaving || _backgroundPaused || !_safetyAccepted) return;
+    if (!_assignedMode) return;
+    if (_completed ||
+        _isExitingOrSaving ||
+        _backgroundPaused ||
+        !_safetyAccepted) {
+      return;
+    }
     final now = DateTime.now();
     if (!force &&
         now.difference(_lastActiveSessionSync).inMilliseconds < 1500) {
@@ -522,14 +735,20 @@ class _LiveAssessmentScreenState
     }
     _lastActiveSessionSync = now;
 
-    final user = FirebaseAuth.instance.currentUser;
+    final user = LocalTestConfig.auth.currentUser;
     if (user == null) return;
     final patientId = user.uid;
 
-    final totalCorrect = _assignedMode ? _totalCompletedCorrectReps : _currentCorrectReps;
-    final totalReps = _assignedMode ? _totalCompletedReps : math.max(_repCount, _currentTotalReps);
+    final totalCorrect = _assignedMode
+        ? _totalCompletedCorrectReps
+        : _currentCorrectReps;
+    final totalReps = _assignedMode
+        ? _totalCompletedReps
+        : math.max(_repCount, _currentTotalReps);
     final target = _totalTargetCorrectReps;
-    final progressPct = target > 0 ? (totalCorrect / target).clamp(0.0, 1.0) * 100 : 0.0;
+    final progressPct = target > 0
+        ? (totalCorrect / target).clamp(0.0, 1.0) * 100
+        : 0.0;
 
     final syncData = <String, dynamic>{
       'sessionId': _sessionId,
@@ -550,23 +769,39 @@ class _LiveAssessmentScreenState
       syncData['patientName'] = _resolvedPatientName;
     }
 
-    final batch = FirebaseFirestore.instance.batch();
-    batch.set(FirebaseFirestore.instance.collection('assessmentSessions').doc(_sessionId), syncData, SetOptions(merge: true));
+    final batch = LocalTestConfig.database.batch();
+    batch.set(
+      LocalTestConfig.database.collection('assessmentSessions').doc(_sessionId),
+      syncData,
+      SetOptions(merge: true),
+    );
 
     if (_assignedMode) {
-      batch.set(FirebaseFirestore.instance.collection('exerciseAssignments').doc(patientId), {
-        'status': 'in_progress',
-        'sessionId': _sessionId,
-        'currentExerciseIndex': _currentAssignedIndex,
-        'currentExercise': _currentAssignedExercise(),
-        'completedCorrectReps': totalCorrect,
-        'totalCompletedReps': totalReps,
-        'progressPercentage': progressPct,
-        'exerciseProgress': _exerciseProgress.map((entry) => Map<String, dynamic>.from(entry)).toList(),
-        'lastUpdatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      batch.set(
+        LocalTestConfig.database
+            .collection('exerciseAssignments')
+            .doc(patientId),
+        {
+          'status': 'in_progress',
+          'sessionId': _sessionId,
+          'currentExerciseIndex': _currentAssignedIndex,
+          'currentExercise': _currentAssignedExercise(),
+          'completedCorrectReps': totalCorrect,
+          'totalCompletedReps': totalReps,
+          'progressPercentage': progressPct,
+          'exerciseProgress': _exerciseProgress
+              .map((entry) => Map<String, dynamic>.from(entry))
+              .toList(),
+          'lastUpdatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
     }
-    _progressWrites = _progressWrites.then((_) => batch.commit()).catchError((Object e) { debugPrint('Could not sync session progress: $e'); });
+    _progressWrites = _progressWrites.then((_) => batch.commit()).catchError((
+      Object e,
+    ) {
+      debugPrint('Could not sync session progress: $e');
+    });
   }
 
   // ============================================================
@@ -630,13 +865,17 @@ class _LiveAssessmentScreenState
     debugPrint('Connecting to WebSocket: $websocketUrl');
 
     try {
-      final currentEx =
-          _assignedMode ? _currentAssignedExercise() : widget.exerciseName;
+      final currentEx = _assignedMode
+          ? _currentAssignedExercise()
+          : widget.exerciseName;
       final parsedUri = Uri.parse(websocketUrl);
+      await ApiService().requireExerciseModel(currentEx);
       final wsUri = parsedUri.replace(
         queryParameters: {
           ...parsedUri.queryParameters,
           'exercise': currentEx,
+          'practice': (!_assignedMode).toString(),
+          'starting_hand': _currentCorrectReps.isOdd ? 'Right' : 'Left',
         },
       );
 
@@ -653,6 +892,9 @@ class _LiveAssessmentScreenState
 
       _socketConnected = true;
       _socketConnecting = false;
+      _reconnectTimer?.cancel();
+      _reconnectAttempts = 0;
+      _inFlightFrames = 0;
 
       // If resuming at an exercise beyond index 0, tell backend AI to switch to it
       if (_assignedMode && _currentAssignedIndex > 0) {
@@ -662,6 +904,7 @@ class _LiveAssessmentScreenState
             jsonEncode({
               'type': 'switch_exercise',
               'exercise': currentEx,
+              'starting_hand': _currentCorrectReps.isOdd ? 'Right' : 'Left',
             }),
           );
           debugPrint('Resumed session: sent switch_exercise for $currentEx');
@@ -680,10 +923,12 @@ class _LiveAssessmentScreenState
       _socketSubscription = channel.stream.listen(
         _handleSocketMessage,
         onError: (error) {
+          if (_channel != channel) return;
           debugPrint('WebSocket error: $error');
 
           _socketConnected = false;
           _socketConnecting = false;
+          _queueReconnect();
 
           if (mounted) {
             setState(() {
@@ -693,10 +938,12 @@ class _LiveAssessmentScreenState
           }
         },
         onDone: () {
+          if (_channel != channel) return;
           debugPrint('WebSocket connection closed.');
 
           _socketConnected = false;
           _socketConnecting = false;
+          _queueReconnect();
 
           if (mounted) {
             setState(() {
@@ -711,11 +958,17 @@ class _LiveAssessmentScreenState
 
       _socketConnected = false;
       _socketConnecting = false;
+      _queueReconnect();
 
       if (mounted) {
         setState(() {
           _connectionStatus = 'AI Connection Failed';
-          _connectionError = e is StateError ? tr(e.message.toString()) : firebaseErrorMessage(e, fallback: 'Could not connect to AI. Please try again.');
+          _connectionError = e is StateError
+              ? tr(e.message.toString())
+              : firebaseErrorMessage(
+                  e,
+                  fallback: 'Could not connect to AI. Please try again.',
+                );
         });
       }
     }
@@ -726,6 +979,7 @@ class _LiveAssessmentScreenState
   // ============================================================
 
   void _handleSocketMessage(dynamic message) {
+    if (_terminalSession) return;
     try {
       if (message is! String) {
         return;
@@ -735,9 +989,7 @@ class _LiveAssessmentScreenState
           jsonDecode(message) as Map<String, dynamic>;
 
       if (data['type'] == 'error') {
-        debugPrint(
-          'Backend error: ${data['message']}',
-        );
+        debugPrint('Backend error: ${data['message']}');
 
         if (mounted) {
           setState(() {
@@ -798,12 +1050,16 @@ class _LiveAssessmentScreenState
 
       // Handle completed rep immediately and synchronously
       if (hasCompletedRep) {
-        final form = completedRep['form']?.toString().toLowerCase() ??
+        final form =
+            completedRep['form']?.toString().toLowerCase() ??
             completedRep['label']?.toString().toLowerCase() ??
-            completedRep['session_record']?['predicted_label']?.toString().toLowerCase() ??
+            completedRep['session_record']?['predicted_label']
+                ?.toString()
+                .toLowerCase() ??
             '';
 
-        final bool correct = form == 'correct' ||
+        final bool correct =
+            form == 'correct' ||
             (form.contains('correct') && !form.contains('incorrect'));
 
         _currentTotalReps++;
@@ -829,7 +1085,8 @@ class _LiveAssessmentScreenState
             if (_currentCorrectReps >= target && target > 0) {
               _exerciseProgress[_currentAssignedIndex]['status'] = 'completed';
             } else {
-              _exerciseProgress[_currentAssignedIndex]['status'] = 'in_progress';
+              _exerciseProgress[_currentAssignedIndex]['status'] =
+                  'in_progress';
             }
           }
 
@@ -857,6 +1114,13 @@ class _LiveAssessmentScreenState
         _lastCompletedRep = rep;
       }
 
+      final errorImage =
+          _errorFrameUrl(data) ??
+          (hasCompletedRep
+              ? _errorFrameUrl(Map<String, dynamic>.from(completedRep))
+              : null);
+      if (errorImage != null) _latestErrorFrame = errorImage;
+
       // 1. Update pose landmarks and form immediately without widget tree rebuild
       final newForm = data['form']?.toString() ?? _form;
       _formNotifier.value = newForm;
@@ -870,35 +1134,55 @@ class _LiveAssessmentScreenState
           now.difference(_lastStatsUpdated).inMilliseconds >= 150;
 
       _score = _toDouble(data['score']);
+      _scoreAvailable = data['score'] is num && (data['score'] as num).isFinite;
+      _movementMetrics = {
+        for (final key in [
+          'angle',
+          'duration',
+          'smoothness',
+          'state',
+          'expected_hand',
+          'minimum_angle',
+          'maximum_angle',
+          'return_completion',
+          'detection_tolerances',
+          'score_kind',
+        ])
+          key: data[key],
+      };
       _rom = _toDouble(data['range_of_motion']);
       _speed = data['speed']?.toString() ?? 'Waiting';
       _errorType = data['error_type']?.toString() ?? '';
-      _feedback = data['feedback']?.toString() ??
+      _feedback =
+          data['feedback']?.toString() ??
           'Keep following the exercise instructions.';
       _form = newForm;
 
       // Rebuild UI immediately when rep completes, rep count changes, or throttle interval elapsed
-      if (hasCompletedRep || repCountChanged || throttleElapsed) {
+      if (hasCompletedRep ||
+          errorImage != null ||
+          repCountChanged ||
+          throttleElapsed) {
         _lastStatsUpdated = now;
         if (mounted) {
           setState(() {
             _socketConnected = true;
             _connectionStatus = 'AI Live';
-            _repCount = math.max(_currentTotalReps, math.max(newRepCount, _repCount));
+            _repCount = math.max(
+              _currentTotalReps,
+              math.max(newRepCount, _repCount),
+            );
           });
         }
         _syncActiveSessionProgress(force: hasCompletedRep);
       }
     } catch (e) {
-      debugPrint(
-        'Could not process WebSocket message: $e',
-      );
+      debugPrint('Could not process WebSocket message: $e');
     }
   }
 
   Future<void> _handleAssignedTargetReached() async {
-    final bool hasNext =
-        _currentAssignedIndex + 1 < _assignedExercises.length;
+    final bool hasNext = _currentAssignedIndex + 1 < _assignedExercises.length;
 
     if (!hasNext) {
       await _completeAssignedSession();
@@ -914,8 +1198,7 @@ class _LiveAssessmentScreenState
       return;
     }
 
-    final nextExercise =
-        _assignedExercises[nextIndex]['exercise']?.toString();
+    final nextExercise = _assignedExercises[nextIndex]['exercise']?.toString();
 
     if (nextExercise == null || nextExercise.isEmpty) {
       debugPrint(
@@ -927,16 +1210,12 @@ class _LiveAssessmentScreenState
 
     try {
       if (_channel == null || !_socketConnected) {
-        throw StateError(
-          'WebSocket is not connected.',
-        );
+        throw StateError('WebSocket is not connected.');
       }
 
+      await ApiService().requireExerciseModel(nextExercise);
       _channel!.sink.add(
-        jsonEncode({
-          'type': 'switch_exercise',
-          'exercise': nextExercise,
-        }),
+        jsonEncode({'type': 'switch_exercise', 'exercise': nextExercise}),
       );
 
       debugPrint(
@@ -944,16 +1223,13 @@ class _LiveAssessmentScreenState
         '${_currentAssignedExercise()} -> $nextExercise',
       );
     } catch (e) {
-      debugPrint(
-        'Could not switch exercise: $e',
-      );
+      debugPrint('Could not switch exercise: $e');
 
       _switchingExercise = false;
 
       if (mounted) {
         setState(() {
-          _feedback =
-              'Could not start the next exercise. Please try again.';
+          _feedback = 'Could not start the next exercise. Please try again.';
         });
       }
 
@@ -972,15 +1248,18 @@ class _LiveAssessmentScreenState
       _currentTotalReps = 0;
 
       _lastCompletedRep = null;
+      _latestErrorFrame = null;
+      _lastPoseReceived = null;
 
       _repCount = 0;
 
       _form = 'Waiting';
 
-      _feedback =
-          'Starting ${_assignedExerciseDisplayName(nextExercise)}...';
+      _feedback = 'Starting ${_assignedExerciseDisplayName(nextExercise)}...';
 
       _score = 0;
+      _scoreAvailable = false;
+      _movementMetrics = {};
       _rom = 0;
       _speed = 'Waiting';
       _errorType = '';
@@ -988,9 +1267,7 @@ class _LiveAssessmentScreenState
 
     // Give the backend a short moment to replace the assessment object before
     // the next live frames are evaluated.
-    await Future<void>.delayed(
-      const Duration(milliseconds: 500),
-    );
+    await Future<void>.delayed(const Duration(milliseconds: 500));
 
     _switchingExercise = false;
   }
@@ -1025,64 +1302,94 @@ class _LiveAssessmentScreenState
     await Future.wait(_pendingRepWrites);
     await _progressWrites;
 
-    final user = FirebaseAuth.instance.currentUser;
+    final user = LocalTestConfig.auth.currentUser;
     final patientId = user?.uid;
     final sessionName = widget.sessionName ?? 'Physiotherapy Session';
 
     // 4. Mark session completed in Firestore
     if (patientId != null) {
       try {
-        final totalCorrect = _assignedMode ? _totalCompletedCorrectReps : _currentCorrectReps;
-        final totalReps = _assignedMode ? _totalCompletedReps : math.max(_repCount, _currentTotalReps);
+        final totalCorrect = _assignedMode
+            ? _totalCompletedCorrectReps
+            : _currentCorrectReps;
+        final totalReps = _assignedMode
+            ? _totalCompletedReps
+            : math.max(_repCount, _currentTotalReps);
         final finalScoreVal = _score;
 
-        final batch = FirebaseFirestore.instance.batch();
+        final batch = LocalTestConfig.database.batch();
         // Update exerciseAssignments to completed so patient cannot re-start it
-        batch.set(FirebaseFirestore.instance.collection('exerciseAssignments').doc(patientId), {
-          'status': 'completed',
-          'completedCorrectReps': totalCorrect,
-          'totalCompletedReps': totalReps,
-          'progressPercentage': 100.0,
-          'exerciseProgress': _exerciseProgress.map((entry) => Map<String, dynamic>.from(entry)).toList(),
-          'completedAt': FieldValue.serverTimestamp(),
-          'lastUpdatedAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
+        batch.set(
+          LocalTestConfig.database
+              .collection('exerciseAssignments')
+              .doc(patientId),
+          {
+            'status': 'completed',
+            'completedCorrectReps': totalCorrect,
+            'totalCompletedReps': totalReps,
+            'progressPercentage': 100.0,
+            'exerciseProgress': _exerciseProgress
+                .map((entry) => Map<String, dynamic>.from(entry))
+                .toList(),
+            'completedAt': FieldValue.serverTimestamp(),
+            'lastUpdatedAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true),
+        );
 
         // Create / update assessmentSessions
-        batch.set(FirebaseFirestore.instance.collection('assessmentSessions').doc(_sessionId), {
-          'sessionId': _sessionId,
-          'patientId': patientId,
-          'patientName': _resolvedPatientName.isNotEmpty
-              ? _resolvedPatientName
-              : 'Patient',
-          'doctorId': _resolvedDoctorId,
-          'sessionName': sessionName,
-          'status': 'completed',
-          'currentRepCount': totalReps,
-          'finalRepCount': totalReps,
-          'totalReps': totalReps,
-          'totalCorrectReps': totalCorrect,
-          'currentScore': finalScoreVal,
-          'finalScore': finalScoreVal,
-          'currentForm': _form,
-          'progressPercentage': 100.0,
-          'completedAt': FieldValue.serverTimestamp(),
-          'endedAt': FieldValue.serverTimestamp(),
-          'lastUpdatedAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
-          'exercises': _exerciseProgress.isNotEmpty ? _exerciseProgress : _assignedExercises.map((e) => {
-            'exercise': e['exercise'],
-            'name': _assignedExerciseDisplayName(e['exercise']?.toString() ?? ''),
-            'targetCorrectReps': _toInt(e['targetCorrectReps']),
-            'completedCorrectReps': _toInt(e['targetCorrectReps']),
-            'completedTotalReps': _toInt(e['targetCorrectReps']),
+        batch.set(
+          LocalTestConfig.database
+              .collection('assessmentSessions')
+              .doc(_sessionId),
+          {
+            'sessionId': _sessionId,
+            'patientId': patientId,
+            'patientName': _resolvedPatientName.isNotEmpty
+                ? _resolvedPatientName
+                : 'Patient',
+            'doctorId': _resolvedDoctorId,
+            'sessionName': sessionName,
             'status': 'completed',
-          }).toList(),
-        }, SetOptions(merge: true));
+            'currentRepCount': totalReps,
+            'finalRepCount': totalReps,
+            'totalReps': totalReps,
+            'totalCorrectReps': totalCorrect,
+            'currentScore': finalScoreVal,
+            'finalScore': finalScoreVal,
+            'currentForm': _form,
+            'progressPercentage': 100.0,
+            'completedAt': FieldValue.serverTimestamp(),
+            'endedAt': FieldValue.serverTimestamp(),
+            'lastUpdatedAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+            'exercises': _exerciseProgress.isNotEmpty
+                ? _exerciseProgress
+                : _assignedExercises
+                      .map(
+                        (e) => {
+                          'exercise': e['exercise'],
+                          'name': _assignedExerciseDisplayName(
+                            e['exercise']?.toString() ?? '',
+                          ),
+                          'targetCorrectReps': _toInt(e['targetCorrectReps']),
+                          'completedCorrectReps': _toInt(
+                            e['targetCorrectReps'],
+                          ),
+                          'completedTotalReps': _toInt(e['targetCorrectReps']),
+                          'status': 'completed',
+                        },
+                      )
+                      .toList(),
+          },
+          SetOptions(merge: true),
+        );
         await batch.commit();
 
-        debugPrint('LiveAssessment: Session completed. sessionId=$_sessionId, finalRepCount=$totalReps, finalScore=$finalScoreVal');
+        debugPrint(
+          'LiveAssessment: Session completed. sessionId=$_sessionId, finalRepCount=$totalReps, finalScore=$finalScoreVal',
+        );
 
         // Notify doctor if _resolvedDoctorId is present
         if (_resolvedDoctorId.isNotEmpty) {
@@ -1106,12 +1413,34 @@ class _LiveAssessmentScreenState
       } catch (e) {
         debugPrint('Error saving completed session to Firestore: $e');
         if (mounted) {
-          final retry = await showDialog<bool>(context:context,barrierDismissible:false,builder:(dialogContext)=>AlertDialog(
-            title:Text(tr('Could not save. Please try again.')),
-            content:Text(tr('Your progress is still on this screen. Restore your connection, then retry saving.')),
-            actions:[TextButton(onPressed:()=>Navigator.pop(dialogContext,false),child:Text(tr('Save and exit'))),FilledButton(onPressed:()=>Navigator.pop(dialogContext,true),child:Text(tr('Try Again')))]));
-          _completed=false;
-          if (retry==true) { await _completeAssignedSession(); } else { await _saveAndExit(); }
+          final retry = await showDialog<bool>(
+            context: context,
+            barrierDismissible: false,
+            builder: (dialogContext) => AlertDialog(
+              title: Text(tr('Could not save. Please try again.')),
+              content: Text(
+                tr(
+                  'Your progress is still on this screen. Restore your connection, then retry saving.',
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: Text(tr('Save and exit')),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(dialogContext, true),
+                  child: Text(tr('Try Again')),
+                ),
+              ],
+            ),
+          );
+          _completed = false;
+          if (retry == true) {
+            await _completeAssignedSession();
+          } else {
+            await _saveAndExit();
+          }
         }
         return;
       }
@@ -1157,9 +1486,8 @@ class _LiveAssessmentScreenState
     );
   }
 
-  Future<void> _saveCompletedRepToHistory(
-    Map<String, dynamic> rep,
-  ) async {
+  Future<void> _saveCompletedRepToHistory(Map<String, dynamic> rep) async {
+    if (!_assignedMode) return;
     try {
       debugPrint(
         'Saving assessment history for Firebase UID: '
@@ -1180,7 +1508,12 @@ class _LiveAssessmentScreenState
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(firebaseErrorMessage(e, fallback: 'Could not save. Please try again.')),
+            content: Text(
+              firebaseErrorMessage(
+                e,
+                fallback: 'Could not save. Please try again.',
+              ),
+            ),
             duration: const Duration(seconds: 5),
           ),
         );
@@ -1189,7 +1522,23 @@ class _LiveAssessmentScreenState
   }
 
   void _updateLandmarksAdaptive(List<LiveLandmark> next) {
-    if (next.length != 33) return;
+    final received = DateTime.now();
+    if (next.length != 33) {
+      _poseAnimation.stop();
+      _landmarksNotifier.value = [];
+      _lastPoseReceived = null;
+      return;
+    }
+    if (_lastPoseReceived != null) {
+      final interval = received.difference(_lastPoseReceived!).inMilliseconds;
+      _poseIntervalMs = (_poseIntervalMs * 0.6 + interval * 0.4)
+          .clamp(50, 200)
+          .toDouble();
+    }
+    _lastPoseReceived = received;
+    // Interpolate over the measured response interval rather than freezing
+    // after 50ms on a slower network. No extrapolated pose is sent to the AI.
+    _poseAnimation.duration = Duration(milliseconds: _poseIntervalMs.round());
 
     final current = _landmarksNotifier.value;
     if (current.length != 33) {
@@ -1206,16 +1555,15 @@ class _LiveAssessmentScreenState
       final distSq = dx * dx + dy * dy;
 
       // Adaptive smoothing factor:
-      // Fast movement (distSq >= 0.0016, i.e. delta >= 0.04): alpha = 0.92 (immediate tracking, zero lag)
-      // Slow movement (distSq <= 0.0001, i.e. delta <= 0.01): alpha = 0.50 (smooth noise reduction)
+      // Follow large movements directly; gently suppress small stationary jitter.
       final double alpha;
       if (distSq >= 0.0016) {
-        alpha = 0.92;
+        alpha = 1.0;
       } else if (distSq <= 0.0001) {
-        alpha = 0.50;
+        alpha = 0.70;
       } else {
         final t = (distSq - 0.0001) / 0.0015;
-        alpha = 0.50 + 0.42 * t;
+        alpha = 0.70 + 0.30 * t;
       }
 
       return LiveLandmark(
@@ -1226,12 +1574,12 @@ class _LiveAssessmentScreenState
       );
     });
 
-    _landmarksNotifier.value = smoothed;
+    _poseFrom = current;
+    _poseTo = smoothed;
+    _poseAnimation.forward(from: 0);
   }
 
-  Future<void> _showErrorFrame(
-    String url,
-  ) async {
+  Future<void> _showErrorFrame(String url) async {
     if (!mounted) return;
 
     await showDialog<void>(
@@ -1246,6 +1594,7 @@ class _LiveAssessmentScreenState
   // ============================================================
 
   Future<void> _startImageStream() async {
+    if (_terminalSession) return;
     if (_controller == null) {
       return;
     }
@@ -1255,39 +1604,33 @@ class _LiveAssessmentScreenState
     }
 
     if (!_socketConnected) {
-      debugPrint(
-        'Waiting for WebSocket before starting image stream.',
-      );
+      debugPrint('Waiting for WebSocket before starting image stream.');
 
       return;
     }
 
     try {
-      await _controller!.startImageStream(
-        _processCameraImage,
-      );
+      await _controller!.startImageStream(_processCameraImage);
 
       _streaming = true;
 
       debugPrint('Camera image stream started.');
     } catch (e) {
-      debugPrint(
-        'Could not start camera image stream: $e',
-      );
+      debugPrint('Could not start camera image stream: $e');
 
       if (mounted) {
         setState(() {
-          _connectionError =
-              'Could not start camera stream: $e';
+          _connectionError = 'Could not start camera stream: $e';
         });
       }
     }
   }
 
-  Future<void> _processCameraImage(
-    CameraImage cameraImage,
-  ) async {
-    if (!mounted || _isExitingOrSaving || !_socketConnected || _channel == null) {
+  Future<void> _processCameraImage(CameraImage cameraImage) async {
+    if (!mounted ||
+        _isExitingOrSaving ||
+        !_socketConnected ||
+        _channel == null) {
       return;
     }
 
@@ -1298,15 +1641,19 @@ class _LiveAssessmentScreenState
 
     final now = DateTime.now();
 
-    // 2. Bound network in-flight queue to max 3 frames (~150ms buffer).
-    // This allows full 20 FPS throughput over typical mobile/network latency,
-    // while strictly preventing buffer queue accumulation if network stalls.
-    if (_inFlightFrames >= 3) {
-      if (now.difference(_lastAiFrameDispatched).inMilliseconds < 500) {
-        return; // Drop intermediate camera frame: latest frame wins!
+    // Drop excess camera frames instead of queuing stale movement on the server.
+    if (_inFlightFrames >= 2) {
+      if (now.difference(_lastAiFrameDispatched).inSeconds >= 5) {
+        _socketConnected = false;
+        if (mounted) {
+          setState(() {
+            _connectionStatus = 'AI Disconnected';
+            _connectionError = tr('Connection interrupted. Reconnecting…');
+          });
+        }
+        _queueReconnect();
       }
-      // Timed out waiting for network response: allow next frame
-      _inFlightFrames = 0;
+      return;
     }
 
     // 3. Minimum interval throttle (50ms = 20 FPS AI inference rate expected by backend)
@@ -1335,19 +1682,24 @@ class _LiveAssessmentScreenState
         uPixelStride: cameraImage.planes[1].bytesPerPixel ?? 1,
         vPixelStride: cameraImage.planes[2].bytesPerPixel ?? 1,
         sensorOrientation: _controller?.description.sensorOrientation ?? 0,
-        isFrontCamera: _controller?.description.lensDirection ==
-            CameraLensDirection.front,
+        isFrontCamera:
+            _controller?.description.lensDirection == CameraLensDirection.front,
       );
 
       // Run fast conversion + in-place rotation + JPEG compression in background isolate
-      final Uint8List? jpegBytes =
-          await compute(_convertFrameToJpegIsolate, frameData);
+      final Uint8List? jpegBytes = await compute(
+        _convertFrameToJpegIsolate,
+        frameData,
+      );
 
       if (jpegBytes == null || jpegBytes.isEmpty) {
         return;
       }
 
-      if (!mounted || _isExitingOrSaving || !_socketConnected || _channel == null) {
+      if (!mounted ||
+          _isExitingOrSaving ||
+          !_socketConnected ||
+          _channel == null) {
         return;
       }
 
@@ -1408,12 +1760,20 @@ class _LiveAssessmentScreenState
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
-      if (_safetyAccepted && !_initializing && !_completed && !_isExitingOrSaving && !_backgroundPaused) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      if (_safetyAccepted &&
+          !_initializing &&
+          !_completed &&
+          !_isExitingOrSaving &&
+          !_backgroundPaused) {
         _backgroundPauseWrite = _autoPauseStateInBackground();
         unawaited(_backgroundPauseWrite);
       }
-    } else if (state == AppLifecycleState.resumed && _backgroundPaused && !_completed && !_isExitingOrSaving) {
+    } else if (state == AppLifecycleState.resumed &&
+        _backgroundPaused &&
+        !_completed &&
+        !_isExitingOrSaving) {
       unawaited(_resumeFromBackground());
     }
   }
@@ -1423,81 +1783,115 @@ class _LiveAssessmentScreenState
     if (!mounted) return;
     final accepted = await confirmSessionSafety(context);
     if (!mounted) return;
-    if (!accepted) { await _saveAndExit(); return; }
+    if (!accepted) {
+      await _saveAndExit();
+      return;
+    }
     try {
       if (!_socketConnected) await _connectWebSocket();
       await _startActiveSessionInFirestore();
       _backgroundPaused = false;
       await _startImageStream();
-    } catch (e) { if(mounted) setState(() => _connectionError = e.toString()); }
+    } catch (e) {
+      if (mounted) setState(() => _connectionError = e.toString());
+    }
   }
 
   Future<void> _autoPauseStateInBackground() async {
     _backgroundPaused = true;
-    try { if (_controller?.value.isStreamingImages == true) await _controller!.stopImageStream(); } catch (_) {}
+    try {
+      if (_controller?.value.isStreamingImages == true) {
+        await _controller!.stopImageStream();
+      }
+    } catch (_) {}
     _streaming = false;
     await _progressWrites;
     await Future.wait(_pendingRepWrites);
-    final user = FirebaseAuth.instance.currentUser;
+    final user = LocalTestConfig.auth.currentUser;
+    if (!_assignedMode) return;
     final patientId = user?.uid;
     if (patientId == null) return;
 
     try {
-      final batch = FirebaseFirestore.instance.batch();
+      final batch = LocalTestConfig.database.batch();
       final progressPct = _progressPercentage;
-      final totalCorrect = _assignedMode ? _totalCompletedCorrectReps : _currentCorrectReps;
-      final totalReps = _assignedMode ? _totalCompletedReps : math.max(_repCount, _currentTotalReps);
+      final totalCorrect = _assignedMode
+          ? _totalCompletedCorrectReps
+          : _currentCorrectReps;
+      final totalReps = _assignedMode
+          ? _totalCompletedReps
+          : math.max(_repCount, _currentTotalReps);
       final targetReps = _assignedMode ? _totalTargetCorrectReps : 0;
 
       if (_assignedMode) {
-        batch.set(FirebaseFirestore.instance.collection('exerciseAssignments').doc(patientId), {
-          'status': 'paused',
-          'sessionId': _sessionId,
-          'currentExerciseIndex': _currentAssignedIndex,
-          'currentExercise': _currentAssignedExercise(),
-          'completedCorrectReps': totalCorrect,
-          'totalCompletedReps': totalReps,
-          'progressPercentage': progressPct,
-          'exerciseProgress': _exerciseProgress.map((entry) => Map<String, dynamic>.from(entry)).toList(),
-          'lastUpdatedAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
+        batch.set(
+          LocalTestConfig.database
+              .collection('exerciseAssignments')
+              .doc(patientId),
+          {
+            'status': 'paused',
+            'sessionId': _sessionId,
+            'currentExerciseIndex': _currentAssignedIndex,
+            'currentExercise': _currentAssignedExercise(),
+            'completedCorrectReps': totalCorrect,
+            'totalCompletedReps': totalReps,
+            'progressPercentage': progressPct,
+            'exerciseProgress': _exerciseProgress
+                .map((entry) => Map<String, dynamic>.from(entry))
+                .toList(),
+            'lastUpdatedAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true),
+        );
       }
 
-      batch.set(FirebaseFirestore.instance.collection('assessmentSessions').doc(_sessionId), {
-        'sessionId': _sessionId,
-        'assignmentId': _assignedMode ? patientId : null,
-        'patientId': patientId,
-        'patientName': _resolvedPatientName.isNotEmpty
-            ? _resolvedPatientName
-            : 'Patient',
-        'doctorId': _resolvedDoctorId,
-        'sessionName': widget.sessionName ?? _currentExerciseDisplayName(),
-        'status': 'paused',
-        'currentExerciseIndex': _currentAssignedIndex,
-        'currentExercise': _assignedMode ? _currentAssignedExercise() : widget.exerciseName,
-        'exercise': _assignedMode ? _assignedExerciseDisplayName(_currentAssignedExercise()) : _currentExerciseDisplayName(),
-        'progressPercentage': progressPct,
-        'exercises': _assignedMode ? _exerciseProgress : [
-          {
-            'exercise': widget.exerciseName,
-            'name': _currentExerciseDisplayName(),
-            'completedCorrectReps': _currentCorrectReps,
-            'completedTotalReps': totalReps,
-            'status': 'paused',
-          }
-        ],
-        'totalCorrectReps': totalCorrect,
-        'totalReps': totalReps,
-        'targetCorrectReps': targetReps,
-        'currentRepCount': totalReps,
-        'currentScore': _score,
-        'currentForm': _form,
-        'pausedAt': FieldValue.serverTimestamp(),
-        'lastUpdatedAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-        await batch.commit();
+      batch.set(
+        LocalTestConfig.database
+            .collection('assessmentSessions')
+            .doc(_sessionId),
+        {
+          'sessionId': _sessionId,
+          'assignmentId': _assignmentKey,
+          'patientId': patientId,
+          'patientName': _resolvedPatientName.isNotEmpty
+              ? _resolvedPatientName
+              : 'Patient',
+          'doctorId': _resolvedDoctorId,
+          'sessionName': widget.sessionName ?? _currentExerciseDisplayName(),
+          'status': 'paused',
+          'currentExerciseIndex': _currentAssignedIndex,
+          'currentExercise': _assignedMode
+              ? _currentAssignedExercise()
+              : widget.exerciseName,
+          'exercise': _assignedMode
+              ? _assignedExerciseDisplayName(_currentAssignedExercise())
+              : _currentExerciseDisplayName(),
+          'progressPercentage': progressPct,
+          'exercises': _assignedMode
+              ? _exerciseProgress
+              : [
+                  {
+                    'exercise': widget.exerciseName,
+                    'name': _currentExerciseDisplayName(),
+                    'completedCorrectReps': _currentCorrectReps,
+                    'completedTotalReps': totalReps,
+                    'status': 'paused',
+                  },
+                ],
+          'totalCorrectReps': totalCorrect,
+          'totalReps': totalReps,
+          'targetCorrectReps': targetReps,
+          'currentRepCount': totalReps,
+          'currentScore': _score,
+          'currentForm': _form,
+          'pausedAt': FieldValue.serverTimestamp(),
+          'lastUpdatedAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+      await batch.commit();
     } catch (e) {
       debugPrint('Error auto-pausing session in background: $e');
     }
@@ -1508,7 +1902,14 @@ class _LiveAssessmentScreenState
   // ============================================================
 
   Future<void> _saveAndExit() async {
-    if (!_safetyAccepted || !_sessionStarted) { await _popAssessment(); return; }
+    if (!_assignedMode) {
+      await _popAssessment();
+      return;
+    }
+    if (!_safetyAccepted || !_sessionStarted) {
+      await _popAssessment();
+      return;
+    }
     if (_isExitingOrSaving) return;
     _isExitingOrSaving = true;
 
@@ -1529,14 +1930,17 @@ class _LiveAssessmentScreenState
     await Future.wait(_pendingRepWrites);
     await _progressWrites;
 
-    final user = FirebaseAuth.instance.currentUser;
+    final user = LocalTestConfig.auth.currentUser;
     final patientId = user?.uid;
     final sessionName = widget.sessionName ?? _currentExerciseDisplayName();
 
     if (_assignedMode && _currentAssignedIndex < _exerciseProgress.length) {
-      _exerciseProgress[_currentAssignedIndex]['completedCorrectReps'] = _currentCorrectReps;
-      _exerciseProgress[_currentAssignedIndex]['completedTotalReps'] = _currentTotalReps;
-      if (_currentCorrectReps >= _currentAssignedTarget() && _currentAssignedTarget() > 0) {
+      _exerciseProgress[_currentAssignedIndex]['completedCorrectReps'] =
+          _currentCorrectReps;
+      _exerciseProgress[_currentAssignedIndex]['completedTotalReps'] =
+          _currentTotalReps;
+      if (_currentCorrectReps >= _currentAssignedTarget() &&
+          _currentAssignedTarget() > 0) {
         _exerciseProgress[_currentAssignedIndex]['status'] = 'completed';
       } else {
         _exerciseProgress[_currentAssignedIndex]['status'] = 'in_progress';
@@ -1545,66 +1949,95 @@ class _LiveAssessmentScreenState
 
     if (patientId != null) {
       try {
-        final batch = FirebaseFirestore.instance.batch();
+        final batch = LocalTestConfig.database.batch();
         final progressPct = _progressPercentage;
-        final totalCorrect = _assignedMode ? _totalCompletedCorrectReps : _currentCorrectReps;
-        final totalReps = _assignedMode ? _totalCompletedReps : math.max(_repCount, _currentTotalReps);
+        final totalCorrect = _assignedMode
+            ? _totalCompletedCorrectReps
+            : _currentCorrectReps;
+        final totalReps = _assignedMode
+            ? _totalCompletedReps
+            : math.max(_repCount, _currentTotalReps);
         final targetReps = _assignedMode ? _totalTargetCorrectReps : 0;
 
         if (_assignedMode) {
-          batch.set(FirebaseFirestore.instance.collection('exerciseAssignments').doc(patientId), {
-            'status': 'paused',
-            'sessionId': _sessionId,
-            'currentExerciseIndex': _currentAssignedIndex,
-            'currentExercise': _currentAssignedExercise(),
-            'completedCorrectReps': totalCorrect,
-            'totalCompletedReps': totalReps,
-            'progressPercentage': progressPct,
-            'exerciseProgress': _exerciseProgress.map((entry) => Map<String, dynamic>.from(entry)).toList(),
-            'lastUpdatedAt': FieldValue.serverTimestamp(),
-            'updatedAt': FieldValue.serverTimestamp(),
-          }, SetOptions(merge: true));
+          batch.set(
+            LocalTestConfig.database
+                .collection('exerciseAssignments')
+                .doc(patientId),
+            {
+              'status': 'paused',
+              'sessionId': _sessionId,
+              'currentExerciseIndex': _currentAssignedIndex,
+              'currentExercise': _currentAssignedExercise(),
+              'completedCorrectReps': totalCorrect,
+              'totalCompletedReps': totalReps,
+              'progressPercentage': progressPct,
+              'exerciseProgress': _exerciseProgress
+                  .map((entry) => Map<String, dynamic>.from(entry))
+                  .toList(),
+              'lastUpdatedAt': FieldValue.serverTimestamp(),
+              'updatedAt': FieldValue.serverTimestamp(),
+            },
+            SetOptions(merge: true),
+          );
         }
 
-        batch.set(FirebaseFirestore.instance.collection('assessmentSessions').doc(_sessionId), {
-          'sessionId': _sessionId,
-          'assignmentId': _assignedMode ? patientId : null,
-          'patientId': patientId,
-          'patientName': _resolvedPatientName.isNotEmpty
-              ? _resolvedPatientName
-              : 'Patient',
-          'doctorId': _resolvedDoctorId,
-          'sessionName': sessionName,
-          'status': 'paused',
-          'currentExerciseIndex': _currentAssignedIndex,
-          'currentExercise': _assignedMode ? _currentAssignedExercise() : widget.exerciseName,
-          'exercise': _assignedMode ? _assignedExerciseDisplayName(_currentAssignedExercise()) : _currentExerciseDisplayName(),
-          'progressPercentage': progressPct,
-          'exercises': _assignedMode ? _exerciseProgress : [
-            {
-              'exercise': widget.exerciseName,
-              'name': _currentExerciseDisplayName(),
-              'completedCorrectReps': _currentCorrectReps,
-              'completedTotalReps': totalReps,
-              'status': 'paused',
-            }
-          ],
-          'totalCorrectReps': totalCorrect,
-          'totalReps': totalReps,
-          'targetCorrectReps': targetReps,
-          'currentRepCount': totalReps,
-          'currentScore': _score,
-          'currentForm': _form,
-          'pausedAt': FieldValue.serverTimestamp(),
-          'lastUpdatedAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
+        batch.set(
+          LocalTestConfig.database
+              .collection('assessmentSessions')
+              .doc(_sessionId),
+          {
+            'sessionId': _sessionId,
+            'assignmentId': _assignmentKey,
+            'patientId': patientId,
+            'patientName': _resolvedPatientName.isNotEmpty
+                ? _resolvedPatientName
+                : 'Patient',
+            'doctorId': _resolvedDoctorId,
+            'sessionName': sessionName,
+            'status': 'paused',
+            'currentExerciseIndex': _currentAssignedIndex,
+            'currentExercise': _assignedMode
+                ? _currentAssignedExercise()
+                : widget.exerciseName,
+            'exercise': _assignedMode
+                ? _assignedExerciseDisplayName(_currentAssignedExercise())
+                : _currentExerciseDisplayName(),
+            'progressPercentage': progressPct,
+            'exercises': _assignedMode
+                ? _exerciseProgress
+                : [
+                    {
+                      'exercise': widget.exerciseName,
+                      'name': _currentExerciseDisplayName(),
+                      'completedCorrectReps': _currentCorrectReps,
+                      'completedTotalReps': totalReps,
+                      'status': 'paused',
+                    },
+                  ],
+            'totalCorrectReps': totalCorrect,
+            'totalReps': totalReps,
+            'targetCorrectReps': targetReps,
+            'currentRepCount': totalReps,
+            'currentScore': _score,
+            'currentForm': _form,
+            'pausedAt': FieldValue.serverTimestamp(),
+            'lastUpdatedAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true),
+        );
         await batch.commit();
 
         debugPrint('Session $_sessionId saved and paused successfully.');
       } catch (e) {
         debugPrint('Error saving paused session to Firestore: $e');
-        if (mounted) { setState(()=>_isExitingOrSaving=false); ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('Could not save. Please try again.')))); }
+        if (mounted) {
+          setState(() => _isExitingOrSaving = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(tr('Could not save. Please try again.'))),
+          );
+        }
         return;
       }
     }
@@ -1613,6 +2046,10 @@ class _LiveAssessmentScreenState
   }
 
   Future<void> _discardAndExit() async {
+    if (!_assignedMode) {
+      await _popAssessment();
+      return;
+    }
     if (_isExitingOrSaving) return;
 
     final confirmed = await showDialog<bool>(
@@ -1630,7 +2067,9 @@ class _LiveAssessmentScreenState
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         content: Text(
-          tr('Are you sure you want to discard your progress? This session will be marked as discarded and cannot be resumed.'),
+          tr(
+            'Are you sure you want to discard your progress? This session will be marked as discarded and cannot be resumed.',
+          ),
           textAlign: TextAlign.center,
         ),
         actionsAlignment: MainAxisAlignment.center,
@@ -1669,7 +2108,7 @@ class _LiveAssessmentScreenState
     await Future.wait(_pendingRepWrites);
     await _progressWrites;
 
-    final user = FirebaseAuth.instance.currentUser;
+    final user = LocalTestConfig.auth.currentUser;
     final patientId = user?.uid;
     final sessionName = widget.sessionName ?? _currentExerciseDisplayName();
 
@@ -1704,66 +2143,72 @@ class _LiveAssessmentScreenState
               ? (accumulatedCorrectReps / target).clamp(0.0, 1.0) * 100
               : 0.0;
 
-          await FirebaseFirestore.instance
+          await LocalTestConfig.database
               .collection('exerciseAssignments')
               .doc(patientId)
               .set({
-            'status': 'paused',
-            'currentExerciseIndex': hasCompletedAny ? _currentAssignedIndex : 0,
-            'currentExercise': hasCompletedAny
-                ? _currentAssignedExercise()
-                : (_assignedExercises.isNotEmpty ? _assignedExercises.first['exercise'] : ''),
-            'completedCorrectReps': accumulatedCorrectReps,
-            'totalCompletedReps': accumulatedTotalReps,
-            'progressPercentage': progressPct,
-            'exerciseProgress': _exerciseProgress.map((entry) => Map<String, dynamic>.from(entry)).toList(),
-            'discardedAt': FieldValue.serverTimestamp(),
-            'lastUpdatedAt': FieldValue.serverTimestamp(),
-            'updatedAt': FieldValue.serverTimestamp(),
-          }, SetOptions(merge: true));
+                'status': 'paused',
+                'currentExerciseIndex': hasCompletedAny
+                    ? _currentAssignedIndex
+                    : 0,
+                'currentExercise': hasCompletedAny
+                    ? _currentAssignedExercise()
+                    : (_assignedExercises.isNotEmpty
+                          ? _assignedExercises.first['exercise']
+                          : ''),
+                'completedCorrectReps': accumulatedCorrectReps,
+                'totalCompletedReps': accumulatedTotalReps,
+                'progressPercentage': progressPct,
+                'exerciseProgress': _exerciseProgress
+                    .map((entry) => Map<String, dynamic>.from(entry))
+                    .toList(),
+                'discardedAt': FieldValue.serverTimestamp(),
+                'lastUpdatedAt': FieldValue.serverTimestamp(),
+                'updatedAt': FieldValue.serverTimestamp(),
+              }, SetOptions(merge: true));
 
           if (hasCompletedAny) {
-            await FirebaseFirestore.instance
+            await LocalTestConfig.database
                 .collection('assessmentSessions')
                 .doc(_sessionId)
                 .set({
-              'sessionName': sessionName,
-              'status': 'paused',
-              'currentExerciseIndex': _currentAssignedIndex,
-              'currentExercise': _currentAssignedExercise(),
-              'totalCorrectReps': accumulatedCorrectReps,
-              'totalReps': accumulatedTotalReps,
-              'currentRepCount': accumulatedTotalReps,
-              'progressPercentage': progressPct,
-              'exercises': _exerciseProgress,
-              'lastUpdatedAt': FieldValue.serverTimestamp(),
-              'updatedAt': FieldValue.serverTimestamp(),
-            }, SetOptions(merge: true));
+                  'sessionName': sessionName,
+                  'status': 'paused',
+                  'currentExerciseIndex': _currentAssignedIndex,
+                  'currentExercise': _currentAssignedExercise(),
+                  'totalCorrectReps': accumulatedCorrectReps,
+                  'totalReps': accumulatedTotalReps,
+                  'currentRepCount': accumulatedTotalReps,
+                  'progressPercentage': progressPct,
+                  'exercises': _exerciseProgress,
+                  'lastUpdatedAt': FieldValue.serverTimestamp(),
+                  'updatedAt': FieldValue.serverTimestamp(),
+                }, SetOptions(merge: true));
           } else {
-            await FirebaseFirestore.instance
+            await LocalTestConfig.database
                 .collection('assessmentSessions')
                 .doc(_sessionId)
                 .set({
-              'sessionName': sessionName,
-              'status': 'abandoned',
-              'abandonedAt': FieldValue.serverTimestamp(),
-              'lastUpdatedAt': FieldValue.serverTimestamp(),
-              'updatedAt': FieldValue.serverTimestamp(),
-            }, SetOptions(merge: true));
+                  'sessionName': sessionName,
+                  'status': 'abandoned',
+                  'abandonedAt': FieldValue.serverTimestamp(),
+                  'lastUpdatedAt': FieldValue.serverTimestamp(),
+                  'updatedAt': FieldValue.serverTimestamp(),
+                }, SetOptions(merge: true));
           }
         } else {
-          await FirebaseFirestore.instance
+          await LocalTestConfig.database
               .collection('assessmentSessions')
               .doc(_sessionId)
               .set({
-            'sessionId': _sessionId,
-            'sessionName': sessionName,
-            'patientId': patientId,
-            'status': 'abandoned',
-            'abandonedAt': FieldValue.serverTimestamp(),
-            'lastUpdatedAt': FieldValue.serverTimestamp(),
-            'updatedAt': FieldValue.serverTimestamp(),
-          }, SetOptions(merge: true));
+                'sessionId': _sessionId,
+                'sessionName': sessionName,
+                'patientId': patientId,
+                'status': 'abandoned',
+                'abandonedAt': FieldValue.serverTimestamp(),
+                'lastUpdatedAt': FieldValue.serverTimestamp(),
+                'updatedAt': FieldValue.serverTimestamp(),
+              }, SetOptions(merge: true));
         }
 
         debugPrint('Session $_sessionId unfinished progress discarded.');
@@ -1783,6 +2228,10 @@ class _LiveAssessmentScreenState
   }
 
   Future<void> _handleExitAttempt() async {
+    if (!_assignedMode) {
+      await _popAssessment();
+      return;
+    }
     if (_completed || _isExitingOrSaving) return;
 
     await showModalBottomSheet<void>(
@@ -1846,7 +2295,10 @@ class _LiveAssessmentScreenState
                   icon: const Icon(Icons.bookmark_add_outlined),
                   label: Text(
                     tr('Save & Exit'),
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -1866,7 +2318,10 @@ class _LiveAssessmentScreenState
                   icon: const Icon(Icons.delete_outline_rounded),
                   label: Text(
                     tr('Discard Progress'),
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -1891,16 +2346,11 @@ class _LiveAssessmentScreenState
     );
   }
 
-
-
   // ============================================================
   // HELPERS
   // ============================================================
 
-  double _toDouble(
-    dynamic value, {
-    double defaultValue = 0,
-  }) {
+  double _toDouble(dynamic value, {double defaultValue = 0}) {
     if (value is num) {
       return value.toDouble();
     }
@@ -1912,10 +2362,7 @@ class _LiveAssessmentScreenState
     return defaultValue;
   }
 
-  int _toInt(
-    dynamic value, {
-    int defaultValue = 0,
-  }) {
+  int _toInt(dynamic value, {int defaultValue = 0}) {
     if (value is int) {
       return value;
     }
@@ -1966,7 +2413,8 @@ class _LiveAssessmentScreenState
     // Support all versions of the backend payload so the image keeps working
     // even if the backend calls the field error_frame_url, errorFrameUrl,
     // error_frame_path, or errorFramePath.
-    dynamic raw = rep['error_frame_url'] ??
+    dynamic raw =
+        rep['error_frame_url'] ??
         rep['errorFrameUrl'] ??
         rep['error_frame_path'] ??
         rep['errorFramePath'];
@@ -1975,10 +2423,9 @@ class _LiveAssessmentScreenState
     // session_record.
     if ((raw == null || raw.toString().trim().isEmpty) &&
         rep['session_record'] is Map) {
-      final record = Map<String, dynamic>.from(
-        rep['session_record'] as Map,
-      );
-      raw = record['error_frame_url'] ??
+      final record = Map<String, dynamic>.from(rep['session_record'] as Map);
+      raw =
+          record['error_frame_url'] ??
           record['errorFrameUrl'] ??
           record['error_frame_path'] ??
           record['errorFramePath'];
@@ -1994,7 +2441,9 @@ class _LiveAssessmentScreenState
     }
 
     // If the backend already supplied a complete URL, use it directly.
-    if (value.startsWith('http://') || value.startsWith('https://')) {
+    if (value.startsWith('http://') ||
+        value.startsWith('https://') ||
+        value.startsWith('data:image/jpeg;base64,')) {
       return value;
     }
 
@@ -2031,11 +2480,9 @@ class _LiveAssessmentScreenState
       decoration: BoxDecoration(
         color: backgroundColor ?? Colors.black.withValues(alpha: 0.65),
         borderRadius: radius,
-        border: border ??
-            Border.all(
-              color: Colors.white.withValues(alpha: 0.18),
-              width: 1.0,
-            ),
+        border:
+            border ??
+            Border.all(color: Colors.white.withValues(alpha: 0.18), width: 1.0),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.25),
@@ -2048,10 +2495,7 @@ class _LiveAssessmentScreenState
     );
   }
 
-  Widget _completedMetric(
-    String title,
-    String value,
-  ) {
+  Widget _completedMetric(String title, String value) {
     return Expanded(
       child: Padding(
         padding: const EdgeInsets.only(right: 6),
@@ -2093,13 +2537,12 @@ class _LiveAssessmentScreenState
       return const SizedBox.shrink();
     }
 
-    final form = rep['form']?.toString() ??
-        rep['label']?.toString() ?? 'Unknown';
+    final form =
+        rep['form']?.toString() ?? rep['label']?.toString() ?? 'Unknown';
     final incorrect = form.toLowerCase().contains('incorrect');
-    final error = rep['error_type']?.toString() ??
-        rep['error']?.toString() ?? '';
-    final feedback = rep['feedback']?.toString() ??
-        'Rep completed.';
+    final error =
+        rep['error_type']?.toString() ?? rep['error']?.toString() ?? '';
+    final feedback = rep['feedback']?.toString() ?? 'Rep completed.';
 
     final score = _completedDouble(rep, 'score');
     final rom = _completedDouble(
@@ -2132,7 +2575,7 @@ class _LiveAssessmentScreenState
             Expanded(
               child: AppText(
                 'REP ${rep['rep_number'] ?? _repCount} ${form.toUpperCase()}'
-                '${incorrect && error.isNotEmpty ? ' — ${_errorLabel(error)}' : ' • Score: ${score.toStringAsFixed(0)} • ROM: ${rom.toStringAsFixed(0)}°'}',
+                '${incorrect && error.isNotEmpty ? ' — ${_errorLabel(error)}' : ' • ROM: ${rom.toStringAsFixed(0)}°'}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -2148,8 +2591,10 @@ class _LiveAssessmentScreenState
               GestureDetector(
                 onTap: () => _showErrorFrame(errorFrameUrl),
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.redAccent.withValues(alpha: 0.25),
                     borderRadius: BorderRadius.circular(6),
@@ -2185,11 +2630,7 @@ class _LiveAssessmentScreenState
               },
               child: const Padding(
                 padding: EdgeInsets.all(4),
-                child: Icon(
-                  Icons.close,
-                  color: Colors.white70,
-                  size: 16,
-                ),
+                child: Icon(Icons.close, color: Colors.white70, size: 16),
               ),
             ),
           ],
@@ -2199,10 +2640,7 @@ class _LiveAssessmentScreenState
 
     // Expanded mode: semi-transparent, compact card with dismiss button
     return _buildGlassContainer(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 8,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2210,12 +2648,8 @@ class _LiveAssessmentScreenState
           Row(
             children: [
               Icon(
-                incorrect
-                    ? Icons.warning_amber_rounded
-                    : Icons.check_circle,
-                color: incorrect
-                    ? Colors.redAccent
-                    : Colors.greenAccent,
+                incorrect ? Icons.warning_amber_rounded : Icons.check_circle,
+                color: incorrect ? Colors.redAccent : Colors.greenAccent,
                 size: 18,
               ),
               const SizedBox(width: 6),
@@ -2239,11 +2673,7 @@ class _LiveAssessmentScreenState
                 },
                 child: const Padding(
                   padding: EdgeInsets.all(4),
-                  child: Icon(
-                    Icons.close,
-                    color: Colors.white70,
-                    size: 16,
-                  ),
+                  child: Icon(Icons.close, color: Colors.white70, size: 16),
                 ),
               ),
             ],
@@ -2268,7 +2698,7 @@ class _LiveAssessmentScreenState
             children: [
               Expanded(
                 child: Text(
-                  feedback,
+                  tr(feedback),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -2279,8 +2709,7 @@ class _LiveAssessmentScreenState
                   ),
                 ),
               ),
-              if (incorrect &&
-                  errorFrameUrl != null) ...[
+              if (incorrect && errorFrameUrl != null) ...[
                 const SizedBox(width: 8),
                 GestureDetector(
                   onTap: () {
@@ -2288,16 +2717,12 @@ class _LiveAssessmentScreenState
                   },
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(6),
-                    child: Image.network(
-                      errorFrameUrl,
+                    child: Image(
+                      image: _errorImageProvider(errorFrameUrl),
                       width: 84,
                       height: 58,
                       fit: BoxFit.contain,
-                      errorBuilder: (
-                        context,
-                        error,
-                        stackTrace,
-                      ) {
+                      errorBuilder: (context, error, stackTrace) {
                         return Container(
                           width: 84,
                           height: 58,
@@ -2323,20 +2748,11 @@ class _LiveAssessmentScreenState
             children: [
               _completedMetric(
                 'SCORE',
-                '${score.toStringAsFixed(0)}/100',
+                rep['score'] == null ? '—' : '${score.toStringAsFixed(0)}/100',
               ),
-              _completedMetric(
-                'ROM',
-                '${rom.toStringAsFixed(1)}°',
-              ),
-              _completedMetric(
-                'SPEED',
-                speed,
-              ),
-              _completedMetric(
-                'DUR',
-                '${duration.toStringAsFixed(1)}s',
-              ),
+              _completedMetric('ROM', '${rom.toStringAsFixed(1)}°'),
+              _completedMetric('SPEED', speed),
+              _completedMetric('DUR', '${duration.toStringAsFixed(1)}s'),
             ],
           ),
 
@@ -2345,13 +2761,12 @@ class _LiveAssessmentScreenState
           Row(
             children: [
               _completedMetric(
-                'LSTM',
-                '${confidence.toStringAsFixed(0)}%',
+                'CONFIDENCE',
+                rep['confidence'] == null
+                    ? '—'
+                    : '${confidence.toStringAsFixed(0)}%',
               ),
-              _completedMetric(
-                'SPEED',
-                rep['speed']?.toString() ?? 'Good',
-              ),
+              _completedMetric('SPEED', rep['speed']?.toString() ?? 'Good'),
             ],
           ),
         ],
@@ -2384,126 +2799,133 @@ class _LiveAssessmentScreenState
             onPressed: _handleExitAttempt,
           ),
           title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (widget.sessionName != null && widget.sessionName!.isNotEmpty)
-              Text(
-                widget.sessionName!,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: Colors.white70,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Flexible(
-                  child: Text(
-                    _currentExerciseDisplayName(),
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (widget.sessionName != null && widget.sessionName!.isNotEmpty)
+                Text(
+                  widget.sessionName!,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.white70,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                if (isWip) ...[
-                  const SizedBox(width: 8),
-                  buildWipBadge(isDark: true, compact: true),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      _currentExerciseDisplayName(),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  if (isWip) ...[
+                    const SizedBox(width: 8),
+                    buildWipBadge(isDark: true, compact: true),
+                  ],
                 ],
-              ],
+              ),
+            ],
+          ),
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: TextButton.icon(
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  backgroundColor: const Color(0xFF0284C7)
+                      .withValues(alpha: 0.25),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    side: const BorderSide(
+                      color: Color(0xFF38BDF8),
+                      width: 1.0,
+                    ),
+                  ),
+                ),
+                onPressed: () {
+                  showExerciseDemoDialog(
+                    context,
+                    exerciseName: _currentExerciseDisplayName(),
+                  );
+                },
+                icon: const Icon(
+                  Icons.play_circle_outline_rounded,
+                  size: 16,
+                  color: Color(0xFF38BDF8),
+                ),
+                label: Text(
+                  tr('How to perform'),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: TextButton.icon(
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  backgroundColor: Colors.white.withValues(alpha: 0.15),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    side: BorderSide(
+                      color: Colors.white.withValues(alpha: 0.25),
+                    ),
+                  ),
+                ),
+                onPressed: () {
+                  setState(() {
+                    _isCompactView = !_isCompactView;
+                  });
+                },
+                icon: Icon(
+                  _isCompactView
+                      ? Icons.unfold_more_rounded
+                      : Icons.unfold_less_rounded,
+                  size: 16,
+                  color: Colors.greenAccent,
+                ),
+                label: Text(
+                  _isCompactView ? tr('Expand UI') : tr('Compact UI'),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
             ),
           ],
         ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 4),
-            child: TextButton.icon(
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.white,
-                backgroundColor: const Color(0xFF0284C7).withValues(alpha: 0.25),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                  side: const BorderSide(
-                    color: Color(0xFF38BDF8),
-                    width: 1.0,
-                  ),
-                ),
-              ),
-              onPressed: () {
-                showExerciseDemoDialog(
-                  context,
-                  exerciseName: _currentExerciseDisplayName(),
-                );
-              },
-              icon: const Icon(
-                Icons.play_circle_outline_rounded,
-                size: 16,
-                color: Color(0xFF38BDF8),
-              ),
-              label: Text(
-                tr('How to perform'),
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: TextButton.icon(
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.white,
-                backgroundColor: Colors.white.withValues(alpha: 0.15),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                  side: BorderSide(
-                    color: Colors.white.withValues(alpha: 0.25),
-                  ),
-                ),
-              ),
-              onPressed: () {
-                setState(() {
-                  _isCompactView = !_isCompactView;
-                });
-              },
-              icon: Icon(
-                _isCompactView
-                    ? Icons.unfold_more_rounded
-                    : Icons.unfold_less_rounded,
-                size: 16,
-                color: Colors.greenAccent,
-              ),
-              label: Text(
-                _isCompactView ? tr('Expand UI') : tr('Compact UI'),
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-      body: _buildBody(),
+        body: _buildBody(),
       ),
     );
   }
 
   Widget _buildBody() {
     if (_initializing) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
+      return const Center(child: CircularProgressIndicator());
     }
 
     if (!_cameraReady || _controller == null) {
       return _buildErrorScreen(
-        _connectionError ??
-            'Camera could not be started.',
+        _connectionError ?? 'Camera could not be started.',
       );
     }
 
@@ -2522,7 +2944,8 @@ class _LiveAssessmentScreenState
                 painter: PosePainter(
                   landmarksNotifier: _landmarksNotifier,
                   formNotifier: _formNotifier,
-                  isFrontCamera: _controller?.description.lensDirection ==
+                  isFrontCamera:
+                      _controller?.description.lensDirection ==
                       CameraLensDirection.front,
                 ),
               ),
@@ -2531,12 +2954,7 @@ class _LiveAssessmentScreenState
         ),
 
         // Top information panel.
-        Positioned(
-          top: 10,
-          left: 10,
-          right: 10,
-          child: _buildTopPanel(),
-        ),
+        Positioned(top: 10, left: 10, right: 10, child: _buildTopPanel()),
 
         // Completed-rep result panel.
         if (_lastCompletedRep != null)
@@ -2823,21 +3241,70 @@ class _LiveAssessmentScreenState
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _compactStat(tr('SCORE'), _score.toStringAsFixed(0)),
+              _compactStat(
+                tr(
+                  _movementMetrics['score_kind'] ==
+                          'descriptive_movement_control'
+                      ? 'CONTROL'
+                      : 'SCORE',
+                ),
+                _scoreAvailable ? _score.toStringAsFixed(0) : '—',
+              ),
               _compactStat(tr('ROM'), '${_rom.toStringAsFixed(1)}°'),
               _compactStat(tr('SPEED'), tr(_speed)),
               _compactStat(
                 tr('FORM'),
                 tr(_form),
-                valueColor: _form.toLowerCase().contains('correct')
+                valueColor: _form.toLowerCase().contains('incorrect')
+                    ? Colors.redAccent
+                    : _form.toLowerCase().contains('correct')
                     ? Colors.greenAccent
-                    : _form.toLowerCase().contains('incorrect')
-                        ? Colors.redAccent
-                        : Colors.white,
+                    : Colors.white,
               ),
             ],
           ),
 
+          if (_movementMetrics['expected_hand'] != null) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 14,
+              runSpacing: 6,
+              children: [
+                _compactStat(
+                  tr('Arm'),
+                  tr(_movementMetrics['expected_hand'].toString()),
+                ),
+                _compactStat(
+                  tr('Stage'),
+                  tr((_movementMetrics['state'] ?? 'READY').toString()),
+                ),
+                _compactStat(
+                  tr('Angle'),
+                  '${_toDouble(_movementMetrics['angle']).toStringAsFixed(0)}°',
+                ),
+                _compactStat(
+                  tr('Duration'),
+                  _movementMetrics['duration'] == null
+                      ? '—'
+                      : '${_toDouble(_movementMetrics['duration']).toStringAsFixed(1)} s',
+                ),
+                _compactStat(
+                  tr('Smoothness'),
+                  _movementMetrics['smoothness'] == null
+                      ? '—'
+                      : '${_toDouble(_movementMetrics['smoothness']).toStringAsFixed(0)}/100',
+                ),
+                _compactStat(
+                  tr('Return'),
+                  _movementMetrics['return_completion'] == null
+                      ? '—'
+                      : '${_toDouble(_movementMetrics['return_completion']).toStringAsFixed(0)}%',
+                ),
+              ],
+            ),
+          ],
+          if (_assignmentDeadline != null)
+            SessionDeadline(deadline: _assignmentDeadline!),
           if (_connectionError != null) ...[
             const SizedBox(height: 4),
             Text(
@@ -2850,17 +3317,25 @@ class _LiveAssessmentScreenState
                 shadows: [Shadow(color: Colors.black, blurRadius: 4)],
               ),
             ),
+            if (!_socketConnected)
+              TextButton.icon(
+                onPressed: _socketConnecting
+                    ? null
+                    : () {
+                        _reconnectTimer?.cancel();
+                        _reconnectAttempts = 0;
+                        unawaited(_retryConnection());
+                      },
+                icon: const Icon(Icons.refresh, size: 16),
+                label: Text(tr('Retry')),
+              ),
           ],
         ],
       ),
     );
   }
 
-  Widget _compactStat(
-    String title,
-    String value, {
-    Color? valueColor,
-  }) {
+  Widget _compactStat(String title, String value, {Color? valueColor}) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -2891,15 +3366,39 @@ class _LiveAssessmentScreenState
     );
   }
 
+  Widget _buildErrorPreview() {
+    final url = _latestErrorFrame!;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Tooltip(
+        message: tr('View Error'),
+        child: InkWell(
+          onTap: () => _showErrorFrame(url),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: Image(
+              image: _errorImageProvider(url),
+              width: _isCompactView ? 40 : 64,
+              height: _isCompactView ? 32 : 46,
+              fit: BoxFit.cover,
+              errorBuilder: (_, error, stack) =>
+                  const Icon(Icons.image_search_rounded, color: Colors.white),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildFeedbackPanel() {
-    final bool incorrect =
-        _form.toLowerCase().contains('incorrect');
+    final bool incorrect = _form.toLowerCase().contains('incorrect');
 
     if (_isCompactView) {
       return _buildGlassContainer(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         child: Row(
           children: [
+            if (_latestErrorFrame != null) _buildErrorPreview(),
             Icon(
               incorrect
                   ? Icons.warning_amber_rounded
@@ -2933,13 +3432,12 @@ class _LiveAssessmentScreenState
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          if (_latestErrorFrame != null) _buildErrorPreview(),
           Icon(
             incorrect
                 ? Icons.warning_amber_rounded
                 : Icons.accessibility_new_rounded,
-            color: incorrect
-                ? Colors.redAccent
-                : Colors.greenAccent,
+            color: incorrect ? Colors.redAccent : Colors.greenAccent,
             size: 22,
           ),
           const SizedBox(width: 8),
@@ -2986,11 +3484,7 @@ class _LiveAssessmentScreenState
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.error_outline,
-              color: Colors.redAccent,
-              size: 64,
-            ),
+            const Icon(Icons.error_outline, color: Colors.redAccent, size: 64),
             const SizedBox(height: 16),
             const AppText(
               'Live Assessment Error',
@@ -3004,9 +3498,7 @@ class _LiveAssessmentScreenState
             const SizedBox(height: 12),
             Text(
               message,
-              style: const TextStyle(
-                color: Colors.white70,
-              ),
+              style: const TextStyle(color: Colors.white70),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
@@ -3028,11 +3520,15 @@ class _LiveAssessmentScreenState
 
   @override
   void dispose() {
+    _assignmentWatch?.cancel();
+    _deadlineTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
 
     _isExitingOrSaving = true;
     _streaming = false;
     _socketConnected = false;
+    _reconnectTimer?.cancel();
+    _poseAnimation.dispose();
 
     _landmarksNotifier.dispose();
     _formNotifier.dispose();
@@ -3139,10 +3635,7 @@ class PosePainter extends CustomPainter {
   ];
 
   @override
-  void paint(
-    Canvas canvas,
-    Size size,
-  ) {
+  void paint(Canvas canvas, Size size) {
     final landmarks = landmarksNotifier.value;
     final form = formNotifier.value;
 
@@ -3150,8 +3643,7 @@ class PosePainter extends CustomPainter {
       return;
     }
 
-    final bool incorrect =
-        form.toLowerCase().contains('incorrect');
+    final bool incorrect = form.toLowerCase().contains('incorrect');
 
     final bool active =
         form.toLowerCase().contains('correct') ||
@@ -3166,16 +3658,16 @@ class PosePainter extends CustomPainter {
       ..color = incorrect
           ? Colors.redAccent
           : active
-              ? Colors.greenAccent
-              : const Color(0xFF38BDF8);
+          ? Colors.greenAccent
+          : const Color(0xFF38BDF8);
 
     final Paint pointPaint = Paint()
       ..style = PaintingStyle.fill
       ..color = incorrect
           ? Colors.redAccent
           : active
-              ? Colors.greenAccent
-              : const Color(0xFF38BDF8);
+          ? Colors.greenAccent
+          : const Color(0xFF38BDF8);
 
     // Precompute all 33 screen offsets once to avoid over 100 allocations per frame
     final points = List<Offset>.filled(33, Offset.zero);
@@ -3203,11 +3695,7 @@ class PosePainter extends CustomPainter {
         continue;
       }
 
-      canvas.drawLine(
-        points[first],
-        points[second],
-        linePaint,
-      );
+      canvas.drawLine(points[first], points[second], linePaint);
     }
 
     for (int i = 0; i < 33; i++) {
@@ -3215,16 +3703,15 @@ class PosePainter extends CustomPainter {
         continue;
       }
 
-      canvas.drawCircle(
-        points[i],
-        4,
-        pointPaint,
-      );
+      canvas.drawCircle(points[i], 4, pointPaint);
     }
   }
 
   @override
-  bool shouldRepaint(covariant PosePainter oldDelegate) => false;
+  bool shouldRepaint(covariant PosePainter oldDelegate) =>
+      oldDelegate.isFrontCamera != isFrontCamera ||
+      oldDelegate.landmarksNotifier != landmarksNotifier ||
+      oldDelegate.formNotifier != formNotifier;
 }
 
 // ================================================================
@@ -3274,8 +3761,8 @@ class _ErrorFrameViewerDialogState extends State<_ErrorFrameViewerDialog> {
                   minScale: 0.8,
                   maxScale: 5.0,
                   child: Center(
-                    child: Image.network(
-                      widget.url,
+                    child: Image(
+                      image: _errorImageProvider(widget.url),
                       fit: BoxFit.contain,
                       errorBuilder: (context, error, stackTrace) {
                         return const Center(
@@ -3296,8 +3783,10 @@ class _ErrorFrameViewerDialogState extends State<_ErrorFrameViewerDialog> {
                 left: 16,
                 right: 16,
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.70),
                     borderRadius: BorderRadius.circular(12),
@@ -3364,8 +3853,10 @@ class _ErrorFrameViewerDialogState extends State<_ErrorFrameViewerDialog> {
                 right: 0,
                 child: Center(
                   child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.6),
                       borderRadius: BorderRadius.circular(16),
@@ -3461,8 +3952,8 @@ class _ErrorFrameViewerDialogState extends State<_ErrorFrameViewerDialog> {
                   minScale: 0.8,
                   maxScale: 4.0,
                   child: Center(
-                    child: Image.network(
-                      widget.url,
+                    child: Image(
+                      image: _errorImageProvider(widget.url),
                       fit: BoxFit.contain,
                       errorBuilder: (context, error, stackTrace) {
                         return const Padding(
@@ -3504,8 +3995,10 @@ class _ErrorFrameViewerDialogState extends State<_ErrorFrameViewerDialog> {
                       visualDensity: VisualDensity.compact,
                     ),
                     onPressed: _resetZoom,
-                    child: const AppText('Reset Zoom',
-                        style: TextStyle(fontSize: 12)),
+                    child: const AppText(
+                      'Reset Zoom',
+                      style: TextStyle(fontSize: 12),
+                    ),
                   ),
                   const SizedBox(width: 4),
                   FilledButton(
@@ -3515,8 +4008,10 @@ class _ErrorFrameViewerDialogState extends State<_ErrorFrameViewerDialog> {
                       visualDensity: VisualDensity.compact,
                     ),
                     onPressed: () => Navigator.pop(context),
-                    child: const AppText('Done',
-                        style: TextStyle(fontSize: 12)),
+                    child: const AppText(
+                      'Done',
+                      style: TextStyle(fontSize: 12),
+                    ),
                   ),
                 ],
               ),
@@ -3526,4 +4021,33 @@ class _ErrorFrameViewerDialogState extends State<_ErrorFrameViewerDialog> {
       ),
     );
   }
+}
+
+final Map<String, ImageProvider> _errorImageProviders = {};
+
+ImageProvider _errorImageProvider(String value) {
+  final existing = _errorImageProviders[value];
+  if (existing != null) return existing;
+  ImageProvider provider;
+  if (value.startsWith('data:image/jpeg;base64,')) {
+    try {
+      provider = MemoryImage(
+        base64Decode(value.substring(value.indexOf(',') + 1)),
+      );
+    } on FormatException {
+      return NetworkImage(
+        value,
+      ); // The widget's errorBuilder handles invalid images.
+    }
+  } else {
+    provider = NetworkImage(value);
+  }
+  // Keep the same provider across live-stat rebuilds, avoiding repeated JPEG
+  // decoding on the UI thread. Bound camera-image memory across practice reps.
+  if (_errorImageProviders.length >= 4) {
+    final stale = _errorImageProviders.remove(_errorImageProviders.keys.first);
+    if (stale != null) unawaited(stale.evict());
+  }
+  _errorImageProviders[value] = provider;
+  return provider;
 }

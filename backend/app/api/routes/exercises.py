@@ -21,33 +21,35 @@ def get_exercises():
             },
             {
                 "id": "shoulder_rotation",
+                "model_version": "Shoulder_Rotation_LSTM",
+                "clinically_validated": False,
                 "name": "Shoulder Rotation",
                 "target_joint": "Rotator Cuff",
-                "status": "work_in_progress",
-                "available": True,
-                "is_work_in_progress": True,
-                "description": (
-                    "Bilateral internal and external rotation with elbows flexed 90° "
-                    "pinned to torso (Work in Progress • Prototype movement)."
-                ),
-            },
-            {
-                "id": "assisted_elbow_flexion",
-                "name": "Assisted Elbow Flexion",
-                "target_joint": "Elbow Joint",
-                "status": "validated",
+                "status": "available",
                 "available": True,
                 "is_work_in_progress": False,
                 "description": (
-                    "Supported elbow bending using contralateral hand guidance to "
-                    "protect recovering joints."
+                    "Bilateral internal and external rotation with elbows flexed 90° "
+                    "pinned to torso. Follow the clinician-prescribed range and pace."
                 ),
+            },
+            {
+                "id": "assisted_elbow_flexion_v5",
+                "name": "Assisted Elbow Flexion",
+                "target_joint": "Elbow Joint",
+                "status": "experimental", "experimental": True,
+                "model_version": "SVM_V5_Controller_V6_Telemetry2",
+                "clinically_validated": False, "available": True,
+                "is_work_in_progress": False,
+                "description": "Alternate left and right with opposite-hand support. Experimental model feedback.",
             },
             {
                 "id": "elbow_flexion_extension",
                 "name": "Elbow Flexion & Extension",
                 "target_joint": "Elbow Joint",
-                "status": "validated",
+                "status": "available",
+                "model_version": "Elbow_LSTM_V4_22F",
+                "clinically_validated": False,
                 "available": True,
                 "is_work_in_progress": False,
                 "description": (

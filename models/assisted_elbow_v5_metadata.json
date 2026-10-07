@@ -1,0 +1,25 @@
+{
+  "release": "2026-10-07-elbow-v5-v6",
+  "exercise_id": "assisted_elbow_flexion_v5",
+  "model_version": "SVM_V5_Controller_V6",
+  "experimental": true,
+  "clinically_validated": false,
+  "unseen_person_accuracy_verified": false,
+  "reference_window_development_accuracy": 0.8880597014925373,
+  "new_v7_classifier_used": false,
+  "previous_v2_retained": true,
+  "starting_hand": "Left",
+  "alternate_on_accepted_repetition_only": true,
+  "portable_margin_max_difference": 3.774758283725532e-15,
+  "comparison_rows": 134,
+  "source_model_sha256": "dab1ccc6cfe300310ad772834d04b55d355358eb2990a2664e15ace0c9569899",
+  "camera_reference_status": "Not verified by phone; no synthetic reference treated as physical calibration.",
+  "observation_gates": "Both arms in frame, 80% whole-cycle/stage observation, gap <=0.30s; experimental tolerances.",
+  "review_images": "Representative movement review, not clinically localized fault evidence.",
+  "source_feature_hashes": {
+    "src\\features\\elbow_research_v3.py": "bd00a0a906ab34f0e5e6568514b80d974a9935d92577de2a27254bf8f6acb2f8",
+    "src\\features\\elbow_research_v4.py": "bcc00bed873a9aabd6dcc00748b009a27fda2511db7be015475ee4e5cac6b0db",
+    "src\\features\\elbow_research_v5.py": "de69910bb42361934c1c8af52c209ace0b12425ed16db91fcf176ec987d8b45e",
+    "src\\features\\elbow_research_v7.py": "b2d34ad8c7e7bb29fc33659da45ec174bfdbdc51ede84b6398c938bf3586c73c"
+  }
+}

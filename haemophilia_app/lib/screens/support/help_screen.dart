@@ -1,7 +1,7 @@
+import '../../services/local_test_config.dart';
 import '../../widgets/app_text.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../utils/app_localizations.dart';
@@ -18,104 +18,146 @@ class HelpScreen extends StatefulWidget {
 }
 
 class _HelpScreenState extends State<HelpScreen> {
-  final _db = FirebaseFirestore.instance;
+  final _db = LocalTestConfig.database;
   bool _saving = false;
-  String get _uid => FirebaseAuth.instance.currentUser!.uid;
+  String get _uid => LocalTestConfig.auth.currentUser!.uid;
 
   Future<void> _newRequest() async {
+    if (_saving) return;
+    setState(() => _saving = true);
+    Map<String, dynamic> profile;
+    try {
+      profile = (await _db.collection('users').doc(_uid).get()).data() ?? {};
+    } catch (error) {
+      if (mounted) {
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(firebaseErrorMessage(error))));
+      }
+      return;
+    }
+    if (!mounted) return;
+    final doctor =
+        profile['role'] == 'doctor' || profile['role'] == 'pending_doctor';
+    final categories = doctor
+        ? [
+            'Patient not responding',
+            'Patient assignment or transfer',
+            'Session scheduling',
+            'Assessment or report problem',
+            'Account or approval',
+            'Technical problem',
+            'Other',
+          ]
+        : [
+            'Doctor not responding',
+            'Doctor assignment',
+            'Technical problem',
+            'Other',
+          ];
     var text = '';
-    var category = 'Doctor not responding';
+    var category = categories.first;
     final result = await showDialog<Map<String, String>>(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) {
           AppLocaleScope.of(context);
           return AlertDialog(
-          title: Text(tr('Contact admin')),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DropdownButtonFormField<String>(
-                  initialValue: category,
-                  isExpanded: true,
-                  items:
-                      [
-                            'Doctor not responding',
-                            'Doctor assignment',
-                            'Technical problem',
-                            'Other',
-                          ]
-                          .map(
-                            (c) =>
-                                DropdownMenuItem(value: c, child: Text(tr(c))),
-                          )
-                          .toList(),
-                  onChanged: (c) => setState(() => category = c!),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  onChanged: (value) => text = value,
-                  maxLines: 4,
-                  maxLength: 2000,
-                  decoration: InputDecoration(
-                    labelText: tr('Describe your concern'),
+            title: Text(tr('Contact admin')),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DropdownButtonFormField<String>(
+                    initialValue: category,
+                    isExpanded: true,
+                    items: categories
+                        .map(
+                          (c) => DropdownMenuItem(value: c, child: Text(tr(c))),
+                        )
+                        .toList(),
+                    onChanged: (c) => setState(() => category = c!),
                   ),
-                ),
-                Text(
-                  tr(
-                    'Help messages are reviewed by administrators. For urgent medical concerns, contact your treating doctor or local emergency service.',
+                  const SizedBox(height: 12),
+                  TextField(
+                    onChanged: (value) => text = value,
+                    maxLines: 4,
+                    maxLength: 2000,
+                    decoration: InputDecoration(
+                      labelText: tr('Describe your concern'),
+                    ),
                   ),
-                ),
-              ],
+                  if (!doctor)
+                    Text(
+                      tr(
+                        'Help messages are reviewed by administrators. For urgent medical concerns, contact your treating doctor or local emergency service.',
+                      ),
+                    ),
+                ],
+              ),
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(tr('Cancel')),
-            ),
-            FilledButton(
-              onPressed: () {
-                if (text.trim().isNotEmpty) {
-                  Navigator.pop(context, {
-                    'category': category,
-                    'text': text.trim(),
-                  });
-                }
-              },
-              child: Text(tr('Send')),
-            ),
-          ],
-        );
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(tr('Cancel')),
+              ),
+              FilledButton(
+                onPressed: () {
+                  if (text.trim().isNotEmpty) {
+                    Navigator.pop(context, {
+                      'category': category,
+                      'text': text.trim(),
+                    });
+                  }
+                },
+                child: Text(tr('Send')),
+              ),
+            ],
+          );
         },
       ),
     );
-    if (result == null || !mounted) return;
-    setState(() => _saving = true);
+    if (!mounted) return;
+    if (result == null) {
+      setState(() => _saving = false);
+      return;
+    }
     try {
       final ticket = _db.collection('supportTickets').doc();
       final batch = _db.batch();
       batch.set(ticket, {
         'userId': _uid,
+        'submittedByName':
+            profile['name'] ??
+            LocalTestConfig.auth.currentUser?.displayName ??
+            '',
+        'submittedByEmail':
+            profile['email'] ?? LocalTestConfig.auth.currentUser?.email ?? '',
+        'submittedByRole': profile['role'] ?? '',
         'category': result['category'],
         'status': 'open',
         'createdAt': FieldValue.serverTimestamp(),
       });
       batch.set(ticket.collection('messages').doc(), {
         'senderId': _uid,
+        'senderName': profile['name'] ?? '',
+        'senderRole': profile['role'] ?? '',
         'text': result['text'],
         'createdAt': FieldValue.serverTimestamp(),
       });
       await batch.commit();
       if (mounted) {
-        Navigator.push(context, MaterialPageRoute(builder: (_) => SupportThread(ticketId: ticket.id, admin: false)));
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => SupportThread(ticketId: ticket.id, admin: false),
+          ),
+        );
       }
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(firebaseErrorMessage(error))),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(firebaseErrorMessage(error))));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -156,39 +198,49 @@ class _HelpScreenState extends State<HelpScreen> {
             ),
             StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
               stream: _db.collection('users').doc(_uid).snapshots(),
-              builder: (context, snap) => snap.data?.data()?['role'] != 'patient' ? const SizedBox.shrink() : SwitchListTile(
-                title: Text(tr('Research and development consent')),
-                subtitle: Text(tr('Optional. Change your choice at any time.')),
-                value: snap.data?.data()?['researchConsent'] == true,
-                onChanged: !snap.hasData
-                    ? null
-                    : (value) async {
-                        try {
-                          await _db.collection('users').doc(_uid).update({
-                            'researchConsent': value,
-                            'researchConsentUpdatedAt':
-                                FieldValue.serverTimestamp(),
-                          });
-                        } catch (error) {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  firebaseErrorMessage(error),
-                                ),
-                              ),
-                            );
-                          }
-                        }
-                      },
-              ),
+              builder: (context, snap) =>
+                  snap.data?.data()?['role'] != 'patient'
+                  ? const SizedBox.shrink()
+                  : SwitchListTile(
+                      title: Text(tr('Research and development consent')),
+                      subtitle: Text(
+                        tr('Optional. Change your choice at any time.'),
+                      ),
+                      value: snap.data?.data()?['researchConsent'] == true,
+                      onChanged: !snap.hasData
+                          ? null
+                          : (value) async {
+                              try {
+                                await _db.collection('users').doc(_uid).update({
+                                  'researchConsent': value,
+                                  'researchConsentUpdatedAt':
+                                      FieldValue.serverTimestamp(),
+                                });
+                              } catch (error) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        firebaseErrorMessage(error),
+                                      ),
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                    ),
             ),
           ],
           StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
             stream: query.snapshots(),
             builder: (context, snap) {
               if (snap.hasError) {
-                return Text(firebaseErrorMessage(snap.error, fallback: 'Could not load requests. Please try again.'));
+                return Text(
+                  firebaseErrorMessage(
+                    snap.error,
+                    fallback: 'Could not load requests. Please try again.',
+                  ),
+                );
               }
               if (!snap.hasData) {
                 return const Center(child: CircularProgressIndicator());
@@ -221,7 +273,7 @@ class _HelpScreenState extends State<HelpScreen> {
                             tr(doc.data()['category']?.toString() ?? 'Other'),
                           ),
                           subtitle: AppText(
-                            '${tr(doc.data()['status']?.toString() ?? 'open')} · ${doc.data()['createdAt'] is Timestamp ? readableDate((doc.data()['createdAt'] as Timestamp).toDate()) : ''}',
+                            '${doc.data()['submittedByName'] ?? doc.data()['userId'] ?? ''} · ${tr(doc.data()['submittedByRole']?.toString() ?? '')}\n${tr(doc.data()['status']?.toString() ?? 'open')} · ${doc.data()['createdAt'] is Timestamp ? readableDate((doc.data()['createdAt'] as Timestamp).toDate()) : ''}',
                           ),
                           trailing: const Icon(Icons.chevron_right),
                           onTap: () => Navigator.push(
@@ -258,8 +310,8 @@ class SupportThread extends StatefulWidget {
 class _SupportThreadState extends State<SupportThread> {
   final _text = TextEditingController();
   bool _sending = false;
-  DocumentReference<Map<String, dynamic>> get _ticket => FirebaseFirestore
-      .instance
+  DocumentReference<Map<String, dynamic>> get _ticket => LocalTestConfig
+      .database
       .collection('supportTickets')
       .doc(widget.ticketId);
   @override
@@ -272,17 +324,45 @@ class _SupportThreadState extends State<SupportThread> {
     if (_sending || _text.text.trim().isEmpty) return;
     setState(() => _sending = true);
     try {
-      await _ticket.collection('messages').add({
-        'senderId': FirebaseAuth.instance.currentUser!.uid,
+      final uid = LocalTestConfig.auth.currentUser!.uid;
+      final profile =
+          (await LocalTestConfig.database.collection('users').doc(uid).get())
+              .data() ??
+          {};
+      final ticket = (await _ticket.get()).data() ?? {};
+      final messageRef = _ticket.collection('messages').doc();
+      final batch = LocalTestConfig.database.batch();
+      batch.set(messageRef, {
+        'senderId': LocalTestConfig.auth.currentUser!.uid,
+        'senderName': profile['name'] ?? '',
+        'senderRole': profile['role'] ?? '',
         'text': _text.text.trim(),
         'createdAt': FieldValue.serverTimestamp(),
       });
+      final owner = ticket['userId']?.toString();
+      if (profile['role'] == 'admin' && owner != null && owner != uid) {
+        batch.set(
+          LocalTestConfig.database
+              .collection('users')
+              .doc(owner)
+              .collection('notifications')
+              .doc('support_${widget.ticketId}_${messageRef.id}'),
+          {
+            'senderId': uid,
+            'read': false,
+            'title': 'Support message',
+            'body': 'Your help request has a new message.',
+            'createdAt': FieldValue.serverTimestamp(),
+            'data': {'type': 'support', 'ticketId': widget.ticketId},
+          },
+        );
+      }
+      await batch.commit();
       _text.clear();
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(firebaseErrorMessage(error))),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(firebaseErrorMessage(error))));
       }
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -310,9 +390,7 @@ class _SupportThreadState extends State<SupportThread> {
                 } catch (error) {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(firebaseErrorMessage(error)),
-                      ),
+                      SnackBar(content: Text(firebaseErrorMessage(error))),
                     );
                   }
                 }
@@ -322,6 +400,21 @@ class _SupportThreadState extends State<SupportThread> {
       ),
       body: Column(
         children: [
+          StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+            stream: _ticket.snapshots(),
+            builder: (context, snap) {
+              if (snap.hasError) return Text(firebaseErrorMessage(snap.error));
+              final d = snap.data?.data() ?? {};
+              return ListTile(
+                title: Text(
+                  '${tr('Submitted by')}: ${d['submittedByName'] ?? d['userId'] ?? ''}',
+                ),
+                subtitle: Text(
+                  '${d['submittedByEmail'] ?? ''} · ${tr(d['submittedByRole']?.toString() ?? '')}\n${tr(d['status']?.toString() ?? 'open')}',
+                ),
+              );
+            },
+          ),
           Expanded(
             child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
               stream: _ticket
@@ -332,7 +425,10 @@ class _SupportThreadState extends State<SupportThread> {
                 if (snap.hasError) {
                   return Center(
                     child: Text(
-                      firebaseErrorMessage(snap.error, fallback: 'Could not load requests. Please try again.'),
+                      firebaseErrorMessage(
+                        snap.error,
+                        fallback: 'Could not load requests. Please try again.',
+                      ),
                     ),
                   );
                 }
@@ -344,13 +440,13 @@ class _SupportThreadState extends State<SupportThread> {
                   children: snap.data!.docs.map((doc) {
                     final d = doc.data();
                     final mine =
-                        d['senderId'] == FirebaseAuth.instance.currentUser!.uid;
+                        d['senderId'] == LocalTestConfig.auth.currentUser!.uid;
                     final timestamp = d['createdAt'];
                     return Card(
                       child: ListTile(
                         title: Text(d['text']?.toString() ?? ''),
                         subtitle: AppText(
-                          '${tr(mine ? 'You' : 'Reply')} · ${timestamp is Timestamp ? readableDate(timestamp.toDate()) : ''}',
+                          '${mine ? tr('You') : d['senderName'] ?? tr(widget.admin ? 'Submitted by' : 'Admin')} · ${tr(d['senderRole']?.toString() ?? '')} · ${timestamp is Timestamp ? '${readableDate(timestamp.toDate())} ${TimeOfDay.fromDateTime(timestamp.toDate()).format(context)}' : ''}',
                         ),
                       ),
                     );

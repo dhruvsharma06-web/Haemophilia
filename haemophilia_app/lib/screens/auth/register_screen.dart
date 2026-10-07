@@ -1,5 +1,7 @@
 import '../../widgets/app_text.dart';
+import '../../utils/account_validation.dart';
 import '../../widgets/consent_form.dart';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -62,12 +64,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _showError(tr('Please enter your last name.'));
       return;
     }
-    if (email.isEmpty || !email.contains('@')) {
+    if (!validEmail(email)) {
       _showError(tr('Please enter a valid email address.'));
       return;
     }
-    if (password.length < 6) {
-      _showError(tr('Password must contain at least 6 characters.'));
+    if (passwordValidation(password) != null) {
+      _showError(tr(passwordValidation(password)!));
+      return;
+    }
+    if (mobileValidation(phone) != null) {
+      _showError(tr(mobileValidation(phone)!));
+      return;
+    }
+    if (int.tryParse(ageText) == null ||
+        int.parse(ageText) < 1 ||
+        int.parse(ageText) > 120) {
+      _showError(tr('Enter an age between 1 and 120.'));
       return;
     }
     if (password != confirmPassword) {
@@ -162,9 +174,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       SnackBar(
         behavior: SnackBarBehavior.floating,
         margin: const EdgeInsets.all(16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         content: Text(message),
       ),
     );
@@ -181,10 +191,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           tr('Patient Registration'),
           style: const TextStyle(fontWeight: FontWeight.w800),
         ),
-        actions: const [
-          LanguageToggleButton(),
-          SizedBox(width: 8),
-        ],
+        actions: const [LanguageToggleButton(), SizedBox(width: 8)],
       ),
       body: SafeArea(
         child: Center(
@@ -227,7 +234,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       const SizedBox(height: 4),
                       Center(
                         child: Text(
-                          tr('Create your patient profile to begin your guided physiotherapy.'),
+                          tr(
+                            'Create your patient profile to begin your guided physiotherapy.',
+                          ),
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: Colors.grey.shade600,
@@ -341,7 +350,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             child: Text(tr('Other')),
                           ),
                         ],
-                        onChanged: (val) => setState(() => _selectedGender = val),
+                        onChanged: (val) =>
+                            setState(() => _selectedGender = val),
                       ),
                       const SizedBox(height: 14),
 
@@ -445,7 +455,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ? const SizedBox(
                                 width: 18,
                                 height: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               )
                             : const Icon(Icons.g_mobiledata_rounded, size: 24),
                         label: Text(tr('Continue with Google')),
@@ -460,7 +472,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                       Center(
                         child: TextButton(
-                          onPressed: _loading ? null : () => Navigator.pop(context),
+                          onPressed: _loading
+                              ? null
+                              : () => Navigator.pop(context),
                           child: Text(
                             tr('Already have an account? Sign in'),
                             style: const TextStyle(fontSize: 13),

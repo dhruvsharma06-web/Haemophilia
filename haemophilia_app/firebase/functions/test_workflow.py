@@ -24,10 +24,17 @@ class WorkflowTests(unittest.TestCase):
 
     def test_paused_and_active_sessions_are_not_overwritten(self):
         for status in ('paused', 'in_progress'):
-            self.assertEqual(self.decide({'status': status}), 'wait')
+            self.assertEqual(self.decide({'status': status, 'scheduledAt': self.now}), 'wait')
 
-    def test_legacy_assignment_without_expiry_is_preserved(self):
-        self.assertEqual(self.decide({'status': 'assigned'}), 'wait')
+    def test_legacy_assignment_without_a_clock_cannot_block_forever(self):
+        self.assertEqual(self.decide({'status': 'assigned'}), 'activate')
+        self.assertEqual(self.decide({'status': 'assigned', 'createdAt': self.now}), 'wait')
+
+    def test_all_unfinished_states_expire_at_original_start_plus_one_hour(self):
+        for status in ('assigned', 'paused', 'in_progress'):
+            self.assertEqual(self.decide({'status': status, 'scheduledAt': self.now - timedelta(hours=1),
+                                          'expiresAt': self.now + timedelta(days=1)}), 'activate')
+        self.assertEqual(self.decide(scheduledAt=self.now - timedelta(hours=1)), 'missed')
 
     def test_completed_or_expired_assignment_allows_next(self):
         self.assertEqual(self.decide({'status': 'completed'}), 'activate')

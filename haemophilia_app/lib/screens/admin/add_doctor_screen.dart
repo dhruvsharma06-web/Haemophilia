@@ -1,9 +1,11 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../services/local_test_config.dart';
+
 import 'package:flutter/material.dart';
 
 import '../../services/admin_service.dart';
 import '../../utils/app_localizations.dart';
 import '../../utils/firebase_errors.dart';
+import '../../utils/account_validation.dart';
 
 class AddDoctorScreen extends StatefulWidget {
   const AddDoctorScreen({super.key});
@@ -26,7 +28,7 @@ class _AddDoctorScreenState extends State<AddDoctorScreen> {
     ])
       key: TextEditingController(),
   };
-  late final String _requestId = FirebaseFirestore.instance
+  late final String _requestId = LocalTestConfig.database
       .collection('adminAudit')
       .doc()
       .id;
@@ -67,7 +69,11 @@ class _AddDoctorScreenState extends State<AddDoctorScreen> {
       Navigator.pop(context);
     } catch (error) {
       if (mounted) {
-        setState(() => _error = error is StateError ? tr(error.message.toString()) : firebaseErrorMessage(error));
+        setState(
+          () => _error = error is StateError
+              ? tr(error.message.toString())
+              : firebaseErrorMessage(error),
+        );
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -123,8 +129,13 @@ class _AddDoctorScreenState extends State<AddDoctorScreen> {
                         if (value == null || value.trim().isEmpty) {
                           return tr('Required');
                         }
-                        if (field.key == 'password' && value.length < 8) {
-                          return tr('At least 8 characters');
+                        if (field.key == 'password' &&
+                            passwordValidation(value) != null) {
+                          return tr(passwordValidation(value)!);
+                        }
+                        if (field.key == 'phoneNumber' &&
+                            mobileValidation(value) != null) {
+                          return tr(mobileValidation(value)!);
                         }
                         if (field.key == 'email' &&
                             !RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')

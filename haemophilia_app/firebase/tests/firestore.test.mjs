@@ -8,6 +8,7 @@ let env;
 const version='2026-10-02-v1';
 const future=Timestamp.fromMillis(Date.now()+3600000);
 const past=Timestamp.fromMillis(Date.now()-3600000);
+const recent=Timestamp.fromMillis(Date.now()-900000);
 const profile=(role,doctorId=null)=>({role, doctorId, email:`${role}@example.com`, accountActive:true, isApproved:role==='doctor', consentVersion:version, onboardingCompleted:true});
 const db=(uid)=>env.authenticatedContext(uid,{email:`${uid}@example.com`}).firestore();
 before(async()=>{env=await initializeTestEnvironment({projectId:'demo-hemo-workflow',firestore:{host:'127.0.0.1',port:8089,rules:readFileSync(process.env.HEMO_RULES_PATH || new URL('../firestore.rules',import.meta.url),'utf8')}});});
@@ -17,7 +18,7 @@ beforeEach(async()=>{
  await env.withSecurityRulesDisabled(async(context)=>{
   const store=context.firestore(); const batch=writeBatch(store);
   for(const [id,data] of Object.entries({admin:profile('admin'),doctor:profile('doctor'),otherDoctor:profile('doctor'),pending:profile('pending_doctor'),patient:profile('patient','doctor'),otherPatient:profile('patient','otherDoctor'),inactive:{...profile('doctor'),accountActive:false},legacy:{role:'doctor',accountActive:true}}))batch.set(doc(store,'users',id),data);
-  batch.set(doc(store,'exerciseAssignments','patient'),{patientId:'patient',doctorId:'doctor',status:'assigned',scheduledAt:past,expiresAt:future,exercises:[{exercise:'assisted_shoulder_flexion'}]});
+  batch.set(doc(store,'exerciseAssignments','patient'),{patientId:'patient',doctorId:'doctor',sessionId:'patient_existing',assignmentId:'original',status:'assigned',scheduledAt:recent,expiresAt:future,exercises:[{exercise:'assisted_shoulder_flexion'}]});
   batch.set(doc(store,'assessmentSessions','patient_existing'),{sessionId:'patient_existing',patientId:'patient',doctorId:'doctor',status:'paused',practice:false,startedAt:past,totalReps:4,totalCorrectReps:3});
   batch.set(doc(store,'conversations','patient_doctor'),{patientId:'patient',doctorId:'doctor'});
   batch.set(doc(store,'conversations','patient_doctor','messages','existing'),{conversationId:'patient_doctor',patientId:'patient',doctorId:'doctor',senderId:'patient',text:'hello'});
@@ -72,10 +73,12 @@ test('patient cannot change routing, role, approval or server report',async()=>{
  await assertFails(updateDoc(doc(store,'assessmentSessions','patient_existing'),{report:{totalReps:999}}));
  await assertFails(updateDoc(doc(store,'assessmentSessions','patient_existing'),{doctorId:'otherDoctor'}));
 });
-test('schedules are future, doctor-owned, unreadable by patients and cannot be activated by clients',async()=>{
+test('patients can read their schedules but cannot activate future or unrelated occurrences',async()=>{
  const store=db('doctor');const data={patientId:'patient',doctorId:'doctor',seriesId:'series',sessionName:'Morning',exercises:[{exercise:'assisted_shoulder_flexion',targetCorrectReps:3}],exerciseProgress:[],scheduledAt:future,expiresAt:Timestamp.fromMillis(future.toMillis()+3600000),status:'scheduled',createdAt:serverTimestamp()};
  await assertSucceeds(setDoc(doc(store,'exerciseSchedules','valid'),data));
- await assertFails(getDoc(doc(db('patient'),'exerciseSchedules','valid')));
+ await assertSucceeds(getDoc(doc(db('patient'),'exerciseSchedules','valid')));
+ await assertFails(getDoc(doc(db('otherPatient'),'exerciseSchedules','valid')));
+ await assertFails(updateDoc(doc(db('patient'),'exerciseSchedules','valid'),{status:'activated',updatedAt:serverTimestamp()}));
  await assertFails(setDoc(doc(db('otherDoctor'),'exerciseSchedules','wrong'),data));
  await assertFails(setDoc(doc(store,'exerciseSchedules','past'),{...data,scheduledAt:past}));
  await assertFails(updateDoc(doc(store,'exerciseSchedules','valid'),{status:'activated'}));
@@ -83,12 +86,16 @@ test('schedules are future, doctor-owned, unreadable by patients and cannot be a
 });
 test('camera session needs consent, no-bleeding affirmation and a due assignment',async()=>{
  const store=db('patient'); const payload={sessionId:'patient_new',patientId:'patient',doctorId:'doctor',status:'active',practice:false,safetyConfirmedAt:serverTimestamp(),recordingConsentVersion:version,startedAt:serverTimestamp()};
+ await env.withSecurityRulesDisabled(c=>updateDoc(doc(c.firestore(),'exerciseAssignments','patient'),{sessionId:''}));
  await assertSucceeds(getDoc(doc(store,'assessmentSessions','patient_new')));
  await assertFails(setDoc(doc(store,'assessmentSessions','patient_new'),{...payload,safetyConfirmedAt:null}));
- await assertSucceeds(setDoc(doc(store,'assessmentSessions','patient_new'),payload));
+ const start=writeBatch(store);
+ start.set(doc(store,'assessmentSessions','patient_new'),payload);
+ start.update(doc(store,'exerciseAssignments','patient'),{status:'in_progress',sessionId:'patient_new'});
+ await assertSucceeds(start.commit());
  await env.withSecurityRulesDisabled(c=>updateDoc(doc(c.firestore(),'exerciseAssignments','patient'),{scheduledAt:future}));
  await assertFails(setDoc(doc(store,'assessmentSessions','patient_future'),{...payload,sessionId:'patient_future'}));
- await assertSucceeds(setDoc(doc(store,'assessmentSessions','patient_practice'),{...payload,sessionId:'patient_practice',practice:true}));
+ await assertFails(setDoc(doc(store,'assessmentSessions','patient_practice'),{...payload,sessionId:'patient_practice',practice:true}));
 });
 test('session pause/resume keeps totals under the same record; completed sessions cannot restart',async()=>{
  const store=db('patient'); const ref=doc(store,'assessmentSessions','patient_existing');
@@ -106,14 +113,14 @@ test('assignment and session pause batch commits together and preserves counts',
  assert.equal((await getDoc(doc(store,'exerciseAssignments','patient'))).data().totalCompletedReps,7);
  assert.equal((await getDoc(doc(store,'assessmentSessions','patient_existing'))).data().totalReps,7);
 });
-test('patient cannot start a future or expired assigned session; paused sessions can resume later',async()=>{
+test('patient cannot start or resume any future or expired session',async()=>{
  const ref=doc(db('patient'),'exerciseAssignments','patient');
  await env.withSecurityRulesDisabled(c=>updateDoc(doc(c.firestore(),'exerciseAssignments','patient'),{scheduledAt:future}));
  await assertFails(updateDoc(ref,{status:'in_progress'}));
  await env.withSecurityRulesDisabled(c=>updateDoc(doc(c.firestore(),'exerciseAssignments','patient'),{scheduledAt:past,expiresAt:past}));
  await assertFails(updateDoc(ref,{status:'in_progress'}));
  await env.withSecurityRulesDisabled(c=>updateDoc(doc(c.firestore(),'exerciseAssignments','patient'),{status:'paused'}));
- await assertSucceeds(updateDoc(ref,{status:'in_progress'}));
+ await assertFails(updateDoc(ref,{status:'in_progress'}));
 });
 test('assigned pair can chat atomically; unrelated doctor cannot spoof or send',async()=>{
  const store=db('patient'); const batch=writeBatch(store);
@@ -144,8 +151,97 @@ test('notifications can only reach assigned recipients and cannot fake successfu
 test('legacy paused sessions can initialize missing resume metadata once',async()=>{
  const ref=doc(db('patient'),'assessmentSessions','patient_legacy');
  await env.withSecurityRulesDisabled(c=>setDoc(doc(c.firestore(),'assessmentSessions','patient_legacy'),{sessionId:'patient_legacy',patientId:'patient',doctorId:'doctor',status:'paused',totalReps:4}));
+ await env.withSecurityRulesDisabled(c=>updateDoc(doc(c.firestore(),'exerciseAssignments','patient'),{sessionId:'patient_legacy'}));
  await assertSucceeds(updateDoc(ref,{status:'active',startedAt:serverTimestamp(),practice:false,totalReps:4}));
  await assertFails(updateDoc(ref,{startedAt:past}));
  await assertFails(updateDoc(ref,{practice:true}));
  assert.equal((await getDoc(ref)).data().totalReps,4);
+});
+
+test('patient activates a due schedule atomically; cannot overwrite paused work or alter prescriptions',async()=>{
+ const schedule={patientId:'patient',doctorId:'doctor',sessionName:'Due session',exercises:[{exercise:'assisted_shoulder_flexion',targetCorrectReps:3}],exerciseProgress:[],scheduledAt:recent,expiresAt:future,status:'scheduled'};
+ await env.withSecurityRulesDisabled(async(c)=>{
+  await setDoc(doc(c.firestore(),'exerciseSchedules','due'),schedule);
+  await updateDoc(doc(c.firestore(),'exerciseAssignments','patient'),{status:'paused'});
+ });
+ function activate(extra={}) {
+  const store=db('patient'); const batch=writeBatch(store);
+  batch.set(doc(store,'exerciseAssignments','patient'),{...schedule,sourceScheduleId:'due',scheduleId:'due',status:'assigned',createdAt:serverTimestamp(),updatedAt:serverTimestamp(),...extra});
+  batch.update(doc(store,'exerciseSchedules','due'),{status:'activated',updatedAt:serverTimestamp()});
+  batch.set(doc(store,'users','patient','notifications','schedule_due'),{senderId:'patient',read:false,createdAt:serverTimestamp(),title:'Exercise session available',data:{type:'session_assigned',patientId:'patient',doctorId:'doctor',scheduleId:'due'}});
+  return batch.commit();
+ }
+ await assertFails(activate());
+ await env.withSecurityRulesDisabled(c=>updateDoc(doc(c.firestore(),'exerciseAssignments','patient'),{status:'completed'}));
+ await assertFails(activate({exercises:[{exercise:'elbow_flexion',targetCorrectReps:100}]}));
+ await assertSucceeds(activate());
+ assert.equal((await getDoc(doc(db('patient'),'exerciseAssignments','patient'))).data().sourceScheduleId,'due');
+ await assertFails(activate());
+});
+test('unpublished or expired schedules cannot be activated and patients cannot clear admin decisions',async()=>{
+ await env.withSecurityRulesDisabled(async(c)=>{
+  const store=c.firestore();
+  await setDoc(doc(store,'exerciseScheduleSeries','unfinished'),{patientId:'patient',doctorId:'doctor',status:'preparing'});
+  await setDoc(doc(store,'exerciseSchedules','unpublished'),{patientId:'patient',doctorId:'doctor',seriesId:'unfinished',managedSeries:true,sessionName:'Later',exercises:[],exerciseProgress:[],scheduledAt:past,expiresAt:future,status:'scheduled'});
+  await updateDoc(doc(store,'exerciseAssignments','patient'),{status:'completed'});
+ });
+ const store=db('patient'); const schedule=(await getDoc(doc(store,'exerciseSchedules','unpublished'))).data();
+ const batch=writeBatch(store);
+ const {seriesId,managedSeries,...payload}=schedule;
+ batch.set(doc(store,'exerciseAssignments','patient'),{...payload,sourceScheduleId:'unpublished',status:'assigned',createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
+ batch.update(doc(store,'exerciseSchedules','unpublished'),{status:'activated',updatedAt:serverTimestamp()});
+ await assertFails(batch.commit());
+ await env.withSecurityRulesDisabled(async(c)=>{
+  await updateDoc(doc(c.firestore(),'exerciseScheduleSeries','unfinished'),{status:'ready'});
+  await updateDoc(doc(c.firestore(),'exerciseSchedules','unpublished'),{expiresAt:past});
+ });
+ const expired=writeBatch(store);
+ expired.set(doc(store,'exerciseAssignments','patient'),{...payload,expiresAt:past,sourceScheduleId:'unpublished',status:'assigned',createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
+ expired.update(doc(store,'exerciseSchedules','unpublished'),{status:'activated',updatedAt:serverTimestamp()});
+ await assertFails(expired.commit());
+ await assertFails(updateDoc(doc(store,'users','patient'),{rejectionReason:'',removedAt:serverTimestamp()}));
+ await assertSucceeds(updateDoc(doc(db('admin'),'users','patient'),{status:'rejected',accountActive:false,rejectionReason:'Review required'}));
+ await assertFails(getDoc(doc(store,'exerciseAssignments','patient')));
+});
+
+test('expired paused assignment and recording are archived atomically and cannot resume',async()=>{
+ await env.withSecurityRulesDisabled(c=>updateDoc(doc(c.firestore(),'exerciseAssignments','patient'),{status:'paused',scheduledAt:past}));
+ const store=db('patient'), ref=doc(store,'exerciseAssignments','patient');
+ const data=(await getDoc(ref)).data();
+ const batch=writeBatch(store);
+ const terminal={status:'expired',expiredAt:serverTimestamp(),updatedAt:serverTimestamp()};
+ batch.set(doc(store,'exerciseAssignments','patient','archive','original'),{...data,...terminal,archiveId:'original',archivedAt:serverTimestamp()});
+ batch.update(ref,terminal);
+ batch.update(doc(store,'assessmentSessions','patient_existing'),{...terminal,lastUpdatedAt:serverTimestamp()});
+ await assertSucceeds(batch.commit());
+ await assertFails(updateDoc(ref,{status:'in_progress'}));
+ await assertFails(updateDoc(doc(store,'assessmentSessions','patient_existing'),{status:'active'}));
+ await assertSucceeds(getDoc(doc(store,'exerciseAssignments','patient','archive','original')));
+ await assertFails(updateDoc(doc(store,'exerciseAssignments','patient','archive','original'),{status:'assigned'}));
+});
+
+test('patient cannot expire a fresh session or extend its deadline',async()=>{
+ const ref=doc(db('patient'),'exerciseAssignments','patient');
+ await assertFails(updateDoc(ref,{status:'expired',expiredAt:serverTimestamp(),updatedAt:serverTimestamp()}));
+ await assertFails(updateDoc(ref,{expiresAt:Timestamp.fromMillis(Date.now()+86400000)}));
+ await assertFails(updateDoc(ref,{sessionId:'patient_different'}));
+});
+
+test('assigned doctor cancels paused work and recording; queued patient progress cannot resurrect it',async()=>{
+ await env.withSecurityRulesDisabled(c=>updateDoc(doc(c.firestore(),'exerciseAssignments','patient'),{status:'paused'}));
+ const store=db('doctor'), ref=doc(store,'exerciseAssignments','patient'), data=(await getDoc(ref)).data();
+ const terminal={status:'cancelled',cancelledBy:'doctor',cancelledAt:serverTimestamp(),updatedAt:serverTimestamp()};
+ const batch=writeBatch(store);
+ batch.set(doc(store,'exerciseAssignments','patient','archive','original'),{...data,...terminal,archiveId:'original',archivedAt:serverTimestamp()});
+ batch.update(ref,terminal);
+ batch.update(doc(store,'assessmentSessions','patient_existing'),{...terminal,lastUpdatedAt:serverTimestamp()});
+ await assertSucceeds(batch.commit());
+ await assertFails(updateDoc(doc(db('patient'),'exerciseAssignments','patient'),{status:'paused',totalCompletedReps:20}));
+ await assertFails(updateDoc(doc(db('patient'),'assessmentSessions','patient_existing'),{status:'active'}));
+ await assertFails(updateDoc(doc(db('otherDoctor'),'exerciseAssignments','patient'),terminal));
+});
+
+test('a new assignment does not permit updates to an old unfinished recording',async()=>{
+ await env.withSecurityRulesDisabled(c=>updateDoc(doc(c.firestore(),'exerciseAssignments','patient'),{assignmentId:'new',sessionId:'patient_other'}));
+ await assertFails(updateDoc(doc(db('patient'),'assessmentSessions','patient_existing'),{status:'active'}));
 });

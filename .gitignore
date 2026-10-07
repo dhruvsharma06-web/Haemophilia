@@ -12,6 +12,12 @@ demo_videos/
 
 # Model checkpoints
 models/*.pth
+# Runtime checkpoints and retained elbow versions required for a fresh checkout.
+!models/assisted_shoulder_lstm.pth
+!models/shoulder_rotation_lstm.pth
+!models/elbow_lstm_v4.pth
+!models/elbow_lstm_v3.pth
+!models/elbow_lstm.pth
 
 # Python / IDE
 .vscode/

@@ -1,11 +1,13 @@
+import 'local_test_config.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import 'dart:async';
 
 class ClinicalDataService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = LocalTestConfig.database;
+  final FirebaseAuth _auth = LocalTestConfig.auth;
 
   CollectionReference<Map<String, dynamic>> get _users =>
       _firestore.collection('users');
@@ -54,6 +56,9 @@ class ClinicalDataService {
     if (user == null) throw StateError('You are not signed in.');
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
+    if (trimmed.length > 2000) {
+      throw StateError('Keep messages within 2000 characters.');
+    }
 
     await _messages(patientId).add({
       'senderId': user.uid,
@@ -95,7 +100,7 @@ class ClinicalDataService {
     String conversationId,
   ) {
     return _conversationMessages(conversationId)
-        .orderBy('createdAt', descending: false)
+        .orderBy('createdAt', descending: true)
         .limit(200)
         .snapshots();
   }
@@ -115,9 +120,14 @@ class ClinicalDataService {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
 
+    if (trimmed.length > 2000) {
+      throw StateError('Keep messages within 2000 characters.');
+    }
     final profile = await _users.doc(patientId).get();
     final doctor = await _users.doc(doctorId).get();
     if (profile.data()?['doctorId'] != doctorId ||
+        profile.data()?['accountActive'] == false ||
+        doctor.data()?['role'] != 'doctor' ||
         doctor.data()?['isApproved'] == false ||
         doctor.data()?['accountActive'] == false ||
         (senderRole == 'patient'
@@ -152,7 +162,27 @@ class ClinicalDataService {
       messagePayload['sessionContext'] = sessionContext;
     }
 
-    batch.set(_conversationMessages(conversationId).doc(), messagePayload);
+    final messageRef = _conversationMessages(conversationId).doc();
+    batch.set(messageRef, messagePayload);
+    batch.set(
+      _users
+          .doc(receiverId)
+          .collection('notifications')
+          .doc('message_${conversationId}_${messageRef.id}'),
+      {
+        'senderId': user.uid,
+        'read': false,
+        'title': 'New message',
+        'body': 'You have a new message. Open the app to read it.',
+        'createdAt': FieldValue.serverTimestamp(),
+        'data': {
+          'type': 'new_message',
+          'patientId': patientId,
+          'doctorId': doctorId,
+          'conversationId': conversationId,
+        },
+      },
+    );
 
     // 2. Upsert conversation parent document with latest preview and increment unread for receiver
     final convDoc = <String, dynamic>{

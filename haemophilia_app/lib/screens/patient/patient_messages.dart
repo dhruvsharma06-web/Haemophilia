@@ -1,5 +1,7 @@
+import '../../services/local_test_config.dart';
 import '../../utils/firebase_errors.dart';
 import '../../widgets/app_text.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
@@ -50,30 +52,62 @@ class _PatientMessagesState extends State<PatientMessages> {
         ),
         actions: [
           const LanguageToggleButton(),
-          IconButton(tooltip: tr('Contact admin'), icon: const Icon(Icons.support_agent), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HelpScreen()))),
+          IconButton(
+            tooltip: tr('Contact admin'),
+            icon: const Icon(Icons.support_agent),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const HelpScreen()),
+            ),
+          ),
         ],
       ),
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
         // Stream all doctors from the users collection
-        stream: widget.user.doctorId?.isNotEmpty == true ? FirebaseFirestore.instance
-            .collection('users')
-            .where(FieldPath.documentId, isEqualTo: widget.user.doctorId)
-            .snapshots() : null,
+        stream: widget.user.doctorId?.isNotEmpty == true
+            ? LocalTestConfig.database
+                  .collection('users')
+                  .where(FieldPath.documentId, isEqualTo: widget.user.doctorId)
+                  .snapshots()
+            : null,
         builder: (context, doctorSnap) {
           if (widget.user.doctorId?.isNotEmpty != true) {
-            return Center(child: Padding(padding: const EdgeInsets.all(24), child: Column(mainAxisSize: MainAxisSize.min, children: [
-              const Icon(Icons.person_search_outlined, size: 40),
-              const SizedBox(height: 16),
-              Text(tr('Your doctor will appear here once assigned. You can contact the administrator from Help.')),
-              const SizedBox(height: 16),
-              OutlinedButton.icon(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HelpScreen())), icon: const Icon(Icons.support_agent), label: Text(tr('Contact admin'))),
-            ])));
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.person_search_outlined, size: 40),
+                    const SizedBox(height: 16),
+                    Text(
+                      tr(
+                        'Your doctor will appear here once assigned. You can contact the administrator from Help.',
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    OutlinedButton.icon(
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const HelpScreen()),
+                      ),
+                      icon: const Icon(Icons.support_agent),
+                      label: Text(tr('Contact admin')),
+                    ),
+                  ],
+                ),
+              ),
+            );
           }
           if (doctorSnap.hasError) {
             return Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
-                child: Text(firebaseErrorMessage(doctorSnap.error, fallback: 'Could not load doctors.'),
+                child: Text(
+                  firebaseErrorMessage(
+                    doctorSnap.error,
+                    fallback: 'Could not load doctors.',
+                  ),
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -108,7 +142,9 @@ class _PatientMessagesState extends State<PatientMessages> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      tr('Your assigned doctor will appear here after administrator assignment.'),
+                      tr(
+                        'Your assigned doctor will appear here after administrator assignment.',
+                      ),
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Colors.grey.shade600),
                     ),
@@ -137,8 +173,9 @@ class _PatientMessagesState extends State<PatientMessages> {
                 final docData = dDoc.data();
                 final doctorId = dDoc.id;
                 final rawName = docData['name']?.toString() ?? 'Doctor';
-                final displayName =
-                    rawName.startsWith('Dr.') ? rawName : 'Dr. $rawName';
+                final displayName = rawName.startsWith('Dr.')
+                    ? rawName
+                    : 'Dr. $rawName';
                 final conv = convMap[doctorId];
                 final lastMessage = conv?['lastMessage']?.toString();
                 final lastMessageAt = conv?['lastMessageAt'] as Timestamp?;
@@ -196,10 +233,12 @@ class _PatientMessagesState extends State<PatientMessages> {
                             radius: 24,
                             backgroundColor: primary.withValues(alpha: .10),
                             child: Text(
-                              item.doctorName.replaceFirst('Dr. ', '').isNotEmpty
+                              item.doctorName
+                                      .replaceFirst('Dr. ', '')
+                                      .isNotEmpty
                                   ? item.doctorName
-                                      .replaceFirst('Dr. ', '')[0]
-                                      .toUpperCase()
+                                        .replaceFirst('Dr. ', '')[0]
+                                        .toUpperCase()
                                   : 'D',
                               style: TextStyle(
                                 color: primary,

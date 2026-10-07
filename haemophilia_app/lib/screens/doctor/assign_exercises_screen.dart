@@ -1,3 +1,4 @@
+import '../../services/local_test_config.dart';
 import '../../widgets/app_text.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -27,9 +28,9 @@ class AssignExercisesScreen extends StatefulWidget {
 }
 
 class _AssignExercisesScreenState extends State<AssignExercisesScreen> {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseFirestore _firestore = LocalTestConfig.database;
 
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseAuth _auth = LocalTestConfig.auth;
 
   // ============================================================
   // SESSION NAME
@@ -44,18 +45,19 @@ class _AssignExercisesScreenState extends State<AssignExercisesScreen> {
   final Map<String, bool> _selected = {
     kAssistedShoulderFlexion: true,
     kShoulderRotation: false,
-    kAssistedElbowFlexion: false,
+    kAssistedElbowFlexionV5: false,
     kElbowFlexionExtension: false,
   };
 
   final Map<String, TextEditingController> _repControllers = {
     kAssistedShoulderFlexion: TextEditingController(text: '10'),
     kShoulderRotation: TextEditingController(text: '10'),
-    kAssistedElbowFlexion: TextEditingController(text: '10'),
+    kAssistedElbowFlexionV5: TextEditingController(text: '10'),
     kElbowFlexionExtension: TextEditingController(text: '10'),
   };
 
   bool _saving = false;
+  bool _assignNow = true;
   String? _editingScheduleId;
   DateTime _start = DateTime.now().add(const Duration(minutes: 5));
   final Set<int> _additionalTimes = {};
@@ -77,31 +79,57 @@ class _AssignExercisesScreenState extends State<AssignExercisesScreen> {
       initialTime: TimeOfDay.fromDateTime(_start),
     );
     if (time != null && mounted) {
-      setState(() => _setStart(DateTime(date.year, date.month, date.day, time.hour, time.minute)));
-
+      setState(
+        () => _setStart(
+          DateTime(date.year, date.month, date.day, time.hour, time.minute),
+        ),
+      );
     }
   }
 
-  List<int> get _dailyTimes => {_start.hour * 60 + _start.minute, ..._additionalTimes}.toList()..sort();
+  List<int> get _dailyTimes =>
+      {_start.hour * 60 + _start.minute, ..._additionalTimes}.toList()..sort();
 
   void _setStart(DateTime value) {
-    final times = {value.hour * 60 + value.minute, ..._additionalTimes}.toList()..sort();
-    _start = DateTime(value.year, value.month, value.day, times.first ~/ 60, times.first % 60);
-    _additionalTimes..clear()..addAll(times.skip(1));
+    final times = {value.hour * 60 + value.minute, ..._additionalTimes}.toList()
+      ..sort();
+    _start = DateTime(
+      value.year,
+      value.month,
+      value.day,
+      times.first ~/ 60,
+      times.first % 60,
+    );
+    _additionalTimes
+      ..clear()
+      ..addAll(times.skip(1));
   }
 
   Future<void> _addTime() async {
-    final time = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(_start.add(const Duration(hours: 3))));
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_start.add(const Duration(hours: 3))),
+    );
     if (time == null || !mounted) return;
     final minute = time.hour * 60 + time.minute;
     if (_dailyTimes.contains(minute)) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('This time is already selected.'))));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(tr('This time is already selected.'))),
+      );
       return;
     }
     setState(() {
       final times = {..._dailyTimes, minute}.toList()..sort();
-      _start = DateTime(_start.year, _start.month, _start.day, times.first ~/ 60, times.first % 60);
-      _additionalTimes..clear()..addAll(times.skip(1));
+      _start = DateTime(
+        _start.year,
+        _start.month,
+        _start.day,
+        times.first ~/ 60,
+        times.first % 60,
+      );
+      _additionalTimes
+        ..clear()
+        ..addAll(times.skip(1));
     });
   }
 
@@ -111,196 +139,347 @@ class _AssignExercisesScreenState extends State<AssignExercisesScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (_editingScheduleId != null)
-            Text(
-              tr('Editing this occurrence. Changes apply only after saving.'),
-            ),
-          Text(
-            tr('Schedule'),
-            style: const TextStyle(fontWeight: FontWeight.w800),
-          ),
-          ListTile(
+          SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: AppText(
-              '${readableDate(_start)} · ${TimeOfDay.fromDateTime(_start).format(context)}',
+            title: Text(tr('Assign now')),
+            subtitle: Text(
+              tr('Available for 1 hour from the scheduled start time.'),
             ),
-            subtitle: Text(tr('Start date and time (this device’s timezone)')),
-            trailing: const Icon(Icons.calendar_month),
-            onTap: _saving ? null : _pickStart,
-          ),
-          Text(tr('Daily session times'), style: const TextStyle(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 8),
-          Wrap(spacing: 8, runSpacing: 4, children: [
-            for (final minute in _dailyTimes)
-              InputChip(label: Text(TimeOfDay(hour: minute ~/ 60, minute: minute % 60).format(context)),
-                onDeleted: _saving || minute == _dailyTimes.first ? null : () => setState(() => _additionalTimes.remove(minute)),
-              ),
-          ]),
-          if (_editingScheduleId == null)
-            Align(alignment: Alignment.centerLeft, child: TextButton.icon(
-              onPressed: _saving || _dailyTimes.length >= 12 ? null : _addTime,
-              icon: const Icon(Icons.add), label: Text(tr('Add another time')),
-            )),
-          const SizedBox(height: 8),
-          DropdownButtonFormField<String>(
-            initialValue: _repeat,
-            items: ['Once', 'One week', 'One month', 'Custom days']
-                .map(
-                  (value) =>
-                      DropdownMenuItem(value: value, child: Text(tr(value))),
-                )
-                .toList(),
+            value: _assignNow && _editingScheduleId == null,
             onChanged: _saving || _editingScheduleId != null
                 ? null
-                : (value) => setState(() => _repeat = value!),
+                : (value) => setState(() => _assignNow = value),
           ),
-          if (_repeat == 'Custom days')
-            TextFormField(
-              initialValue: '7',
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                labelText: tr('Number of days (1–366)'),
+          if (!_assignNow || _editingScheduleId != null) ...[
+            if (_editingScheduleId != null)
+              Text(
+                tr('Editing this occurrence. Changes apply only after saving.'),
               ),
-              onChanged: (value) => _days = int.tryParse(value) ?? 0,
+            Text(
+              tr('Schedule'),
+              style: const TextStyle(fontWeight: FontWeight.w800),
             ),
-          if (_repeat != 'Once')
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: AppText(
+                '${readableDate(_start)} · ${TimeOfDay.fromDateTime(_start).format(context)}',
+              ),
+              subtitle: Text(
+                tr('Start date and time (this device’s timezone)'),
+              ),
+              trailing: const Icon(Icons.calendar_month),
+              onTap: _saving ? null : _pickStart,
+            ),
+            Text(
+              tr('Daily session times'),
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 8),
             Wrap(
-              spacing: 4,
+              spacing: 8,
+              runSpacing: 4,
               children: [
-                for (var i = 1; i <= 7; i++)
-                  FilterChip(
+                for (final minute in _dailyTimes)
+                  InputChip(
                     label: Text(
-                      tr(
-                        ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i -
-                            1],
-                      ),
+                      TimeOfDay(
+                        hour: minute ~/ 60,
+                        minute: minute % 60,
+                      ).format(context),
                     ),
-                    selected: _weekdays.contains(i),
-                    onSelected: _saving
+                    onDeleted: _saving || minute == _dailyTimes.first
                         ? null
-                        : (selected) => setState(() {
-                            if (selected) {
-                              _weekdays.add(i);
-                            } else {
-                              _weekdays.remove(i);
-                            }
-                          }),
+                        : () => setState(() => _additionalTimes.remove(minute)),
                   ),
               ],
             ),
-          const SizedBox(height: 8),
-          Text(
-            tr(
-              'Patients are notified only when a session becomes available. An active or paused session is never overwritten.',
+            if (_editingScheduleId == null)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: _saving || _dailyTimes.length >= 12
+                      ? null
+                      : _addTime,
+                  icon: const Icon(Icons.add),
+                  label: Text(tr('Add another time')),
+                ),
+              ),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              initialValue: _repeat,
+              items: ['Once', 'One week', 'One month', 'Custom days']
+                  .map(
+                    (value) =>
+                        DropdownMenuItem(value: value, child: Text(tr(value))),
+                  )
+                  .toList(),
+              onChanged: _saving || _editingScheduleId != null
+                  ? null
+                  : (value) => setState(() => _repeat = value!),
             ),
+            if (_repeat == 'Custom days')
+              TextFormField(
+                initialValue: '7',
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: tr('Number of days (1–366)'),
+                ),
+                onChanged: (value) => _days = int.tryParse(value) ?? 0,
+              ),
+            if (_repeat != 'Once')
+              Wrap(
+                spacing: 4,
+                children: [
+                  for (var i = 1; i <= 7; i++)
+                    FilterChip(
+                      label: Text(
+                        tr(
+                          ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i -
+                              1],
+                        ),
+                      ),
+                      selected: _weekdays.contains(i),
+                      onSelected: _saving
+                          ? null
+                          : (selected) => setState(() {
+                              if (selected) {
+                                _weekdays.add(i);
+                              } else {
+                                _weekdays.remove(i);
+                              }
+                            }),
+                    ),
+                ],
+              ),
+            const SizedBox(height: 8),
+            Text(
+              tr(
+                'Patients are notified only when a session becomes available. An active or paused session is never overwritten.',
+              ),
+            ),
+          ],
+          StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+            stream: _firestore
+                .collection('exerciseAssignments')
+                .doc(widget.patientId)
+                .snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return Text(firebaseErrorMessage(snapshot.error));
+              }
+              final d = snapshot.data?.data();
+              if (d == null ||
+                  !unfinishedSessionStatuses.contains(d['status'])) {
+                return const SizedBox.shrink();
+              }
+              return Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        '${tr('Current session')}: ${d['sessionName'] ?? ''}',
+                      ),
+                      Text(trStatus(d['status']?.toString())),
+                      TextButton(
+                        onPressed: _saving
+                            ? null
+                            : () async {
+                                final confirmed = await showDialog<bool>(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    title: Text(tr('Cancel this session?')),
+                                    content: Text(
+                                      tr(
+                                        'The patient will no longer be able to start or resume this session.',
+                                      ),
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(ctx),
+                                        child: Text(tr('Keep session')),
+                                      ),
+                                      FilledButton(
+                                        onPressed: () =>
+                                            Navigator.pop(ctx, true),
+                                        child: Text(tr('Cancel session')),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                if (confirmed != true) return;
+                                try {
+                                  await ExerciseScheduleService().cancelSession(
+                                    widget.patientId,
+                                    assignmentKey(d),
+                                  );
+                                } catch (e) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          e is StateError
+                                              ? tr(e.message.toString())
+                                              : firebaseErrorMessage(e),
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                }
+                              },
+                        child: Text(tr('Cancel session')),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
           ),
           StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-            stream: _firestore.collection('exerciseScheduleSeries')
-                .where('patientId', isEqualTo: widget.patientId)
-                .where('doctorId', isEqualTo: _auth.currentUser?.uid).snapshots(),
-            builder: (context, seriesSnapshot) {
-              if (seriesSnapshot.hasError) return Text(firebaseErrorMessage(seriesSnapshot.error, fallback: 'Could not load schedule.'));
-              if (!seriesSnapshot.hasData) return const LinearProgressIndicator();
-              final readySeries = seriesSnapshot.data!.docs.where((doc) => doc.data()['status'] == 'ready').map((doc) => doc.id).toSet();
-              return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
             stream: _firestore
-                .collection('exerciseSchedules')
+                .collection('exerciseScheduleSeries')
                 .where('patientId', isEqualTo: widget.patientId)
                 .where('doctorId', isEqualTo: _auth.currentUser?.uid)
                 .snapshots(),
-            builder: (context, snap) {
-              if (snap.hasError) return Text(firebaseErrorMessage(snap.error, fallback: 'Could not load schedule.'));
-              if (!snap.hasData) return const LinearProgressIndicator();
-              final pending =
-                  (snap.data?.docs ?? [])
-                      .where((d) => d.data()['status'] == 'scheduled' && (d.data()['managedSeries'] != true || readySeries.contains(d.data()['seriesId'])))
-                      .toList()
-                    ..sort(
-                      (a, b) => (a.data()['scheduledAt'] as Timestamp)
-                          .compareTo(b.data()['scheduledAt'] as Timestamp),
+            builder: (context, seriesSnapshot) {
+              if (seriesSnapshot.hasError) {
+                return Text(
+                  firebaseErrorMessage(
+                    seriesSnapshot.error,
+                    fallback: 'Could not load schedule.',
+                  ),
+                );
+              }
+              if (!seriesSnapshot.hasData) {
+                return const LinearProgressIndicator();
+              }
+              final readySeries = seriesSnapshot.data!.docs
+                  .where((doc) => doc.data()['status'] == 'ready')
+                  .map((doc) => doc.id)
+                  .toSet();
+              return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                stream: _firestore
+                    .collection('exerciseSchedules')
+                    .where('patientId', isEqualTo: widget.patientId)
+                    .where('doctorId', isEqualTo: _auth.currentUser?.uid)
+                    .snapshots(),
+                builder: (context, snap) {
+                  if (snap.hasError) {
+                    return Text(
+                      firebaseErrorMessage(
+                        snap.error,
+                        fallback: 'Could not load schedule.',
+                      ),
                     );
-              return Column(
-                children: pending.map((doc) {
-                  final d = doc.data();
-                  final date = (d['scheduledAt'] as Timestamp).toDate();
-                  return ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(d['sessionName']?.toString() ?? ''),
-                    subtitle: AppText(
-                      '${readableDate(date)} · ${TimeOfDay.fromDateTime(date).format(context)}',
-                    ),
-                    trailing: PopupMenuButton<String>(
-                      onSelected: (action) async {
-                        try {
-                          if (action == 'Cancel remaining series' && d['managedSeries'] == true) {
-                            await ExerciseScheduleService().cancelSeries(d['seriesId'].toString());
-                          } else if (action != 'Edit this session') {
-                            final toCancel = action == 'Cancel remaining series'
-                                ? pending.where(
-                                    (p) =>
-                                        p.data()['seriesId'] == d['seriesId'],
-                                  )
-                                : [doc];
-                            final batch = _firestore.batch();
-                            for (final p in toCancel) {
-                              batch.update(p.reference, {
-                                'status': 'cancelled',
-                                'updatedAt': FieldValue.serverTimestamp(),
-                              });
-                            }
-                            await batch.commit();
-                          }
-                          if (action == 'Edit this session' && mounted) {
-                            setState(() {
-                              _editingScheduleId = doc.id;
-                              _start = date;
-                              _additionalTimes.clear();
-                              _repeat = 'Once';
-                              _sessionNameController.text =
-                                  d['sessionName']?.toString() ?? '';
-                              for (final key in _selected.keys) {
-                                _selected[key] = false;
-                              }
-                              for (final raw in (d['exercises'] as List)) {
-                                final e = Map<String, dynamic>.from(raw);
-                                final id = e['exercise'].toString();
-                                if (_selected.containsKey(id)) {
-                                  _selected[id] = true;
-                                  _repControllers[id]!.text =
-                                      e['targetCorrectReps'].toString();
+                  }
+                  if (!snap.hasData) return const LinearProgressIndicator();
+                  final pending =
+                      (snap.data?.docs ?? [])
+                          .where(
+                            (d) =>
+                                d.data()['status'] == 'scheduled' &&
+                                sessionExpiry(d.data()) != null &&
+                                DateTime.now().isBefore(
+                                  sessionExpiry(d.data())!,
+                                ) &&
+                                (d.data()['managedSeries'] != true ||
+                                    readySeries.contains(d.data()['seriesId'])),
+                          )
+                          .toList()
+                        ..sort(
+                          (a, b) => (a.data()['scheduledAt'] as Timestamp)
+                              .compareTo(b.data()['scheduledAt'] as Timestamp),
+                        );
+                  return Column(
+                    children: pending.map((doc) {
+                      final d = doc.data();
+                      final date = (d['scheduledAt'] as Timestamp).toDate();
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(d['sessionName']?.toString() ?? ''),
+                        subtitle: AppText(
+                          '${readableDate(date)} · ${TimeOfDay.fromDateTime(date).format(context)}',
+                        ),
+                        trailing: PopupMenuButton<String>(
+                          onSelected: (action) async {
+                            try {
+                              if (action == 'Cancel remaining series' &&
+                                  d['managedSeries'] == true) {
+                                await ExerciseScheduleService().cancelSeries(
+                                  d['seriesId'].toString(),
+                                );
+                              } else if (action != 'Edit this session') {
+                                final toCancel =
+                                    action == 'Cancel remaining series'
+                                    ? pending.where(
+                                        (p) =>
+                                            p.data()['seriesId'] ==
+                                            d['seriesId'],
+                                      )
+                                    : [doc];
+                                final batch = _firestore.batch();
+                                for (final p in toCancel) {
+                                  batch.update(p.reference, {
+                                    'status': 'cancelled',
+                                    'updatedAt': FieldValue.serverTimestamp(),
+                                  });
                                 }
+                                await batch.commit();
                               }
-                            });
-                          }
-                        } catch (error) {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  firebaseErrorMessage(error),
-                                ),
-                              ),
-                            );
-                          }
-                        }
-                      },
-                      itemBuilder: (_) =>
-                          [
-                                'Edit this session',
-                                'Cancel this session',
-                                'Cancel remaining series',
-                              ]
-                              .map(
-                                (a) =>
-                                    PopupMenuItem(value: a, child: Text(tr(a))),
-                              )
-                              .toList(),
-                    ),
+                              if (action == 'Edit this session' && mounted) {
+                                setState(() {
+                                  _editingScheduleId = doc.id;
+                                  _start = date;
+                                  _additionalTimes.clear();
+                                  _repeat = 'Once';
+                                  _sessionNameController.text =
+                                      d['sessionName']?.toString() ?? '';
+                                  for (final key in _selected.keys) {
+                                    _selected[key] = false;
+                                  }
+                                  for (final raw in (d['exercises'] as List)) {
+                                    final e = Map<String, dynamic>.from(raw);
+                                    final id = normalizeExerciseId(
+                                      e['exercise']?.toString(),
+                                    );
+                                    if (_selected.containsKey(id)) {
+                                      _selected[id] = true;
+                                      _repControllers[id]!.text =
+                                          e['targetCorrectReps'].toString();
+                                    }
+                                  }
+                                });
+                              }
+                            } catch (error) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(firebaseErrorMessage(error)),
+                                  ),
+                                );
+                              }
+                            }
+                          },
+                          itemBuilder: (_) =>
+                              [
+                                    'Edit this session',
+                                    'Cancel this session',
+                                    'Cancel remaining series',
+                                  ]
+                                  .map(
+                                    (a) => PopupMenuItem(
+                                      value: a,
+                                      child: Text(tr(a)),
+                                    ),
+                                  )
+                                  .toList(),
+                        ),
+                      );
+                    }).toList(),
                   );
-                }).toList(),
+                },
               );
-            },
-          );
             },
           ),
         ],
@@ -365,7 +544,7 @@ class _AssignExercisesScreenState extends State<AssignExercisesScreen> {
     final exerciseOrder = [
       kAssistedShoulderFlexion,
       kShoulderRotation,
-      kAssistedElbowFlexion,
+      kAssistedElbowFlexionV5,
       kElbowFlexionExtension,
     ];
 
@@ -447,37 +626,53 @@ class _AssignExercisesScreenState extends State<AssignExercisesScreen> {
         };
       }).toList();
 
-      final now = DateTime.now();
-      if (!_start.isAfter(now)) throw StateError('Choose a future start time.');
-      final monthEnd = DateTime(_start.year, _start.month + 2, 0);
-      final nextMonth = DateTime(
-        _start.year,
-        _start.month + 1,
-        _start.day > monthEnd.day ? monthEnd.day : _start.day,
-      );
-      final days = _repeat == 'Once'
-          ? 1
-          : _repeat == 'One week'
-          ? 7
-          : _repeat == 'One month'
-          ? DateTime(
-              nextMonth.year,
-              nextMonth.month,
-              nextMonth.day,
-            ).difference(DateTime(_start.year, _start.month, _start.day)).inDays
-          : _days;
-      final dates = scheduledOccurrences(
-        start: _start,
-        days: days,
-        weekdays: _repeat == 'Once' ? {_start.weekday} : _weekdays,
-        timesOfDayMinutes: _dailyTimes,
-      );
-      if (dates.isEmpty) throw StateError('Select at least one scheduled day.');
-      await ExerciseScheduleService().save(
-        patientId: widget.patientId, doctorId: doctorId, sessionName: sessionName,
-        dates: dates, exercises: selectedExercises, exerciseProgress: initialExerciseProgress,
-        replacedScheduleId: _editingScheduleId,
-      );
+      if (_assignNow && _editingScheduleId == null) {
+        await ExerciseScheduleService().assignNow(
+          patientId: widget.patientId,
+          doctorId: doctorId,
+          sessionName: sessionName,
+          exercises: selectedExercises,
+          exerciseProgress: initialExerciseProgress,
+        );
+      } else {
+        final now = DateTime.now();
+        if (!_start.isAfter(now)) {
+          throw StateError('Choose a future start time.');
+        }
+        final monthEnd = DateTime(_start.year, _start.month + 2, 0);
+        final nextMonth = DateTime(
+          _start.year,
+          _start.month + 1,
+          _start.day > monthEnd.day ? monthEnd.day : _start.day,
+        );
+        final days = _repeat == 'Once'
+            ? 1
+            : _repeat == 'One week'
+            ? 7
+            : _repeat == 'One month'
+            ? DateTime(nextMonth.year, nextMonth.month, nextMonth.day)
+                  .difference(DateTime(_start.year, _start.month, _start.day))
+                  .inDays
+            : _days;
+        final dates = scheduledOccurrences(
+          start: _start,
+          days: days,
+          weekdays: _repeat == 'Once' ? {_start.weekday} : _weekdays,
+          timesOfDayMinutes: _dailyTimes,
+        );
+        if (dates.isEmpty) {
+          throw StateError('Select at least one scheduled day.');
+        }
+        await ExerciseScheduleService().save(
+          patientId: widget.patientId,
+          doctorId: doctorId,
+          sessionName: sessionName,
+          dates: dates,
+          exercises: selectedExercises,
+          exerciseProgress: initialExerciseProgress,
+          replacedScheduleId: _editingScheduleId,
+        );
+      }
 
       if (!mounted) return;
 
@@ -492,7 +687,16 @@ class _AssignExercisesScreenState extends State<AssignExercisesScreen> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e is StateError ? tr(e.message.toString()) : firebaseErrorMessage(e, fallback: 'Could not save assignment. Please try again.'))),
+        SnackBar(
+          content: Text(
+            e is StateError
+                ? tr(e.message.toString())
+                : firebaseErrorMessage(
+                    e,
+                    fallback: 'Could not save assignment. Please try again.',
+                  ),
+          ),
+        ),
       );
     } finally {
       if (mounted) {
@@ -578,6 +782,14 @@ class _AssignExercisesScreenState extends State<AssignExercisesScreen> {
                           ),
                         ),
                       ],
+                      if (exercise == kAssistedElbowFlexionV5)
+                        Text(
+                          tr('Experimental model'),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.amber.shade900,
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -771,7 +983,7 @@ class _AssignExercisesScreenState extends State<AssignExercisesScreen> {
 
                   _exerciseCard(kShoulderRotation),
 
-                  _exerciseCard(kAssistedElbowFlexion),
+                  _exerciseCard(kAssistedElbowFlexionV5),
 
                   _exerciseCard(kElbowFlexionExtension),
 

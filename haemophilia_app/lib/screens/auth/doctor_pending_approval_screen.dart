@@ -1,18 +1,17 @@
+import '../../services/local_test_config.dart';
 import '../../widgets/app_text.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'package:flutter/material.dart';
 
 import '../../models/user_model.dart';
 import '../../services/auth_service.dart';
+import '../../utils/firebase_errors.dart';
 import '../../utils/app_localizations.dart';
 
 class DoctorPendingApprovalScreen extends StatefulWidget {
   final UserModel user;
 
-  const DoctorPendingApprovalScreen({
-    super.key,
-    required this.user,
-  });
+  const DoctorPendingApprovalScreen({super.key, required this.user});
 
   @override
   State<DoctorPendingApprovalScreen> createState() =>
@@ -27,14 +26,15 @@ class _DoctorPendingApprovalScreenState
   Future<void> _checkStatus() async {
     setState(() => _checking = true);
     try {
-      final doc = await FirebaseFirestore.instance
+      final doc = await LocalTestConfig.database
           .collection('users')
           .doc(widget.user.uid)
           .get();
 
       if (mounted) {
         final data = doc.data();
-        final role = data?['role']?.toString().toLowerCase() ?? 'pending_doctor';
+        final role =
+            data?['role']?.toString().toLowerCase() ?? 'pending_doctor';
         final isApproved = data?['isApproved'] as bool? ?? false;
 
         if (role == 'doctor' && isApproved) {
@@ -50,7 +50,9 @@ class _DoctorPendingApprovalScreenState
               borderRadius: BorderRadius.circular(12),
             ),
             content: Text(
-              tr('Your registration is still under review by the clinical administration team.'),
+              tr(
+                'Your registration is still under review by the clinical administration team.',
+              ),
             ),
           ),
         );
@@ -60,7 +62,7 @@ class _DoctorPendingApprovalScreenState
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             behavior: SnackBarBehavior.floating,
-            content: AppText('${tr('Error checking status:')} $e'),
+            content: Text(firebaseErrorMessage(e)),
           ),
         );
       }
@@ -86,10 +88,7 @@ class _DoctorPendingApprovalScreenState
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        actions: const [
-          LanguageToggleButton(),
-          SizedBox(width: 8),
-        ],
+        actions: const [LanguageToggleButton(), SizedBox(width: 8)],
       ),
       body: SafeArea(
         child: Center(
@@ -190,8 +189,9 @@ class _DoctorPendingApprovalScreenState
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            tr('Thank you for registering, Dr. {name}. Your professional credentials and medical council registration are currently being verified by the Somaiya clinical administration team. You will receive access as soon as your account is approved.')
-                                .replaceFirst('{name}', user.name),
+                            tr(
+                              'Thank you for registering, Dr. {name}. Your professional credentials and medical council registration are currently being verified by the Somaiya clinical administration team. You will receive access as soon as your account is approved.',
+                            ).replaceFirst('{name}', user.name),
                             style: TextStyle(
                               fontSize: 13,
                               color: Colors.grey.shade800,
@@ -208,15 +208,9 @@ class _DoctorPendingApprovalScreenState
                             ),
                             child: Column(
                               children: [
-                                _infoRow(
-                                  tr('Doctor Name'),
-                                  'Dr. ${user.name}',
-                                ),
+                                _infoRow(tr('Doctor Name'), 'Dr. ${user.name}'),
                                 const Divider(height: 16),
-                                _infoRow(
-                                  tr('Email Address'),
-                                  user.email,
-                                ),
+                                _infoRow(tr('Email Address'), user.email),
                                 if (user.registrationNumber != null &&
                                     user.registrationNumber!.isNotEmpty) ...[
                                   const Divider(height: 16),
@@ -307,10 +301,7 @@ class _DoctorPendingApprovalScreenState
           child: Text(
             value,
             textAlign: TextAlign.right,
-            style: const TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w700,
-            ),
+            style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
           ),
         ),
       ],
