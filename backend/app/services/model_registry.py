@@ -129,7 +129,7 @@ class ModelRegistry:
             root = Path(__file__).resolve().parents[3]
             model_path = Path(os.environ.get(
                 "SHOULDER_ROTATION_MODEL",
-                "models/shoulder_rotation/shoulder_rotation_classifier.joblib",
+                "models/shoulder_rotation_run01/shoulder_rotation_lstm.pth",
             ))
             if not model_path.is_absolute():
                 model_path = root / model_path

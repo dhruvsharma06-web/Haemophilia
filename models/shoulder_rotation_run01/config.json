@@ -1,0 +1,49 @@
+{
+  "architecture": {
+    "input_size": 10,
+    "hidden_size": 64,
+    "num_layers": 2,
+    "num_classes": 2,
+    "dropout": 0.3
+  },
+  "feature_names": [
+    "right_rotation_angle",
+    "left_rotation_angle",
+    "right_angular_velocity",
+    "left_angular_velocity",
+    "right_elbow_angle",
+    "left_elbow_angle",
+    "right_visibility",
+    "left_visibility",
+    "torso_tilt",
+    "torso_rotation"
+  ],
+  "rep_definition": "centre -> one side -> centre",
+  "sequence_length": 128,
+  "fps": 20,
+  "seed": 42,
+  "split": {
+    "train": [
+      "A",
+      "B",
+      "C"
+    ],
+    "validation": [
+      "D"
+    ],
+    "test": [
+      "E"
+    ]
+  },
+  "annotations_sha256": "1dc0319fe69e5b119f27e500a788234066edf67249b191f9f4887200afbf2c57",
+  "torch_version": "2.14.1+cpu",
+  "numpy_version": "1.26.4",
+  "normalization": {
+    "angle": 180,
+    "velocity": 360,
+    "torso_tilt": 90
+  },
+  "epochs_requested": 50,
+  "lr": 0.001,
+  "batch_size": 8
+}

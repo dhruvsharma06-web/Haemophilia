@@ -17,7 +17,7 @@ def feature(value):
 
 
 class TimingTests(unittest.TestCase):
-    def test_irregular_live_frames_keep_four_reps_and_real_duration(self):
+    def test_irregular_live_frames_keep_two_reps_and_real_duration(self):
         for camera_fps in [10, 20, 30]:
             engine = Collector(None, "cpu", fps=20, save_artifacts=False)
             reps = []
@@ -27,15 +27,15 @@ class TimingTests(unittest.TestCase):
                 result = engine.process_frame(None, object(), timestamp_ms=time * 1000)
                 if result:
                     reps.append(result)
-            self.assertEqual(len(reps), 4, f"Camera FPS: {camera_fps}")
-            self.assertTrue(all(2 <= rep["duration"] <= 3 for rep in reps))
+            self.assertEqual(len(reps), 2, f"Camera FPS: {camera_fps}")
+            self.assertTrue(all(2.7 <= rep["duration"] <= 3.3 for rep in reps))
             self.assertGreater(reps[-1]["speed_deg_per_sec"], 0)
-            self.assertEqual(engine.get_live_state()["score"], 90)
+            self.assertEqual(engine.get_live_state()["score"], 100)
             self.assertGreater(engine.get_live_state()["range_of_motion"], 0)
 
     def test_missing_pose_drops_incomplete_rep_but_preserves_completed_count(self):
         engine = Collector(None, "cpu", fps=20, save_artifacts=False)
-        one = np.concatenate([np.zeros(20), 25 * np.sin(np.linspace(0, np.pi, 51)), np.zeros(20)])
+        one = np.concatenate([np.zeros(20), 25 * np.sin(np.linspace(0, 2 * np.pi, 101)), np.zeros(20)])
         for frame, value in enumerate(one, 1):
             engine._extract_feature = lambda landmarks, value=value: feature(value)
             engine.process_frame(None, object(), frame_number=frame)

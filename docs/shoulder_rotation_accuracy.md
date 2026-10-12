@@ -1,3 +1,13 @@
+# Current contract notice (12 October 2026)
+
+The current bilateral repetition definition and LSTM workflow are documented in
+[shoulder_rotation_runbook.md](shoulder_rotation_runbook.md). Results below belong
+to earlier half-cycle datasets and checkpoints, including tabular experiments;
+they must not be advertised as accuracy of the revised live pipeline. The
+rerun old-format LSTM baseline is in
+`reports/shoulder_rotation_exact/baseline/test_metrics.json`. New extraction
+boundaries require review before retraining and evaluation.
+
 # Shoulder rotation accuracy experiment
 
 The new nested subject-wise comparison raised pooled accuracy from 46.0% to

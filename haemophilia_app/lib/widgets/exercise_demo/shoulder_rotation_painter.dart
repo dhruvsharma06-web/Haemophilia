@@ -2,7 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../utils/app_localizations.dart';
 
-/// Bar-assisted shoulder rotation: centre -> one side -> centre is one rep.
+/// Bar-assisted shoulder rotation: centre -> one extreme -> centre -> opposite extreme is one rep.
 class ShoulderRotationPainter extends CustomPainter {
   final double progress;
   final bool isDark;
@@ -27,15 +27,21 @@ class ShoulderRotationPainter extends CustomPainter {
 
     double excursion = 0;
     String phase = 'CENTRE';
-    if (progress > 0.20 && progress <= 0.50) {
-      excursion = Curves.easeInOutCubic.transform((progress - 0.20) / 0.30);
+    if (progress > 0.10 && progress <= 0.30) {
+      excursion = Curves.easeInOutCubic.transform((progress - 0.10) / 0.20);
       phase = 'TO ONE SIDE';
-    } else if (progress > 0.50 && progress <= 0.60) {
-      excursion = 1;
-      phase = 'ONE SIDE';
-    } else if (progress > 0.60 && progress <= 0.95) {
-      excursion = 1 - Curves.easeInOutCubic.transform((progress - 0.60) / 0.35);
+    } else if (progress > 0.30 && progress <= 0.50) {
+      excursion = 1 - Curves.easeInOutCubic.transform((progress - 0.30) / 0.20);
       phase = 'RETURN TO CENTRE';
+    } else if (progress > 0.50 && progress <= 0.75) {
+      excursion = -Curves.easeInOutCubic.transform((progress - 0.50) / 0.25);
+      phase = 'TO OPPOSITE SIDE';
+    } else if (progress > 0.75 && progress <= 0.85) {
+      excursion = -1;
+      phase = 'ONE REP COMPLETE';
+    } else if (progress > 0.85) {
+      excursion = -1 + Curves.easeInOutCubic.transform((progress - 0.85) / 0.15);
+      phase = 'RESET TO CENTRE';
     }
     final shift = excursion * 24;
     final leftShoulder = point(-28, -35);

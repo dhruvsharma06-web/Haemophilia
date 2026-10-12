@@ -162,43 +162,43 @@ class ExerciseDemoRegistry {
         description:
             'Stand facing the camera with both hands on the bar. Hold it at centre briefly before starting.',
         startProgress: 0.0,
-        endProgress: 0.20,
+        endProgress: 0.10,
       ),
       ExercisePhase(
         phaseNumber: 2,
         title: 'Rotate to One Side',
         description:
             'Move the bar slowly to one side while keeping your elbows near your torso.',
-        startProgress: 0.20,
-        endProgress: 0.50,
+        startProgress: 0.10,
+        endProgress: 0.30,
       ),
       ExercisePhase(
         phaseNumber: 3,
-        title: 'Side Position',
+        title: 'Return to Centre',
         description:
-            'Hold momentarily at your comfortable, pain-free outward rotation limit without twisting your torso.',
-        startProgress: 0.50,
-        endProgress: 0.60,
+            'Return both hands to centre with steady, controlled movement.',
+        startProgress: 0.30,
+        endProgress: 0.50,
       ),
       ExercisePhase(
         phaseNumber: 4,
-        title: 'Return to Centre',
+        title: 'Reach the Opposite Side',
         description:
-            'Smoothly rotate forearms back toward the center with steady, controlled motion.',
-        startProgress: 0.60,
-        endProgress: 0.95,
+            'Move both hands to the opposite side. One repetition completes here.',
+        startProgress: 0.50,
+        endProgress: 0.85,
       ),
       ExercisePhase(
         phaseNumber: 5,
         title: 'Return to Start',
         description:
-            'Centre to one side to centre is one repetition. Repeat on either side.',
-        startProgress: 0.95,
+            'Reach the opposite side to complete one repetition, then return to centre to reset.',
+        startProgress: 0.85,
         endProgress: 1.0,
       ),
     ],
     keyTips: const [
-      'One repetition: centre to one side to centre.',
+      'One repetition: centre, one side, centre, then the opposite side. Either side can come first.',
       'Keep elbows firmly pinned against your ribs throughout the entire movement.',
       'Maintain an upright posture without leaning or twisting your chest.',
       'Work strictly within your comfortable, pain-free range of motion.',

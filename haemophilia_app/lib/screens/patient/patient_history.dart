@@ -101,7 +101,7 @@ class PatientHistory extends StatelessWidget {
                       ),
                       _HistoryStatCard(
                         icon: Icons.percent_rounded,
-                        label: tr('Accuracy'),
+                        label: tr('Correct Rep Rate'),
                         value: totalReps == 0
                             ? '—'
                             : '${correctRate.toStringAsFixed(0)}%',

@@ -1,180 +1,104 @@
-# Shoulder rotation in the app
+# Shoulder rotation integration handover
 
-The shoulder rotation classifier is installed at
-`models/shoulder_rotation/shoulder_rotation_classifier.joblib`. The backend loads
-it by default. Its bundle includes the training configuration, original package
-versions, checksum and development benchmark. The small production bundle is
-included in Git; the large training experiments and video datasets remain ignored.
+The current contract is **centre -> one extreme -> centre -> opposite extreme**,
+followed by a centre reset. Either side can come first. See
+[the current runbook](shoulder_rotation_runbook.md) for PowerShell commands,
+baseline metrics, dataset review, deployment and physical phone checks.
 
-The app's Shoulder Rotation card now shows "Live assessment available". Practice
-and assigned sessions use the existing live camera screen, showing form,
-repetitions, model score, range of motion, speed and feedback. Incorrect-repetition
-frames and session history use the existing app services. The tutorial shows a
-bar moving from centre to one side and returning, matching the repetition counter.
+## Root causes and fixes
 
-The final classifier was trained on five people. "Available" describes the
-software integration; it does not claim clinical validation or independent
-accuracy on new patients.
+* Old live/training detector counted each half-cycle; a second CSV detector
+  used three extrema. Both now use the shared bilateral state machine.
+* Arbitrary starting-position calibration accepted an initial extreme.
+  Calibration now requires geometric neutral, then retains individual grip
+  offsets. Tracking loss discards partial movement and requires centre again.
+* Signed averaging of depth-derived azimuth could cancel movement and wrapping
+  could produce velocity spikes. Counting now uses both observed horizontal hand
+  displacements; LSTM azimuth features are unwrapped across valid observations.
+* Normal arm length was called elbow drift. New upper-arm form assessment uses
+  perpendicular distance from the torso axis. Sustained elbow-angle, arm-position,
+  hand-coordination, tilt and twist errors give specific feedback. Bad form does
+  not prevent counting a completed repetition.
+* Backend defaulted to a tabular adapter despite the required LSTM pipeline.
+  It now defaults to the original LSTM, validates checkpoint feature metadata,
+  and reports its need for retraining under the new segmentation contract.
+* Flutter mapped normalized coordinates to the full screen although preview
+  retained camera aspect ratio. Preview and painter now share one aspect-ratio
+  rectangle. Portrait capture is locked, mirroring is applied once, rotation and
+  crop transforms are tested, and points are no longer clamped to invented edges.
+* Empty results retained stale landmarks and smoothed visibility hid occlusion.
+  Empty/low-visibility results clear tracking; landmarks expire after 500 ms.
+  Current visibility is used immediately. Camera plane bytes are copied before
+  asynchronous conversion. One request is in flight; echoed frame IDs reject
+  obsolete responses. A current preview still has network latency; it cannot
+  perfectly synchronize an older processed pose to a moving person.
+* Correct-class probability was presented as a score and live smoothness was
+  always zero. Score, model output and measured ROM/speed/smoothness are now
+  separate fields. No evaluated accuracy is inferred from live probabilities.
+  Patient history now calls correct-repetition percentage "Correct Rep Rate"
+  instead of "Accuracy".
+* Training now rejects old extraction contracts, duplicate sequences and
+  cross-subject video aliases. It keeps the two-layer LSTM and subject splits,
+  training-only weights and validation-only model selection. Evaluation includes
+  per-class precision/recall/F1 as well as Incorrect recall and macro F1.
 
-Local verification completed: both backend health endpoints return HTTP 200,
-five API/model tests and three camera-timing tests pass, the two Flutter checks
-pass, and `flutter analyze --no-pub lib` reports no issues. Replaying the actual
-`C_correct_01` video through the backend reports all 14 reviewed repetitions.
-That replay verifies integration on an existing training video, not accuracy on
-a new person.
+## Changed source files
 
-The updated Android debug APK also builds successfully and is available at
-`haemophilia_app/build/app/outputs/flutter-apk/app-debug.apk`. This local build
-uses the existing tunnel address; its backend still needs the new code/model
-deployment. Rebuild with the permanent server URL for distribution.
+Backend: `backend/app/api/routes/live.py`, `exercises.py`,
+`backend/app/services/model_registry.py`.
 
-## What a Git push does
+Shared pipeline: `src/exercises/shoulder_rotation.py`,
+`shoulder_rotation_assessment.py`, `src/features/shoulder_rotation_features.py`,
+`src/feedback/rotation_cycle_detector.py`, `shoulder_rotation_rep_counter.py`,
+`src/models/shoulder_rotation_loader.py`, `scripts/shoulder_rotation_pipeline.py`.
 
-Pushing uploads a branch to GitHub. Merging incorporates it into main. A running
-Python server updates only when its deployment process installs and restarts the
-new version. An installed mobile app updates only when a new build is installed
-or distributed. A hosting provider may automate deployment after a push/merge,
-but no such deployment workflow was found in this checkout.
+Flutter: `haemophilia_app/lib/screens/assessment/live_assessment_screen.dart`,
+`lib/utils/pose_coordinates.dart`,
+`lib/widgets/exercise_demo/shoulder_rotation_painter.dart`,
+`exercise_demo_model.dart`.
+Also `lib/screens/patient/patient_history.dart` for the metric label.
 
-The currently configured `trycloudflare.com` address is a temporary tunnel. It
-requires its origin server and tunnel process to keep running. For access from
-different Wi-Fi networks while the laptop is closed, deploy the backend onto an
-always-on server and configure the app with that server's HTTPS address. See
-[Cloudflare's Quick Tunnel documentation](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/).
+Tests: `tests/test_rotation_cycle_detector.py`,
+`test_shoulder_rotation_timing.py`, `test_shoulder_rotation_backend.py`,
+`test_shoulder_rotation_features.py`, `test_shoulder_rotation_pipeline.py`,
+`haemophilia_app/test/pose_coordinates_test.dart`.
 
-## 1. Verify the local integration
+Docs: this handover, `shoulder_rotation_runbook.md`, `shoulder_rotation_accuracy.md`.
 
-From the repository root:
+The IDE's `Haemophilia/src/inference/live_camera.py`, root `live_camera.py` and
+`src/inference/live_camera.py` are older **assisted shoulder flexion** scripts,
+not the rotation engine used by the FastAPI/Flutter flow. They remain separate.
 
-```powershell
-cd "C:\Users\burha\Desktop\HK\Hemophilia new\Haemophilia"
-$srPython = (Resolve-Path ".\.venv-shoulder\Scripts\python.exe").Path
-& $srPython -m pip install -r backend/requirements.txt
-& $srPython -m unittest discover -s tests -p test_shoulder_rotation_backend.py -v
-& $srPython -m unittest discover -s tests -p test_shoulder_rotation_timing.py -v
-& $srPython -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
-```
+## Actual verification results
 
-In another terminal:
+* Python regression suite: **34 tests passed** (including synthetic training,
+  frozen inputs, subject splits, tracking, counting and API checks).
+* Flutter focused regression suite: **5 tests passed**; coordinate rotations,
+  mirroring, crop, tutorial rendering and backend configuration.
+* Flutter analysis of changed camera/geometry/tutorial files: no issues.
+* Corrected recorded extraction: **8 candidates** in A_correct_01 and **9** in
+  A_incorrect_01; all 17 boundaries and labels remain pending human review.
+  No independent detector precision/recall has been measured.
+* Assisted elbow model loads. Other two exercise smoke checks are blocked by
+  the pre-existing missing checkpoints listed below.
 
-```powershell
-Invoke-RestMethod http://127.0.0.1:8000/health
-Invoke-RestMethod http://127.0.0.1:8000/v1/exercises/shoulder_rotation/health
-```
+## Remaining requirements
 
-The shoulder endpoint must return `status: ready`,
-`model_type: ShoulderRotationTabular`, and checkpoint SHA256
-`60be9a89bc4d480370ea79f016905ee312206a629e2385b1b7e8d231050f136a`.
-`SHOULDER_ROTATION_MODEL` can explicitly select another checkpoint. Leave it
-unset to use the installed model bundle.
+Review regenerated boundaries and labels, verify manifest IDs correspond to
+actual people, supply independent human counts, and reserve unseen subjects for
+final evaluation. Existing old-format accuracy does not establish new-format
+accuracy. Do not blanket-accept candidates to train a replacement.
 
-## 2. Commit and push the feature branch
+Physical phone front/back-camera alignment, real camera rates, network latency
+and live exercise testing remain unverified. Current conversion requires YUV420;
+BGRA-only camera streams need a separate conversion path. Single-view anatomical
+ROM and depth remain uncertain. Broader camera-view and reviewer-labelled
+recordings are required before treating the form heuristics as validated.
 
-Review `git status` before staging. These commands include the integration and
-training code plus the production model, excluding generated reports and videos:
+Other exercise implementations were preserved. Runtime smoke checks are limited
+by existing missing checkpoints: `models/assisted_shoulder_lstm.pth` and
+`models/elbow_lstm.pth`. Restore the authoritative trained files to test those
+exercises; do not substitute random or differently shaped weights.
 
-```powershell
-git status --short
-git add .gitignore .dockerignore backend/Dockerfile backend/requirements.txt
-git add backend/app/api/routes/assessments.py backend/app/api/routes/exercises.py backend/app/api/routes/live.py
-git add backend/app/services/assessment_service.py backend/app/services/model_registry.py backend/app/services/exercise_factory.py
-git add src/exercises/shoulder_rotation.py src/exercises/shoulder_rotation_assessment.py src/feedback/rotation_cycle_detector.py
-git add src/models/shoulder_rotation_loader.py src/models/shoulder_rotation_tabular.py
-git add scripts/shoulder_rotation_pipeline.py scripts/improve_shoulder_rotation.py scripts/install_shoulder_rotation_model.py scripts/diagnose_shoulder_rotation.py
-git add requirements-shoulder-rotation.txt docs models/shoulder_rotation tests
-git add haemophilia_app/lib/config/backend_config.dart haemophilia_app/pubspec.lock
-git add haemophilia_app/lib/utils/exercise_utils.dart haemophilia_app/lib/utils/app_localizations.dart
-git add haemophilia_app/lib/services/api_service.dart haemophilia_app/lib/services/notification_service.dart
-git add haemophilia_app/lib/screens/assessment/assigned_assessment_screen.dart haemophilia_app/lib/screens/assessment/live_assessment_screen.dart
-git add haemophilia_app/lib/screens/patient/patient_dashboard.dart
-git add haemophilia_app/lib/widgets/exercise_demo/exercise_demo_model.dart haemophilia_app/lib/widgets/exercise_demo/shoulder_rotation_painter.dart
-git add haemophilia_app/test/backend_config_test.dart haemophilia_app/test/shoulder_rotation_preview_test.dart
-git diff --cached --stat
-git commit -m "Integrate trained shoulder rotation model with backend and app"
-git push -u origin feature/shoulder-rotation-model
-```
-
-Create a pull request into `main` and merge it using the team's normal workflow.
-
-## 3. Redeploy the hosted backend
-
-Have the existing backend deployment pull the merged code, install
-`backend/requirements.txt`, include `models/shoulder_rotation/`, and restart its
-FastAPI process. Preserve the other exercises' model files when updating the
-deployment. The entry point remains `backend.app.main:app`.
-
-The existing screening pickle files emit scikit-learn version warnings at
-startup: they were saved with 1.6.1, while the installed shoulder classifier uses
-1.7.2. Backend startup and the shoulder endpoint succeed. The screening models
-need their own compatibility check or a matching-version export before assuming
-that their predictions are unchanged.
-
-For a Python deployment on a Linux server, run inside its existing environment:
-
-```bash
-python -m pip install -r backend/requirements.txt
-python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
-```
-
-The hosting platform or server service manager must keep that process running
-and provide an HTTPS endpoint that supports WebSockets. Exact redeployment
-commands depend on the existing host and cannot be inferred from GitHub alone.
-
-A container template is provided at `backend/Dockerfile`. Build from the repository
-root so `src`, `backend` and the production models are included:
-
-```bash
-docker build -f backend/Dockerfile -t haemophilia-backend .
-docker run -d --restart unless-stopped -p 8000:8000 -v haemophilia-data:/app/data haemophilia-backend
-```
-
-The container accepts `PORT`. The Docker daemon was not running locally, so the
-container template requires validation on the deployment host. Use the team's
-existing model-storage setup when replacing an existing container.
-
-After deployment, check the public URL, replacing the example hostname:
-
-```powershell
-$srBackendUrl = "https://YOUR-BACKEND-HOST"
-Invoke-RestMethod "$srBackendUrl/health"
-Invoke-RestMethod "$srBackendUrl/v1/exercises/shoulder_rotation/health"
-```
-
-Confirm the expected model type and checksum before testing the app.
-
-## 4. Build the app against the hosted backend
-
-All HTTP requests, live WebSockets, notifications and error-frame images now use
-one `BACKEND_URL` setting. Set it to the root HTTPS URL without `/v1`:
-
-```powershell
-cd haemophilia_app
-flutter pub get
-flutter analyze --no-pub lib
-flutter test --no-pub test/backend_config_test.dart test/shoulder_rotation_preview_test.dart
-flutter build apk --release --no-pub --dart-define=BACKEND_URL=https://YOUR-BACKEND-HOST
-```
-
-The APK is `build/app/outputs/flutter-apk/app-release.apk`. Use the team's
-existing app-signing/distribution process for the actual published build. The
-current project release configuration uses its debug signing configuration.
-The build still uses the previous tunnel address if `BACKEND_URL` is omitted;
-set the public server address when deploying.
-
-If `flutter pub get` reports a Windows desktop symlink requirement, its Dart
-packages may already be installed. Android build/test commands with `--no-pub`
-were used for local verification; Windows desktop builds require Windows symlink
-support separately.
-
-## 5. Test in the app
-
-Open **Patient dashboard -> Exercise library -> Shoulder Rotation -> Practice**.
-Allow camera access. Keep both arms and the torso visible and hold the bar at
-centre briefly for calibration. Perform **centre -> one side -> centre**. Check
-the counter, predicted form, feedback, ROM and speed. Repeat from another Wi-Fi
-network after confirming the hosted backend remains online independently of the
-laptop. Doctor-assigned sessions use the same backend and model.
-
-The local camera script under `src/inference/live_camera.py` is not the app's
-server entry point. The app sends frames to
-`wss://YOUR-BACKEND-HOST/v1/assessments/live?exercise=shoulder_rotation`.
+Both backend deployment/restart and app rebuild/install are required for all
+fixes to appear on the phone. No merge into main or remote deployment was done.

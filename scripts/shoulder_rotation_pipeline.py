@@ -52,7 +52,10 @@ def metrics(y, p):
     return {"samples": len(y), "accuracy": float(np.mean(np.asarray(y) == p)),
             "balanced_accuracy": float(recall.mean()), "macro_f1": float(f1.mean()),
             "incorrect_precision": float(precision[1]), "incorrect_recall": float(recall[1]),
-            "confusion_matrix_rows_actual": cm.tolist(), "class_order": ["correct", "incorrect"]}
+            "confusion_matrix_rows_actual": cm.tolist(), "class_order": ["correct", "incorrect"],
+            "per_class": {label: {"precision": float(precision[i]), "recall": float(recall[i]),
+                                   "f1": float(f1[i]), "support": int(cm.sum(1)[i])}
+                          for i, label in enumerate(["correct", "incorrect"])}}
 
 
 def extract(args):
@@ -65,6 +68,12 @@ def extract(args):
     manifest = read_csv(args.manifest)
     if not manifest:
         raise ValueError("Manifest is empty.")
+    video_subjects = {}
+    for row in manifest:
+        path = (Path(args.dataset) / row["relative_path"]).resolve()
+        if path in video_subjects:
+            raise ValueError("The same video is listed more than once in the manifest.")
+        video_subjects[path] = row["subject_id"]
     if getattr(args, "videos", None):
         requested = set(args.videos)
         if requested - {item["video_id"] for item in manifest}:
@@ -104,6 +113,7 @@ def extract(args):
         engine = Collector(new_model(), torch.device("cpu"), fps=20, save_artifacts=False)
         valid, number, source_number, next_time = [], 0, 0, 0.0
         count, quality_rejections = 0, 0
+        trace = []
         try:
             with mp.solutions.pose.Pose(model_complexity=1, smooth_landmarks=True,
                                         min_detection_confidence=0.5,
@@ -126,13 +136,16 @@ def extract(args):
                     if not good:
                         quality_rejections += 1
                         # Never bridge a tracking gap into a training repetition.
-                        centre_reference = engine.cycle_detector.centre
-                        engine = Collector(new_model(), torch.device("cpu"), fps=20, save_artifacts=False)
-                        engine.cycle_detector.centre = centre_reference
+                        engine.process_frame(frame, None, frame_number=number)
                         valid = []
                         continue
                     valid.append(number)
                     result = engine.process_frame(frame, landmarks, frame_number=number)
+                    trace.append({"frame": number, "time_sec": (number - 1) / 20,
+                                  "tracking_ok": engine.tracking_ok,
+                                  "state": engine.cycle_detector.state,
+                                  "hand_right": engine.rep_features[-1][10] if engine.rep_features else "",
+                                  "hand_left": engine.rep_features[-1][11] if engine.rep_features else ""})
                     if result:
                         count += 1
                         sequence_path = output / "sequences" / f"{video_id}_rep_{count:03d}.npy"
@@ -153,6 +166,8 @@ def extract(args):
         diagnostics.append({"video_id": video_id, "sampled_frames": number,
                             "quality_rejections": quality_rejections, "candidate_count": count,
                             "centre_angle": engine.cycle_detector.centre})
+        if trace:
+            write_csv(output / "movement_traces" / f"{video_id}.csv", trace, list(trace[0]))
         print(f"{video_id}: {count} candidates, {quality_rejections}/{number} frames rejected", flush=True)
     fields = ["video_id", "subject_id", "rep_number", "start_sec", "end_sec", "sequence_path",
               "label", "error_type", "review_status"]
@@ -161,8 +176,9 @@ def extract(args):
               "feature_names": FEATURE_NAMES, "sequence_shape": [128, 10],
               "rep_definition": REP_DEFINITION,
               "centre_calibration_seconds": 0.5,
-              "centre_to_side_excursion_degrees": 10.0,
-              "centre_return_band_degrees": 3.0,
+              "movement_signal": "bilateral_wrist_minus_elbow_x_over_shoulder_width_times_90",
+              "centre_to_side_excursion_units": 10.0,
+              "centre_return_band_units": 3.0,
               "manifest": manifest, "candidate_count": len(candidates)})
     save_json(output / "detection_diagnostics.json", diagnostics)
     print(f"Review {output / 'annotations.csv'}; no candidate is automatically accepted.")
@@ -187,7 +203,20 @@ def split_subjects(args):
 
 
 def load_partition(annotations, split, name):
-    rows = [r for r in read_csv(annotations)
+    all_rows = read_csv(annotations)
+    videos, sequences = {}, set()
+    for row in all_rows:
+        if row["review_status"] != "accepted":
+            continue
+        subject = row["subject_id"]
+        video = row["video_id"]
+        if video in videos and videos[video] != subject:
+            raise ValueError("Video assigned to multiple subjects: possible leakage.")
+        videos[video] = subject
+        if row["sequence_path"] in sequences:
+            raise ValueError("Duplicate sequence in annotations: possible leakage.")
+        sequences.add(row["sequence_path"])
+    rows = [r for r in all_rows
             if r["review_status"] == "accepted" and r["subject_id"] in split[name]]
     if not rows or {r["label"] for r in rows} != {"correct", "incorrect"}:
         raise ValueError(f"{name} must contain both reviewed classes.")
@@ -210,6 +239,9 @@ def predict(model, x, device):
 
 
 def train(args):
+    extraction_path = Path(args.annotations).parent / "extraction_config.json"
+    if not extraction_path.exists() or json.loads(extraction_path.read_text()).get("rep_definition") != REP_DEFINITION:
+        raise ValueError("Re-extract and review sequences for the new repetition definition before training.")
     random.seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
@@ -505,9 +537,7 @@ def video(args):
                 good = landmarks is not None and min(landmarks.landmark[i].visibility
                     for i in [11, 12, 13, 14, 15, 16, 23, 24]) >= 0.5
                 if not good:
-                    centre_reference = engine.cycle_detector.centre
-                    engine = ShoulderRotationAssessment(model, device, fps=20, save_artifacts=False)
-                    engine.cycle_detector.centre = centre_reference
+                    engine.process_frame(frame, None, frame_number=number)
                     continue
                 result = engine.process_frame(frame, landmarks, frame_number=number)
                 if result:

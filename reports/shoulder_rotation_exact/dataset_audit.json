@@ -1,0 +1,12 @@
+{
+  "old_accepted_sequences": 263,
+  "class_counts": {
+    "correct": 177,
+    "incorrect": 86
+  },
+  "subject_count": 5,
+  "new_candidates": 17,
+  "new_reviewed_sequences": 0,
+  "retraining_status": "requires_boundary_and_label_review",
+  "baseline_report": "baseline/test_metrics.json"
+}

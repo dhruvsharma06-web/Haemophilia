@@ -34,47 +34,36 @@ def _p(row, idx):
 
 
 def process_file(keypoint_file: Path):
-    keypoint_file = Path(keypoint_file)
+    # CSV tooling follows the same observed-frame features as the live engine.
+    # Do not interpolate missing poses across a tracking gap.
+    from types import SimpleNamespace
+    from src.exercises.shoulder_rotation_assessment import ShoulderRotationAssessment
+    from src.exercises.shoulder_rotation import FEATURE_NAMES
+    engine = ShoulderRotationAssessment(None, "cpu", save_artifacts=False)
     df = pd.read_csv(keypoint_file)
     rows = []
-    for _, r in df.iterrows():
-        ls, rs, le, re, lw, rw, lh, rh = (_p(r, i) for i in [11,12,13,14,15,16,23,24])
-        shoulder_mid = (ls + rs) / 2
-        hip_mid = (lh + rh) / 2
-        torso = shoulder_mid - hip_mid
-        torso_tilt = np.degrees(np.arctan2(abs(torso[0]), abs(torso[1]) + 1e-8))
-        shoulder_width_xy = np.linalg.norm((rs-ls)[:2])
-        torso_rotation = (rs[2]-ls[2]) / (shoulder_width_xy + 1e-8)
-        torso_len = np.linalg.norm((shoulder_mid-hip_mid)[:2]) + 1e-8
-        rows.append({
-            "frame": int(r["frame"]), "time_sec": float(r.get("time_sec", 0.0)), "fps": float(r.get("fps", 30.0)),
-            "right_rotation_angle": forearm_rotation_angle(re, rw),
-            "left_rotation_angle": forearm_rotation_angle(le, lw),
-            "right_elbow_angle": angle3(rs, re, rw),
-            "left_elbow_angle": angle3(ls, le, lw),
-            "right_visibility": min(r["landmark_12_visibility"], r["landmark_14_visibility"], r["landmark_16_visibility"]),
-            "left_visibility": min(r["landmark_11_visibility"], r["landmark_13_visibility"], r["landmark_15_visibility"]),
-            "torso_tilt": torso_tilt, "torso_rotation": torso_rotation,
-            "right_elbow_drift": np.linalg.norm((re-rs)[:2]) / torso_len,
-            "left_elbow_drift": np.linalg.norm((le-ls)[:2]) / torso_len,
-        })
-    out = pd.DataFrame(rows)
-    # unwrap circular angle before derivative
-    for side in ["right", "left"]:
-        col = f"{side}_rotation_angle"
-        vals = out[col].interpolate(limit_direction="both").to_numpy(float)
-        vals = np.degrees(np.unwrap(np.radians(vals)))
-        out[col] = vals
-        t = out["time_sec"].to_numpy(float)
-        if len(t) > 1 and np.all(np.diff(t) > 0):
-            out[f"{side}_angular_velocity"] = np.gradient(vals, t)
-        else:
-            fps = float(out["fps"].replace(0, np.nan).median() or 30.0)
-            out[f"{side}_angular_velocity"] = np.gradient(vals) * fps
+    previous_time = None
+    for _, row in df.iterrows():
+        time = float(row.get("time_sec", 0))
+        landmarks = SimpleNamespace(landmark=[SimpleNamespace(
+            x=float(row[f"landmark_{i}_x"]), y=float(row[f"landmark_{i}_y"]),
+            z=float(row[f"landmark_{i}_z"]), visibility=float(row[f"landmark_{i}_visibility"]))
+            for i in range(33)])
+        good = all(np.isfinite([lm.x, lm.y, lm.z, lm.visibility]).all() and lm.visibility >= .5
+                   for lm in [landmarks.landmark[i] for i in [11,12,13,14,15,16,23,24]])
+        engine.dt = time - previous_time if previous_time is not None and time > previous_time else 1 / 20
+        feature = engine._extract_feature(landmarks) if good else np.full(14, np.nan)
+        if not np.isfinite(feature).all():
+            engine.reset_incomplete_rep()
+            feature = np.full(14, np.nan)
+        rows.append({"frame": int(row["frame"]), "time_sec": time,
+                     "fps": float(row.get("fps", 20)),
+                     **dict(zip(FEATURE_NAMES + ["right_hand_displacement", "left_hand_displacement",
+                                                "right_upper_arm_offset", "left_upper_arm_offset"], feature))})
+        previous_time = time if np.isfinite(feature).all() else None
     FEATURE_DIR.mkdir(parents=True, exist_ok=True)
-    output = FEATURE_DIR / f"{keypoint_file.stem.replace('_keypoints','')}_features.csv"
-    out.to_csv(output, index=False)
-    print(f"Feature CSV: {output}")
+    output = FEATURE_DIR / f"{Path(keypoint_file).stem.replace('_keypoints', '')}_features.csv"
+    pd.DataFrame(rows).to_csv(output, index=False)
     return output
 
 

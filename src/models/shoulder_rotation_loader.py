@@ -1,5 +1,6 @@
 """Load either a shoulder LSTM checkpoint or the compact trained classifier."""
 from pathlib import Path
+import json
 
 import torch
 
@@ -22,4 +23,15 @@ def load_shoulder_rotation_model(path):
     if isinstance(checkpoint, dict):
         checkpoint = checkpoint.get("model_state_dict", checkpoint.get("state_dict", checkpoint))
     model.load_state_dict(checkpoint)
+    metadata_path = path.parent / "config.json"
+    if metadata_path.exists():
+        from src.exercises.shoulder_rotation import FEATURE_NAMES
+        metadata = json.loads(metadata_path.read_text())
+        if metadata.get("feature_names", FEATURE_NAMES) != FEATURE_NAMES:
+            raise ValueError("Checkpoint feature order differs from live inference.")
+        if metadata.get("sequence_length", 128) != 128:
+            raise ValueError("Checkpoint sequence length differs from live inference.")
+        if metadata.get("normalization", {"angle": 180, "velocity": 360, "torso_tilt": 90}) != {"angle": 180, "velocity": 360, "torso_tilt": 90}:
+            raise ValueError("Checkpoint normalization differs from live inference.")
+        model.training_rep_definition = metadata.get("rep_definition")
     return model.to(device).eval(), device

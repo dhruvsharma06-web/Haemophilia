@@ -50,6 +50,7 @@ class PipelineTests(unittest.TestCase):
                                  "sequence_path": path.relative_to(ROOT).as_posix(),
                                  "video_id": subject, "rep_number": len(rows) + 1})
             annotations = folder / "annotations.csv"
+            pipeline.save_json(folder / "extraction_config.json", {"rep_definition": pipeline.REP_DEFINITION})
             pipeline.write_csv(annotations, rows, list(rows[0]))
             split_path = folder / "split.json"
             pipeline.split_subjects(Namespace(annotations=annotations, train_subjects="S01",

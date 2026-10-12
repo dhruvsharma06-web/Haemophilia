@@ -75,6 +75,7 @@ async def live_assessment(
 
             frame_number = 0
             pending_timestamp = None
+            pending_frame_id = None
 
             while True:
                 message = (
@@ -135,6 +136,7 @@ async def live_assessment(
                         exercise = normalize_exercise(next_exercise)
                         frame_number = 0
                         pending_timestamp = None
+                        pending_frame_id = None
 
                         await websocket.send_json({
                             "type":
@@ -144,6 +146,7 @@ async def live_assessment(
                         })
 
                     elif control.get("type") == "frame_metadata":
+                        pending_frame_id = control.get("frame_id")
                         value = control.get("timestamp_ms")
                         if isinstance(value, (int, float)) and np.isfinite(value):
                             pending_timestamp = float(value)
@@ -163,6 +166,7 @@ async def live_assessment(
                 frame_number += 1
                 frame_timestamp = pending_timestamp
                 pending_timestamp = None
+                frame_id, pending_frame_id = pending_frame_id, None
 
                 if frame_number % 30 == 0:
                     print(
@@ -220,6 +224,10 @@ async def live_assessment(
                     "type": "live_state",
                     "exercise": exercise,
                     **live_state,
+                    "frame_id": frame_id,
+                    "timestamp_ms": frame_timestamp,
+                    "image_width": int(frame.shape[1]),
+                    "image_height": int(frame.shape[0]),
                 }
 
                 if completed_rep is not None:

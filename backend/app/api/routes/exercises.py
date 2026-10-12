@@ -3,6 +3,7 @@ import hashlib
 import torch
 from fastapi import APIRouter, HTTPException
 from backend.app.services.model_registry import model_registry
+from src.exercises.shoulder_rotation import REP_DEFINITION
 
 router = APIRouter(prefix="/v1", tags=["Exercises"])
 
@@ -17,9 +18,10 @@ def shoulder_rotation_health():
         if output.shape != (1, 2) or not torch.isfinite(output).all():
             raise ValueError("Model inference failed.")
         return {"exercise": "shoulder_rotation", "status": "ready",
+                "model_requires_retraining": getattr(model, "training_rep_definition", None) != REP_DEFINITION,
                 "model_type": type(model).__name__,
                 "checkpoint_sha256": hashlib.sha256(model_registry.shoulder_rotation_model_path.read_bytes()).hexdigest(),
-                "rep_definition": "centre -> one side -> centre"}
+                "rep_definition": "centre -> one extreme -> centre -> opposite extreme"}
     except Exception as error:
         raise HTTPException(status_code=503, detail=f"Shoulder model unavailable: {error}") from error
 
@@ -47,10 +49,10 @@ def get_exercises():
                 "status": "available",
                 "available": True,
                 "is_work_in_progress": False,
-                "rep_definition": "centre -> one side -> centre",
+                "rep_definition": "centre -> one extreme -> centre -> opposite extreme",
                 "description": (
-                    "Hold the bar at centre, rotate to one side, then return to centre. "
-                    "Each centre-to-side-to-centre movement counts as one repetition."
+                    "Hold the bar at centre, move to one side, return to centre, then reach the opposite side. "
+                    "Count at the opposite extreme; return to centre to reset."
                 ),
             },
             {

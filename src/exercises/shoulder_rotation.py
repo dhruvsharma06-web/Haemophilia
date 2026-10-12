@@ -7,7 +7,7 @@ engineering/tunable thresholds, not clinical cut-offs.
 from pathlib import Path
 
 EXERCISE_NAME = "shoulder_rotation"
-REP_DEFINITION = "centre -> one side -> centre"
+REP_DEFINITION = "centre -> one extreme -> centre -> opposite extreme"
 SEQUENCE_LENGTH = 128
 INPUT_SIZE = 10
 

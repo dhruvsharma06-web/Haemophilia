@@ -21,17 +21,18 @@ app.include_router(live.router)
 
 
 class BackendTests(unittest.TestCase):
-    def test_default_model_is_installed_classifier_and_catalog_is_available(self):
+    def test_default_model_is_lstm_and_catalog_is_available(self):
         engine = create_assessment("Shoulder Rotation", save_artifacts=False)
-        self.assertEqual(type(engine.model).__name__, "ShoulderRotationTabular")
+        self.assertEqual(type(engine.model).__name__, "ExerciseLSTM")
         with TestClient(app) as client:
             response = client.get("/v1/exercises/shoulder_rotation/health")
             self.assertEqual(response.status_code, 200, response.text)
             self.assertEqual(response.json()["status"], "ready")
+            self.assertTrue(response.json()["model_requires_retraining"])
             catalog = client.get("/v1/exercises").json()["exercises"]
         shoulder = next(e for e in catalog if e["id"] == "shoulder_rotation")
         self.assertFalse(shoulder["is_work_in_progress"])
-        self.assertEqual(shoulder["rep_definition"], "centre -> one side -> centre")
+        self.assertEqual(shoulder["rep_definition"], "centre -> one extreme -> centre -> opposite extreme")
 
     def test_upload_routes_shoulder_to_service_and_rejects_unknown_exercise(self):
         result = {"exercise": "shoulder_rotation", "rep_count": 2, "reps": []}
@@ -78,15 +79,18 @@ class BackendTests(unittest.TestCase):
             with client.websocket_connect("/v1/assessments/live?exercise=shoulder_rotation") as socket:
                 completed = []
                 for index in range(len(signal)):
-                    socket.send_json({"type": "frame_metadata", "timestamp_ms": index * 50})
+                    socket.send_json({"type": "frame_metadata", "timestamp_ms": index * 50, "frame_id": index})
                     socket.send_bytes(encoded.tobytes())
                     state = socket.receive_json()
                     self.assertEqual(state["type"], "live_state")
+                    self.assertEqual(state["image_width"], 16)
+                    self.assertEqual(state["image_height"], 16)
+                    self.assertEqual(state["frame_id"], index)
                     if "completed_rep" in state:
                         completed.append(state["completed_rep"])
-                self.assertEqual(len(completed), 2)
-                self.assertEqual(state["rep_count"], 2)
-                self.assertEqual(state["score"], 90)
+                self.assertEqual(len(completed), 1)
+                self.assertEqual(state["rep_count"], 1)
+                self.assertEqual(state["score"], 100)
                 self.assertIn("deg/s", state["speed"])
                 self.assertTrue(completed[-1]["feedback"])
                 self.assertFalse(completed[-1]["confidence_calibrated"])

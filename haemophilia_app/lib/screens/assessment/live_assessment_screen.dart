@@ -7,6 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
 import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
@@ -16,6 +17,7 @@ import '../../config/backend_config.dart';
 import '../../services/notification_service.dart';
 import '../../utils/app_localizations.dart';
 import '../../utils/exercise_utils.dart';
+import '../../utils/pose_coordinates.dart';
 import '../../widgets/exercise_demo/exercise_demo_dialog.dart';
 
 // ================================================================
@@ -65,8 +67,8 @@ Uint8List? _convertFrameToJpegIsolate(_CameraFrameData data) {
     // - Back camera sensorOrientation is typically 90 degrees (requires 90° clockwise rotation)
     final int rotation = data.sensorOrientation % 360;
     final bool rotate90or270 = (rotation == 90 || rotation == 270);
-    final int outW = (rotate90or270 ? srcH : srcW) ~/ step;
-    final int outH = (rotate90or270 ? srcW : srcH) ~/ step;
+    final int outW = ((rotate90or270 ? srcH : srcW) + step - 1) ~/ step;
+    final int outH = ((rotate90or270 ? srcW : srcH) + step - 1) ~/ step;
 
     final img.Image rgbImage = img.Image(
       width: outW,
@@ -228,6 +230,10 @@ class _LiveAssessmentScreenState
   DateTime _lastAiFrameDispatched = DateTime.fromMillisecondsSinceEpoch(0);
   bool _processingFrame = false;
   int _inFlightFrames = 0;
+  int _sentFrameId = 0;
+  int _lastResponseFrameId = -1;
+  Timer? _poseExpiry;
+  Map<String, dynamic> _poseDebug = {};
   DateTime _lastStatsUpdated = DateTime.fromMillisecondsSinceEpoch(0);
   String _lastBackendState = '';
 
@@ -605,6 +611,8 @@ class _LiveAssessmentScreenState
     );
 
     await controller.initialize();
+    await controller.lockCaptureOrientation(DeviceOrientation.portraitUp);
+    await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
     if (!mounted) {
       await controller.dispose();
@@ -736,6 +744,8 @@ class _LiveAssessmentScreenState
           jsonDecode(message) as Map<String, dynamic>;
 
       if (data['type'] == 'error') {
+        if (_inFlightFrames > 0) _inFlightFrames--;
+        _landmarksNotifier.value = [];
         debugPrint(
           'Backend error: ${data['message']}',
         );
@@ -754,6 +764,18 @@ class _LiveAssessmentScreenState
       if (data['type'] != 'live_state') {
         return;
       }
+
+      final responseId = data['frame_id'];
+      if (responseId is num) {
+        if (responseId.toInt() <= _lastResponseFrameId) return;
+        _lastResponseFrameId = responseId.toInt();
+      }
+      _poseDebug = data['debug'] is Map
+          ? Map<String, dynamic>.from(data['debug'] as Map) : {};
+      _poseExpiry?.cancel();
+      _poseExpiry = Timer(const Duration(milliseconds: 500), () {
+        if (mounted) _landmarksNotifier.value = [];
+      });
 
       final landmarksData = data['landmarks'];
 
@@ -1176,7 +1198,10 @@ class _LiveAssessmentScreenState
   }
 
   void _updateLandmarksAdaptive(List<LiveLandmark> next) {
-    if (next.length != 33) return;
+    if (next.length != 33) {
+      _landmarksNotifier.value = [];
+      return;
+    }
 
     final current = _landmarksNotifier.value;
     if (current.length != 33) {
@@ -1187,6 +1212,7 @@ class _LiveAssessmentScreenState
     final List<LiveLandmark> smoothed = List<LiveLandmark>.generate(33, (i) {
       final a = current[i];
       final b = next[i];
+      if (b.visibility < 0.5 || a.visibility < 0.5) return b;
 
       final dx = b.x - a.x;
       final dy = b.y - a.y;
@@ -1209,7 +1235,7 @@ class _LiveAssessmentScreenState
         x: a.x + dx * alpha,
         y: a.y + dy * alpha,
         z: a.z + (b.z - a.z) * alpha,
-        visibility: a.visibility + (b.visibility - a.visibility) * alpha,
+        visibility: b.visibility,
       );
     });
 
@@ -1288,12 +1314,13 @@ class _LiveAssessmentScreenState
     // 2. Bound network in-flight queue to max 3 frames (~150ms buffer).
     // This allows full 20 FPS throughput over typical mobile/network latency,
     // while strictly preventing buffer queue accumulation if network stalls.
-    if (_inFlightFrames >= 3) {
+    if (_inFlightFrames >= 1) {
       if (now.difference(_lastAiFrameDispatched).inMilliseconds < 500) {
         return; // Drop intermediate camera frame: latest frame wins!
       }
-      // Timed out waiting for network response: allow next frame
-      _inFlightFrames = 0;
+      // Keep one request in flight to avoid accumulating old camera frames.
+      _landmarksNotifier.value = [];
+      return;
     }
 
     // 3. Minimum interval throttle (50ms = 20 FPS AI inference rate expected by backend)
@@ -1311,9 +1338,9 @@ class _LiveAssessmentScreenState
     try {
       // Extract raw plane data on main isolate (instantaneous < 0.1ms)
       final frameData = _CameraFrameData(
-        yBytes: cameraImage.planes[0].bytes,
-        uBytes: cameraImage.planes[1].bytes,
-        vBytes: cameraImage.planes[2].bytes,
+        yBytes: Uint8List.fromList(cameraImage.planes[0].bytes),
+        uBytes: Uint8List.fromList(cameraImage.planes[1].bytes),
+        vBytes: Uint8List.fromList(cameraImage.planes[2].bytes),
         width: cameraImage.width,
         height: cameraImage.height,
         yRowStride: cameraImage.planes[0].bytesPerRow,
@@ -1340,14 +1367,11 @@ class _LiveAssessmentScreenState
 
       _inFlightFrames++;
       _lastAiFrameDispatched = DateTime.now();
-      if (normalizeExerciseId(_assignedMode
-              ? _currentAssignedExercise()
-              : widget.exerciseName) == kShoulderRotation) {
         _channel!.sink.add(jsonEncode({
           'type': 'frame_metadata',
           'timestamp_ms': now.millisecondsSinceEpoch,
+          'frame_id': ++_sentFrameId,
         }));
-      }
       _channel!.sink.add(jpegBytes);
     } catch (e) {
       debugPrint('Frame processing error: $e');
@@ -2081,9 +2105,10 @@ class _LiveAssessmentScreenState
         (rep['speed_deg_per_sec'] != null
             ? '${_toDouble(rep['speed_deg_per_sec']).toStringAsFixed(1)} deg/s'
             : 'Waiting');
+    final measuredForm = rep['score_type'] == 'observable_form_rules';
     final confidence = _completedDouble(
       rep,
-      'confidence',
+      measuredForm ? 'correct_probability' : 'confidence',
       fallback: _completedDouble(rep, 'lstm_confidence'),
     );
 
@@ -2294,11 +2319,11 @@ class _LiveAssessmentScreenState
           Row(
             children: [
               _completedMetric(
-                'SCORE',
+                measuredForm ? 'FORM SCORE' : 'SCORE',
                 '${score.toStringAsFixed(0)}/100',
               ),
               _completedMetric(
-                'ROM',
+                measuredForm ? 'FOREARM ROM' : 'ROM',
                 '${rom.toStringAsFixed(1)}°',
               ),
               _completedMetric(
@@ -2317,7 +2342,7 @@ class _LiveAssessmentScreenState
           Row(
             children: [
               _completedMetric(
-                'LSTM',
+                measuredForm ? 'MODEL CORRECT' : 'LSTM',
                 '${confidence.toStringAsFixed(0)}%',
               ),
               _completedMetric(
@@ -2483,10 +2508,11 @@ class _LiveAssessmentScreenState
     return Stack(
       fit: StackFit.expand,
       children: [
-        CameraPreview(_controller!),
-
-        // Skeleton overlay isolated with RepaintBoundary
-        Positioned.fill(
+        Center(child: AspectRatio(
+          aspectRatio: 1 / _controller!.value.aspectRatio,
+          child: Stack(fit: StackFit.expand, children: [
+            CameraPreview(_controller!),
+            Positioned.fill(
           child: IgnorePointer(
             child: RepaintBoundary(
               child: CustomPaint(
@@ -2499,7 +2525,14 @@ class _LiveAssessmentScreenState
               ),
             ),
           ),
-        ),
+            ),
+          ]),
+        )),
+
+        if (const bool.fromEnvironment('POSE_DEBUG'))
+          Positioned(bottom: 160, left: 10, right: 10,
+            child: Text(_poseDebug.toString(),
+              style: const TextStyle(color: Colors.white, backgroundColor: Colors.black54))),
 
         // Top information panel.
         Positioned(
@@ -2999,6 +3032,8 @@ class _LiveAssessmentScreenState
 
   @override
   void dispose() {
+    _poseExpiry?.cancel();
+    SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     WidgetsBinding.instance.removeObserver(this);
 
     _isExitingOrSaving = true;
@@ -3158,19 +3193,18 @@ class PosePainter extends CustomPainter {
       // The image sent to MediaPipe is rotated into upright portrait in isolate.
       // For front camera, Flutter's CameraPreview mirrors horizontally, so mirror X.
       // For back camera, preview is not mirrored.
-      final double x = isFrontCamera
-          ? (1.0 - lm.x).clamp(0.0, 1.0)
-          : lm.x.clamp(0.0, 1.0);
-      final double y = lm.y.clamp(0.0, 1.0);
-      points[i] = Offset(x * w, y * h);
+      points[i] = mapPosePoint(Offset(lm.x, lm.y), Size(w, h), size,
+          mirror: isFrontCamera);
     }
 
     for (final connection in connections) {
       final int first = connection[0];
       final int second = connection[1];
 
-      if (landmarks[first].visibility < 0.25 ||
-          landmarks[second].visibility < 0.25) {
+      if (!points[first].dx.isFinite || !points[first].dy.isFinite ||
+          !points[second].dx.isFinite || !points[second].dy.isFinite ||
+          landmarks[first].visibility < 0.5 ||
+          landmarks[second].visibility < 0.5) {
         continue;
       }
 
@@ -3182,7 +3216,7 @@ class PosePainter extends CustomPainter {
     }
 
     for (int i = 0; i < 33; i++) {
-      if (landmarks[i].visibility < 0.25) {
+      if (landmarks[i].visibility < 0.5 || !landmarks[i].x.isFinite || !landmarks[i].y.isFinite) {
         continue;
       }
 
