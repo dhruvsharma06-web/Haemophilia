@@ -18,24 +18,19 @@ class AssignExercisesScreen extends StatefulWidget {
   });
 
   @override
-  State<AssignExercisesScreen> createState() =>
-      _AssignExercisesScreenState();
+  State<AssignExercisesScreen> createState() => _AssignExercisesScreenState();
 }
 
-class _AssignExercisesScreenState
-    extends State<AssignExercisesScreen> {
-  final FirebaseFirestore _firestore =
-      FirebaseFirestore.instance;
+class _AssignExercisesScreenState extends State<AssignExercisesScreen> {
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  final FirebaseAuth _auth =
-      FirebaseAuth.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   // ============================================================
   // SESSION NAME
   // ============================================================
 
-  final TextEditingController _sessionNameController =
-      TextEditingController();
+  final TextEditingController _sessionNameController = TextEditingController();
 
   // ============================================================
   // EXERCISE SELECTION
@@ -46,6 +41,12 @@ class _AssignExercisesScreenState
     kShoulderRotation: false,
     kAssistedElbowFlexion: false,
     kElbowFlexionExtension: false,
+    kHeelSlide: false,
+    kMiniSquat: false,
+    kSeatedKneeExtension: false,
+    kStraightLegRaise: false,
+    kTerminalKneeExtension: false,
+    kSquat: false,
   };
 
   final Map<String, TextEditingController> _repControllers = {
@@ -53,6 +54,12 @@ class _AssignExercisesScreenState
     kShoulderRotation: TextEditingController(text: '10'),
     kAssistedElbowFlexion: TextEditingController(text: '10'),
     kElbowFlexionExtension: TextEditingController(text: '10'),
+    kHeelSlide: TextEditingController(text: '10'),
+    kMiniSquat: TextEditingController(text: '10'),
+    kSeatedKneeExtension: TextEditingController(text: '10'),
+    kStraightLegRaise: TextEditingController(text: '10'),
+    kTerminalKneeExtension: TextEditingController(text: '10'),
+    kSquat: TextEditingController(text: '10'),
   };
 
   bool _saving = false;
@@ -91,8 +98,7 @@ class _AssignExercisesScreenState
   Future<void> _saveAssignment() async {
     if (_saving) return;
 
-    final sessionName =
-        _sessionNameController.text.trim();
+    final sessionName = _sessionNameController.text.trim();
 
     // ----------------------------------------------------------
     // Validate session name
@@ -100,11 +106,7 @@ class _AssignExercisesScreenState
 
     if (sessionName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Please enter a session name.',
-          ),
-        ),
+        const SnackBar(content: Text('Please enter a session name.')),
       );
 
       return;
@@ -114,14 +116,19 @@ class _AssignExercisesScreenState
     // Build selected exercises
     // ----------------------------------------------------------
 
-    final selectedExercises =
-        <Map<String, dynamic>>[];
+    final selectedExercises = <Map<String, dynamic>>[];
 
     final exerciseOrder = [
       kAssistedShoulderFlexion,
       kShoulderRotation,
       kAssistedElbowFlexion,
       kElbowFlexionExtension,
+      kHeelSlide,
+      kMiniSquat,
+      kSeatedKneeExtension,
+      kStraightLegRaise,
+      kTerminalKneeExtension,
+      kSquat,
     ];
 
     for (final exercise in exerciseOrder) {
@@ -129,9 +136,7 @@ class _AssignExercisesScreenState
         continue;
       }
 
-      final reps = int.tryParse(
-        _repControllers[exercise]!.text.trim(),
-      );
+      final reps = int.tryParse(_repControllers[exercise]!.text.trim());
 
       if (reps == null || reps <= 0) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -160,11 +165,7 @@ class _AssignExercisesScreenState
 
     if (selectedExercises.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Select at least one exercise.',
-          ),
-        ),
+        const SnackBar(content: Text('Select at least one exercise.')),
       );
 
       return;
@@ -179,9 +180,7 @@ class _AssignExercisesScreenState
     if (doctorId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Doctor account not found. Please log in again.',
-          ),
+          content: Text('Doctor account not found. Please log in again.'),
         ),
       );
 
@@ -202,7 +201,8 @@ class _AssignExercisesScreenState
         return {
           'exercise': exName,
           'name': getExerciseDisplayName(exName),
-          'targetCorrectReps': int.tryParse(e['targetCorrectReps']?.toString() ?? '0') ?? 0,
+          'targetCorrectReps':
+              int.tryParse(e['targetCorrectReps']?.toString() ?? '0') ?? 0,
           'completedCorrectReps': 0,
           'completedTotalReps': 0,
           'status': 'pending',
@@ -213,23 +213,23 @@ class _AssignExercisesScreenState
           .collection('exerciseAssignments')
           .doc(widget.patientId)
           .set({
-        'patientId': widget.patientId,
-        'doctorId': doctorId,
-        'sessionName': sessionName,
-        'exercises': selectedExercises,
-        'status': 'assigned',
-        'currentExerciseIndex': 0,
-        'currentExercise': selectedExercises.isNotEmpty
-            ? selectedExercises.first['exercise']?.toString() ?? ''
-            : '',
-        'completedCorrectReps': 0,
-        'totalCompletedReps': 0,
-        'progressPercentage': 0.0,
-        'exerciseProgress': initialExerciseProgress,
-        'createdAt': FieldValue.serverTimestamp(),
-        'lastUpdatedAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+            'patientId': widget.patientId,
+            'doctorId': doctorId,
+            'sessionName': sessionName,
+            'exercises': selectedExercises,
+            'status': 'assigned',
+            'currentExerciseIndex': 0,
+            'currentExercise': selectedExercises.isNotEmpty
+                ? selectedExercises.first['exercise']?.toString() ?? ''
+                : '',
+            'completedCorrectReps': 0,
+            'totalCompletedReps': 0,
+            'progressPercentage': 0.0,
+            'exerciseProgress': initialExerciseProgress,
+            'createdAt': FieldValue.serverTimestamp(),
+            'lastUpdatedAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
 
       // Send push notification to patient
       await NotificationService().sendNotification(
@@ -247,28 +247,18 @@ class _AssignExercisesScreenState
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Exercises assigned successfully.',
-          ),
-        ),
+        const SnackBar(content: Text('Exercises assigned successfully.')),
       );
 
       Navigator.pop(context, true);
     } catch (e) {
-      debugPrint(
-        'ASSIGNMENT FIRESTORE ERROR: $e',
-      );
+      debugPrint('ASSIGNMENT FIRESTORE ERROR: $e');
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Could not save assignment: $e',
-          ),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not save assignment: $e')));
     } finally {
       if (mounted) {
         setState(() {
@@ -283,11 +273,9 @@ class _AssignExercisesScreenState
   // ============================================================
 
   Widget _exerciseCard(String exercise) {
-    final selected =
-        _selected[exercise] ?? false;
+    final selected = _selected[exercise] ?? false;
 
-    final controller =
-        _repControllers[exercise]!;
+    final controller = _repControllers[exercise]!;
 
     return Card(
       elevation: 0,
@@ -296,10 +284,7 @@ class _AssignExercisesScreenState
         borderRadius: BorderRadius.circular(18),
         side: BorderSide(
           color: selected
-              ? Theme.of(context)
-                  .colorScheme
-                  .primary
-                  .withValues(alpha: 0.35)
+              ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.35)
               : Colors.grey.shade200,
         ),
       ),
@@ -313,18 +298,14 @@ class _AssignExercisesScreenState
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .primary
-                        .withValues(alpha: 0.09),
-                    borderRadius:
-                        BorderRadius.circular(14),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.09),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: Icon(
                     _exerciseIcon(exercise),
-                    color: Theme.of(context)
-                        .colorScheme
-                        .primary,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
                 ),
 
@@ -383,33 +364,22 @@ class _AssignExercisesScreenState
 
               TextField(
                 controller: controller,
-                keyboardType:
-                    TextInputType.number,
-                decoration:
-                    InputDecoration(
-                  labelText:
-                      tr('Target correct reps'),
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: tr('Target correct reps'),
                   hintText: 'Example: 10',
-                  prefixIcon: const Icon(
-                    Icons.repeat_rounded,
-                  ),
-                  border:
-                      const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.repeat_rounded),
+                  border: const OutlineInputBorder(),
                 ),
               ),
 
               const SizedBox(height: 7),
 
               Align(
-                alignment:
-                    Alignment.centerLeft,
+                alignment: Alignment.centerLeft,
                 child: Text(
                   tr('Only correct repetitions will count toward this target.'),
-                  style: TextStyle(
-                    fontSize: 11,
-                    color:
-                        Colors.grey.shade600,
-                  ),
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                 ),
               ),
             ],
@@ -430,58 +400,37 @@ class _AssignExercisesScreenState
       appBar: AppBar(
         title: Text(
           tr('Assign Exercises'),
-          style: const TextStyle(
-            fontWeight: FontWeight.w800,
-          ),
+          style: const TextStyle(fontWeight: FontWeight.w800),
         ),
-        actions: const [
-          LanguageToggleButton(),
-          SizedBox(width: 8),
-        ],
+        actions: const [LanguageToggleButton(), SizedBox(width: 8)],
       ),
 
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(
-            20,
-            18,
-            20,
-            30,
-          ),
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 30),
           child: Center(
             child: ConstrainedBox(
-              constraints:
-                  const BoxConstraints(
-                maxWidth: 700,
-              ),
+              constraints: const BoxConstraints(maxWidth: 700),
               child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // ==================================================
                   // PATIENT CARD
                   // ==================================================
-
                   Card(
                     elevation: 0,
                     child: Padding(
-                      padding:
-                          const EdgeInsets.all(17),
+                      padding: const EdgeInsets.all(17),
                       child: Row(
                         children: [
                           CircleAvatar(
                             radius: 27,
                             child: Text(
-                              widget.patient.name
-                                      .isEmpty
+                              widget.patient.name.isEmpty
                                   ? 'P'
-                                  : widget.patient
-                                      .name[0]
-                                      .toUpperCase(),
-                              style:
-                                  const TextStyle(
-                                fontWeight:
-                                    FontWeight.w800,
+                                  : widget.patient.name[0].toUpperCase(),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
                               ),
                             ),
                           ),
@@ -490,34 +439,25 @@ class _AssignExercisesScreenState
 
                           Expanded(
                             child: Column(
-                              crossAxisAlignment:
-                                  CrossAxisAlignment
-                                      .start,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
                                   tr('Assign exercises for'),
                                   style: const TextStyle(
                                     fontSize: 12,
-                                    color:
-                                        Colors.grey,
+                                    color: Colors.grey,
                                   ),
                                 ),
 
                                 const SizedBox(height: 3),
 
                                 Text(
-                                  widget.patient
-                                          .name
-                                          .isEmpty
+                                  widget.patient.name.isEmpty
                                       ? tr('Patient')
-                                      : widget.patient
-                                          .name,
-                                  style:
-                                      const TextStyle(
+                                      : widget.patient.name,
+                                  style: const TextStyle(
                                     fontSize: 19,
-                                    fontWeight:
-                                        FontWeight
-                                            .w800,
+                                    fontWeight: FontWeight.w800,
                                   ),
                                 ),
                               ],
@@ -533,49 +473,34 @@ class _AssignExercisesScreenState
                   // ==================================================
                   // SESSION NAME
                   // ==================================================
-
                   Text(
                     tr('Session details'),
                     style: const TextStyle(
                       fontSize: 21,
-                      fontWeight:
-                          FontWeight.w800,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
 
                   const SizedBox(height: 5),
 
                   Text(
-                    tr('Give this physiotherapy session a name before assigning exercises.'),
-                    style: TextStyle(
-                      color:
-                          Colors.grey.shade600,
-                      fontSize: 13,
+                    tr(
+                      'Give this physiotherapy session a name before assigning exercises.',
                     ),
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
                   ),
 
                   const SizedBox(height: 14),
 
                   TextField(
-                    controller:
-                        _sessionNameController,
-                    textCapitalization:
-                        TextCapitalization.words,
-                    decoration:
-                        InputDecoration(
-                      labelText:
-                          tr('Session Name'),
-                      hintText:
-                          'e.g. Morning Upper Body Rehab',
-                      prefixIcon: const Icon(
-                        Icons.assignment_outlined,
-                      ),
-                      border:
-                          OutlineInputBorder(
-                        borderRadius:
-                            BorderRadius.circular(
-                          14,
-                        ),
+                    controller: _sessionNameController,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: InputDecoration(
+                      labelText: tr('Session Name'),
+                      hintText: 'e.g. Morning Upper Body Rehab',
+                      prefixIcon: const Icon(Icons.assignment_outlined),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
                       ),
                     ),
                   ),
@@ -585,77 +510,76 @@ class _AssignExercisesScreenState
                   // ==================================================
                   // EXERCISE PLAN
                   // ==================================================
-
                   Text(
                     tr('Exercise plan'),
                     style: const TextStyle(
                       fontSize: 21,
-                      fontWeight:
-                          FontWeight.w800,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
 
                   const SizedBox(height: 5),
 
                   Text(
-                    tr('Select the exercises and set the number of correct repetitions required.'),
-                    style: TextStyle(
-                      color:
-                          Colors.grey.shade600,
-                      fontSize: 13,
+                    tr(
+                      'Select the exercises and set the number of correct repetitions required.',
                     ),
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
                   ),
 
                   const SizedBox(height: 18),
 
-                  _exerciseCard(
-                    kAssistedShoulderFlexion,
+                  _exerciseCard(kAssistedShoulderFlexion),
+
+                  _exerciseCard(kShoulderRotation),
+
+                  _exerciseCard(kAssistedElbowFlexion),
+
+                  _exerciseCard(kElbowFlexionExtension),
+
+                  const SizedBox(height: 16),
+
+                  Text(
+                    tr('Lower-body exercises'),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
 
-                  _exerciseCard(
-                    kShoulderRotation,
-                  ),
+                  const SizedBox(height: 14),
 
-                  _exerciseCard(
-                    kAssistedElbowFlexion,
-                  ),
+                  _exerciseCard(kHeelSlide),
 
-                  _exerciseCard(
-                    kElbowFlexionExtension,
-                  ),
+                  _exerciseCard(kMiniSquat),
+
+                  _exerciseCard(kSeatedKneeExtension),
+
+                  _exerciseCard(kStraightLegRaise),
+
+                  _exerciseCard(kTerminalKneeExtension),
+
+                  _exerciseCard(kSquat),
 
                   const SizedBox(height: 12),
 
                   // ==================================================
                   // SAVE BUTTON
                   // ==================================================
-
                   SizedBox(
                     width: double.infinity,
                     height: 52,
-                    child:
-                        FilledButton.icon(
-                      onPressed:
-                          _saving
-                              ? null
-                              : _saveAssignment,
+                    child: FilledButton.icon(
+                      onPressed: _saving ? null : _saveAssignment,
                       icon: _saving
                           ? const SizedBox(
                               width: 20,
                               height: 20,
-                              child:
-                                  CircularProgressIndicator(
-                                strokeWidth: 2,
-                              ),
+                              child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Icon(
-                              Icons
-                                  .assignment_turned_in_rounded,
-                            ),
+                          : const Icon(Icons.assignment_turned_in_rounded),
                       label: Text(
-                        _saving
-                            ? tr('Saving...')
-                            : tr('Save Assignment'),
+                        _saving ? tr('Saving...') : tr('Save Assignment'),
                       ),
                     ),
                   ),

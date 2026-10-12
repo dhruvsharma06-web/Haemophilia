@@ -1,4 +1,4 @@
-import json
+﻿import json
 
 import cv2
 import mediapipe as mp
@@ -18,6 +18,10 @@ from src.exercises.elbow_flexion_assessment import (
 )
 from src.exercises.shoulder_rotation_assessment import (
     ShoulderRotationAssessment,
+)
+from src.exercises.lower_body import (
+    LowerBodyAssessment,
+    canonicalize_lower_body_id,
 )
 
 
@@ -60,6 +64,12 @@ def _create_assessment(exercise: str):
         .replace(" ", "_")
     )
 
+    # 1. Lower-body exercises (integrated from senior implementations)
+    lower_canonical = canonicalize_lower_body_id(exercise_normalized)
+    if lower_canonical:
+        return LowerBodyAssessment(lower_canonical, fps=20.0)
+
+    # 2. Upper-body exercises (existing)
     if (
         "assisted_elbow" in exercise_normalized
         or exercise_normalized in {
@@ -111,17 +121,28 @@ def _create_assessment(exercise: str):
             save_artifacts=True,
         )
 
-    model, device = (
-        model_registry.get_assisted_flexion()
-    )
+    if (
+        "shoulder_flexion" in exercise_normalized
+        or "assisted_shoulder" in exercise_normalized
+        or "shoulder" in exercise_normalized
+        or exercise_normalized in {
+            "assisted_shoulder_flexion",
+            "assisted_shoulder_flexion_with_bar",
+        }
+    ):
+        model, device = (
+            model_registry.get_assisted_flexion()
+        )
 
-    return AssistedShoulderFlexionAssessment(
-        model=model,
-        device=device,
-        fps=20.0,
-        data_dir="data",
-        save_artifacts=True,
-    )
+        return AssistedShoulderFlexionAssessment(
+            model=model,
+            device=device,
+            fps=20.0,
+            data_dir="data",
+            save_artifacts=True,
+        )
+
+    raise ValueError(f"Unsupported exercise: '{exercise}'")
 
 
 @router.websocket("/live")
@@ -141,7 +162,16 @@ async def live_assessment(
     )
 
     try:
-        assessment = _create_assessment(exercise)
+        try:
+            assessment = _create_assessment(exercise)
+        except ValueError as exc:
+            print(f"Live assessment error: {exc}")
+            await websocket.send_json({
+                "type": "error",
+                "message": str(exc),
+            })
+            await websocket.close(code=4400)
+            return
 
         with mp_pose.Pose(
             static_image_mode=False,
@@ -201,11 +231,18 @@ async def live_assessment(
                             f"{next_exercise}"
                         )
 
-                        assessment = (
-                            _create_assessment(
-                                next_exercise
+                        try:
+                            assessment = (
+                                _create_assessment(
+                                    next_exercise
+                                )
                             )
-                        )
+                        except ValueError as err:
+                            await websocket.send_json({
+                                "type": "error",
+                                "message": str(err),
+                            })
+                            continue
 
                         exercise = next_exercise
                         frame_number = 0

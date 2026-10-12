@@ -16,6 +16,7 @@ import '../../services/notification_service.dart';
 import '../../utils/app_localizations.dart';
 import '../../utils/exercise_utils.dart';
 import '../../widgets/exercise_demo/exercise_demo_dialog.dart';
+import '../../config/backend_config.dart';
 
 // ================================================================
 // BACKGROUND ISOLATE FRAME CONVERSION (ULTRA-FAST YUV420 -> JPEG)
@@ -193,8 +194,7 @@ class _LiveAssessmentScreenState
   // CONFIGURATION
   // ============================================================
 
-  static const String websocketUrl =
-      'wss://lessons-family-councils-obvious.trycloudflare.com/v1/assessments/live';
+  static String get websocketUrl => BackendConfig.liveAssessmentWsUrl;
 
   static const Duration frameInterval =
       Duration(milliseconds: 50);
@@ -1932,8 +1932,7 @@ class _LiveAssessmentScreenState
     }
   }
 
-  static const String errorFrameBaseUrl =
-      'https://lessons-family-councils-obvious.trycloudflare.com/v1/assets/error-frames/';
+  static String get errorFrameBaseUrl => BackendConfig.errorFramesBaseUrl;
 
   String? _errorFrameUrl(Map<String, dynamic> rep) {
     // Support all versions of the backend payload so the image keeps working

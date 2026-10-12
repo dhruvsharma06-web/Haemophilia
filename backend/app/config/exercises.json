@@ -1,0 +1,608 @@
+{
+  "_comment": "Phase F pure-data exercise registry. See docs/08_exercise_config.md for the full schema, evidence for `type`, and the fill-in-the-blanks threshold table for the owner. Every `value: null` field below is an unfilled clinical placeholder \u2014 do NOT treat null as 0 or skip it in a real comparison.",
+  "exercises": [
+    {
+      "name": "heel_slide",
+      "display_name": "Heel Slide",
+      "type": "dynamic",
+      "primary_branch": "pose",
+      "valid_views": [
+        "SIDE"
+      ],
+      "joints": [
+        {
+          "display_name": "Knee (L)",
+          "landmark_a": "left_hip",
+          "landmark_b": "left_knee",
+          "landmark_c": "left_ankle",
+          "use_3d": true,
+          "check_in_views": [
+            "SIDE"
+          ],
+          "is_rep_driver": true
+        },
+        {
+          "display_name": "Knee (R)",
+          "landmark_a": "right_hip",
+          "landmark_b": "right_knee",
+          "landmark_c": "right_ankle",
+          "use_3d": true,
+          "check_in_views": [
+            "SIDE"
+          ],
+          "is_rep_driver": false
+        }
+      ],
+      "rep_trigger": {
+        "joint_display_name": "Knee (L)",
+        "direction": "decrease",
+        "enter_angle": {
+          "value": 150,
+          "unit": "deg",
+          "source": "docs/08_exercise_config.md threshold table (dataset-derived, NOT clinician-signed)"
+        },
+        "exit_angle": {
+          "value": 170,
+          "unit": "deg",
+          "source": "docs/08_exercise_config.md threshold table (dataset-derived, NOT clinician-signed)"
+        },
+        "depth_target": {
+          "value": 90,
+          "unit": "deg",
+          "source": "docs/08_exercise_config.md threshold table (dataset-derived, NOT clinician-signed)"
+        }
+      },
+      "isometric_trigger": null,
+      "extra_checks": [
+        "heel_lifting",
+        "hip_lifting",
+        "slide_insufficient"
+      ],
+      "thresholds": {
+        "heel_lifting_max_y_rise": {
+          "value": 0.03,
+          "unit": "normalized y (pelvis/body_scale-relative, same units as *_heel_rel_y)",
+          "sign_convention": "positive = heel rising off the support surface",
+          "source": "docs/08_exercise_config.md threshold table (dataset-derived, NOT clinician-signed)",
+          "alert": "Heel lifting off the surface \u2014 keep it down"
+        },
+        "hip_lifting_max_y_rise": {
+          "value": 0.03,
+          "unit": "normalized y (same units as pelvis_center_y)",
+          "sign_convention": "positive = pelvis rising off the support surface",
+          "source": "docs/08_exercise_config.md threshold table (dataset-derived, NOT clinician-signed)",
+          "alert": "Hip lifting off the surface \u2014 keep it flat"
+        },
+        "depth_insufficient_alert": {
+          "value": "Slide your heel further in",
+          "unit": "alert string",
+          "source": "docs/08_exercise_config.md threshold table (dataset-derived, NOT clinician-signed)",
+          "signal": "raised when a rep never reached depth_target"
+        },
+        "slide_insufficient_min_heel_travel_ratio": {
+          "value": 0.25,
+          "unit": "fraction of the rest hip->heel pixel distance",
+          "source": "geometry of depth_target: with thigh ~= shin, knee 90 deg puts the heel at 0.71 of the straight-leg hip->heel distance (travel 0.29); 0.25 leaves slack. Provisional, NOT clinician-signed (2026-09-24)",
+          "alert": "Slide your heel further toward your hip"
+        },
+        "slide_insufficient_return_deg": {
+          "value": 15,
+          "unit": "deg",
+          "source": "provisional live tuning (2026-09-24): slide_insufficient judges once the knee has straightened this far back from its lowest point"
+        }
+      }
+    },
+    {
+      "name": "mini_squat",
+      "display_name": "Mini Squat",
+      "type": "dynamic",
+      "primary_branch": "both",
+      "valid_views": [
+        "FRONT",
+        "SIDE"
+      ],
+      "joints": [
+        {
+          "display_name": "Knee (L)",
+          "landmark_a": "left_hip",
+          "landmark_b": "left_knee",
+          "landmark_c": "left_ankle",
+          "use_3d": false,
+          "check_in_views": [
+            "FRONT"
+          ],
+          "is_rep_driver": true,
+          "driver_for_views": [
+            "FRONT"
+          ]
+        },
+        {
+          "display_name": "Knee (R)",
+          "landmark_a": "right_hip",
+          "landmark_b": "right_knee",
+          "landmark_c": "right_ankle",
+          "use_3d": false,
+          "check_in_views": [
+            "FRONT"
+          ],
+          "is_rep_driver": false
+        },
+        {
+          "display_name": "Knee (side)",
+          "landmark_a": "left_hip",
+          "landmark_b": "left_knee",
+          "landmark_c": "left_ankle",
+          "use_3d": false,
+          "check_in_views": [
+            "SIDE"
+          ],
+          "is_rep_driver": true,
+          "driver_for_views": [
+            "SIDE"
+          ],
+          "_note": "use_3d was true, making the SIDE driver a 3D angle while the FRONT driver is 2D -- two rep drivers on different scales sharing one enter/exit pair. 3D standing knee angle straddles 127-172 (parquet p5/med), so enter=160 and exit=170 both sat inside the standing band and a stationary patient counted reps. Both drivers are now 2D, matching squat, whose joints are use_3d:false in both views for the same reason."
+        }
+      ],
+      "rep_trigger": {
+        "joint_display_name": "Knee (L)",
+        "direction": "decrease",
+        "enter_angle": {
+          "value": 150,
+          "unit": "deg",
+          "source": "measured from backend/ml/manifest_data/train_mini_squat.parquet: left_knee_angle_2d standing max p5=176.1/med=179.6, bottom min med=81.4. Replaces docs/08's 160/170, which were read off the 3D standing median (172.0) while the FRONT driver is 2D. NOT clinician-signed."
+        },
+        "exit_angle": {
+          "value": 165,
+          "unit": "deg",
+          "source": "measured from backend/ml/manifest_data/train_mini_squat.parquet: left_knee_angle_2d standing max p5=176.1/med=179.6, bottom min med=81.4. Replaces docs/08's 160/170, which were read off the 3D standing median (172.0) while the FRONT driver is 2D. NOT clinician-signed."
+        },
+        "depth_target": {
+          "value": 130,
+          "unit": "deg",
+          "source": "docs/08_exercise_config.md threshold table (dataset-derived, NOT clinician-signed)"
+        }
+      },
+      "isometric_trigger": null,
+      "extra_checks": [
+        "heel_lifting",
+        "knee_varus",
+        "knee_past_toes_margin",
+        "ankles_close_together"
+      ],
+      "thresholds": {
+        "heel_lifting_max_y_rise": {
+          "value": 0.03,
+          "unit": "normalized y (same units as *_heel_rel_y)",
+          "sign_convention": "positive = heel rising off the floor",
+          "source": "docs/08_exercise_config.md threshold table (dataset-derived, NOT clinician-signed)",
+          "alert": "Heels lifting \u2014 press heels down"
+        },
+        "knee_past_toes_max_margin": {
+          "value": 0.05,
+          "unit": "normalized x (same units as *_knee_rel_x / *_foot_index_rel_x)",
+          "sign_convention": "positive = knee forward of toe",
+          "source": "docs/08_exercise_config.md threshold table (dataset-derived, NOT clinician-signed)",
+          "alert": "Knee past toes \u2014 sit back more"
+        },
+        "ankles_min_width_ratio": {
+          "value": 0.6,
+          "unit": "ratio, ankle_width_3d / shoulder_width_3d",
+          "sign_convention": "below threshold = ankles too close together",
+          "source": "docs/08_exercise_config.md threshold table (dataset-derived, NOT clinician-signed)",
+          "alert": "Feet too close together \u2014 widen your stance"
+        },
+        "depth_insufficient_alert": {
+          "value": "Not deep enough",
+          "unit": "alert string",
+          "source": "docs/08_exercise_config.md threshold table (dataset-derived, NOT clinician-signed)",
+          "signal": "raised when a rep never reached depth_target"
+        },
+        "knee_varus_max_offset_ratio": {
+          "value": 1.8,
+          "unit": "ratio (perpendicular knee offset from the hip->ankle line / hip width, FRONT view)",
+          "sign_convention": "above threshold = knee deviates laterally from the hip-ankle line (varus or valgus; unsigned)",
+          "source": "derived from manifest-labelled mini_squat clips: 83% of knee_varus clips caught at 6% false-positive on clean clips (n=6/16 after the ankle-width guard). Replaces knee_varus_max_angle_deg=10, which measured knee FLEXION and fired on 38/38 clean clips. NOT clinician-signed.",
+          "alert": "Knees bowing out \u2014 track knees over toes"
+        }
+      }
+    },
+    {
+      "name": "seated_knee_extension",
+      "display_name": "Seated Knee Extension",
+      "type": "dynamic",
+      "primary_branch": "both",
+      "valid_views": [
+        "SIDE"
+      ],
+      "joints": [
+        {
+          "display_name": "Knee (L)",
+          "landmark_a": "left_hip",
+          "landmark_b": "left_knee",
+          "landmark_c": "left_ankle",
+          "use_3d": true,
+          "check_in_views": [
+            "SIDE"
+          ],
+          "is_rep_driver": true
+        },
+        {
+          "display_name": "Knee (R)",
+          "landmark_a": "right_hip",
+          "landmark_b": "right_knee",
+          "landmark_c": "right_ankle",
+          "use_3d": true,
+          "check_in_views": [
+            "SIDE"
+          ],
+          "is_rep_driver": false
+        }
+      ],
+      "rep_trigger": {
+        "joint_display_name": "Knee (L)",
+        "direction": "increase",
+        "enter_angle": {
+          "value": 100,
+          "unit": "deg",
+          "source": "docs/08_exercise_config.md threshold table (dataset-derived, NOT clinician-signed)"
+        },
+        "exit_angle": {
+          "value": 95,
+          "unit": "deg",
+          "source": "docs/08_exercise_config.md threshold table (dataset-derived, NOT clinician-signed)"
+        },
+        "depth_target": {
+          "value": 160,
+          "unit": "deg",
+          "source": "docs/08_exercise_config.md threshold table (dataset-derived, NOT clinician-signed)"
+        }
+      },
+      "isometric_trigger": null,
+      "extra_checks": [
+        "hip_lifting",
+        "back_slouching",
+        "back_rocking"
+      ],
+      "thresholds": {
+        "hip_lifting_max_y_rise": {
+          "value": 0.03,
+          "unit": "normalized y (pelvis_center_y vs the extractor's own whole-file 'baseline' column)",
+          "sign_convention": "positive = pelvis rising off the seat",
+          "source": "docs/08_exercise_config.md threshold table (dataset-derived, NOT clinician-signed)",
+          "alert": "Hip lifting off the seat \u2014 stay seated"
+        },
+        "back_rocking_max_score": {
+          "value": 0.02,
+          "unit": "same units as the extractor's own whole-file 'rocking_score' column (std-dev of head x-position)",
+          "sign_convention": "above threshold = excessive rocking",
+          "source": "docs/08_exercise_config.md threshold table (dataset-derived, NOT clinician-signed)",
+          "alert": "Rocking your torso \u2014 keep still"
+        },
+        "depth_insufficient_alert": {
+          "value": "Extend your knee further",
+          "unit": "alert string",
+          "source": "docs/08_exercise_config.md threshold table (dataset-derived, NOT clinician-signed)",
+          "signal": "raised when a rep never reached depth_target"
+        },
+        "back_slouching_max_head_forward_ratio": {
+          "value": 0.88,
+          "unit": "ratio (|nose x - shoulder-centre x| / trunk length, image plane)",
+          "sign_convention": "above threshold = head carried forward of the shoulders (slouching)",
+          "source": "derived from manifest-labelled seated_knee_extension clips: 5/5 back_slouching clips caught, 0/17 false positives on clean clips. Replaces back_slouching_min_trunk_angle_deg=150, which fired on 100% of clips and had an inverted sign for this exercise. NOT clinician-signed.",
+          "alert": "Back slouching \u2014 sit tall"
+        }
+      }
+    },
+    {
+      "name": "straight_leg_raise",
+      "display_name": "Straight Leg Raise",
+      "type": "dynamic",
+      "primary_branch": "pose",
+      "valid_views": [
+        "SIDE"
+      ],
+      "joints": [
+        {
+          "display_name": "Hip (L)",
+          "landmark_a": "left_shoulder",
+          "landmark_b": "left_hip",
+          "landmark_c": "left_knee",
+          "use_3d": true,
+          "check_in_views": [
+            "SIDE"
+          ],
+          "is_rep_driver": true
+        },
+        {
+          "display_name": "Hip (R)",
+          "landmark_a": "right_shoulder",
+          "landmark_b": "right_hip",
+          "landmark_c": "right_knee",
+          "use_3d": true,
+          "check_in_views": [
+            "SIDE"
+          ],
+          "is_rep_driver": false
+        },
+        {
+          "display_name": "Knee (L)",
+          "landmark_a": "left_hip",
+          "landmark_b": "left_knee",
+          "landmark_c": "left_ankle",
+          "use_3d": true,
+          "check_in_views": [
+            "SIDE"
+          ],
+          "is_rep_driver": false
+        },
+        {
+          "display_name": "Knee (R)",
+          "landmark_a": "right_hip",
+          "landmark_b": "right_knee",
+          "landmark_c": "right_ankle",
+          "use_3d": true,
+          "check_in_views": [
+            "SIDE"
+          ],
+          "is_rep_driver": false
+        }
+      ],
+      "rep_trigger": {
+        "joint_display_name": "Hip (L)",
+        "direction": "decrease",
+        "enter_angle": {
+          "value": 165,
+          "unit": "deg",
+          "source": "docs/08_exercise_config.md threshold table (dataset-derived, NOT clinician-signed)"
+        },
+        "exit_angle": {
+          "value": 172,
+          "unit": "deg",
+          "source": "docs/08_exercise_config.md threshold table (dataset-derived, NOT clinician-signed)"
+        },
+        "depth_target": {
+          "value": 140,
+          "unit": "deg",
+          "source": "docs/08_exercise_config.md threshold table (dataset-derived, NOT clinician-signed)"
+        }
+      },
+      "isometric_trigger": null,
+      "extra_checks": [
+        "hip_lifting_raise_angle",
+        "knee_flexion_high",
+        "head_lifting"
+      ],
+      "thresholds": {
+        "hip_lifting_max_raise_angle_deg": {
+          "value": 46,
+          "unit": "deg, raise angle = 180 - hip_angle_2d at peak-raise frame",
+          "sign_convention": "above threshold = excessive hip flexion / compensation, labeled hip_lifting in this dataset",
+          "source": "docs/08_exercise_config.md threshold table (dataset-derived, NOT clinician-signed)",
+          "alert": "Raising too high \u2014 lower the leg"
+        },
+        "knee_flexion_high_min_angle_deg": {
+          "value": 170,
+          "unit": "deg (left/right_knee_angle_2d at most-bent frame)",
+          "sign_convention": "below threshold = knee bending too much during the raise (should stay near full extension)",
+          "source": "docs/08_exercise_config.md threshold table (dataset-derived, NOT clinician-signed)",
+          "alert": "Knee bending \u2014 keep your leg straight"
+        },
+        "head_lifting_max_y_rise": {
+          "value": 0.03,
+          "unit": "normalized y (same units as nose_rel_y)",
+          "sign_convention": "positive = head rising off the surface",
+          "source": "docs/08_exercise_config.md threshold table (dataset-derived, NOT clinician-signed)",
+          "alert": "Head lifting \u2014 rest your head down"
+        },
+        "depth_insufficient_alert": {
+          "value": "Raise your leg higher",
+          "unit": "alert string",
+          "source": "docs/08_exercise_config.md threshold table (dataset-derived, NOT clinician-signed)",
+          "signal": "raised when a rep never reached depth_target"
+        }
+      }
+    },
+    {
+      "name": "terminal_knee_extension",
+      "display_name": "Terminal Knee Extension",
+      "type": "dynamic",
+      "primary_branch": "pose",
+      "valid_views": [
+        "SIDE"
+      ],
+      "joints": [
+        {
+          "display_name": "Knee (L)",
+          "landmark_a": "left_hip",
+          "landmark_b": "left_knee",
+          "landmark_c": "left_ankle",
+          "use_3d": true,
+          "check_in_views": [
+            "SIDE"
+          ],
+          "is_rep_driver": true
+        },
+        {
+          "display_name": "Knee (R)",
+          "landmark_a": "right_hip",
+          "landmark_b": "right_knee",
+          "landmark_c": "right_ankle",
+          "use_3d": true,
+          "check_in_views": [
+            "SIDE"
+          ],
+          "is_rep_driver": false
+        }
+      ],
+      "rep_trigger": {
+        "joint_display_name": "Knee (L)",
+        "direction": "increase",
+        "enter_angle": {
+          "value": 155,
+          "unit": "deg",
+          "source": "derived from clinician start/end positions (supine, pillow under knee: knee 40 deg -> 0 deg flexion = 140 -> 180 deg); enter/exit sit above the ~140 deg rest with a 10 deg hysteresis band. Provisional (2026-09-24)"
+        },
+        "exit_angle": {
+          "value": 145,
+          "unit": "deg",
+          "source": "derived from clinician start/end positions (supine, pillow under knee: knee 40 deg -> 0 deg flexion = 140 -> 180 deg); enter/exit sit above the ~140 deg rest with a 10 deg hysteresis band. Provisional (2026-09-24)"
+        },
+        "depth_target": {
+          "value": 170,
+          "unit": "deg",
+          "source": "derived from clinician start/end positions (supine, pillow under knee: knee 40 deg -> 0 deg flexion = 140 -> 180 deg); enter/exit sit above the ~140 deg rest with a 10 deg hysteresis band. Provisional (2026-09-24)"
+        }
+      },
+      "isometric_trigger": null,
+      "extra_checks": [
+        "hip_lifting",
+        "thigh_lifting"
+      ],
+      "thresholds": {
+        "hip_lifting_max_y_rise": {
+          "value": 0.03,
+          "unit": "normalized y (pelvis_center_y vs the extractor's own whole-file 'avg_pelvis_center_y' column)",
+          "sign_convention": "positive = pelvis rising off the support surface",
+          "source": "docs/08_exercise_config.md threshold table (dataset-derived, NOT clinician-signed)",
+          "alert": "Hip lifting \u2014 keep your hip down"
+        },
+        "depth_insufficient_alert": {
+          "value": "Straighten your knee fully",
+          "unit": "alert string",
+          "source": "docs/08_exercise_config.md threshold table (dataset-derived, NOT clinician-signed)",
+          "signal": "raised when a rep never reached depth_target"
+        },
+        "thigh_lifting_max_hip_change_deg": {
+          "value": 20,
+          "unit": "deg (left shoulder-hip-knee 2D angle, relative to its value when the rep starts)",
+          "source": "clinician note: hip stays at 40 deg flexion during TKE; +-20 deg owner-set tolerance for pillow/support variation. Provisional (2026-09-24)",
+          "alert": "Keep your thigh on the pillow \u2014 only straighten the knee"
+        }
+      }
+    },
+    {
+      "name": "squat",
+      "display_name": "Squat",
+      "type": "dynamic",
+      "primary_branch": "pose",
+      "valid_views": [
+        "FRONT",
+        "SIDE"
+      ],
+      "_note": "Restored from the legacy physio project per owner instruction and MASTER_BUILD_PLAN_v3 \u00a7F1/\u00a7G2. Unlike the five ML-dataset exercises, every value here is REAL \u2014 transcribed from backend/_old_physio_reference/config.py, documented in docs/03_legacy.md D5. Not a placeholder.",
+      "joints": [
+        {
+          "display_name": "Knee (L)",
+          "landmark_a": "left_hip",
+          "landmark_b": "left_knee",
+          "landmark_c": "left_ankle",
+          "use_3d": false,
+          "check_in_views": [
+            "FRONT",
+            "SIDE"
+          ],
+          "is_rep_driver": true
+        },
+        {
+          "display_name": "Knee (R)",
+          "landmark_a": "right_hip",
+          "landmark_b": "right_knee",
+          "landmark_c": "right_ankle",
+          "use_3d": false,
+          "check_in_views": [
+            "FRONT",
+            "SIDE"
+          ],
+          "is_rep_driver": false
+        }
+      ],
+      "rep_trigger": {
+        "joint_display_name": "Knee (L)",
+        "direction": "decrease",
+        "enter_angle": {
+          "value": 105,
+          "unit": "deg",
+          "source": "config.py SQUAT_DOWN_ANGLE"
+        },
+        "exit_angle": {
+          "value": 155,
+          "unit": "deg",
+          "source": "config.py SQUAT_UP_ANGLE"
+        },
+        "depth_target": {
+          "value": 120,
+          "unit": "deg",
+          "source": "config.py DEPTH_INSUFFICIENT_ANGLE"
+        }
+      },
+      "isometric_trigger": null,
+      "extra_checks": [
+        "knee_cave",
+        "torso_lean_front",
+        "torso_lean_side",
+        "knee_past_toes",
+        "heel_lift",
+        "butt_wink",
+        "neck"
+      ],
+      "thresholds": {
+        "knee_cave_min_width_ratio": {
+          "value": 0.72,
+          "unit": "ratio",
+          "source": "config.py KNEE_CAVE_RATIO",
+          "signal": "knee_width / ankle_width (FRONT view)",
+          "alert": "Knees caving in \u2014 push knees out"
+        },
+        "torso_lean_max_deg": {
+          "value": 55,
+          "unit": "deg",
+          "source": "config.py BACK_LEAN_MAX",
+          "signal": "torso lean from vertical (shoulder-hip vs vertical)",
+          "alert": "Leaning too far forward \u2014 chest up"
+        },
+        "knee_past_toes_max_x_ratio": {
+          "value": 0.06,
+          "unit": "fraction of frame width",
+          "source": "config.py KNEE_TOE_X_RATIO",
+          "signal": "knee_x - foot_index_x (SIDE view)",
+          "alert": "Knee past toes \u2014 sit back more"
+        },
+        "heel_lift_max_y_rise": {
+          "value": 0.03,
+          "unit": "normalized y",
+          "source": "config.py HEEL_LIFT_NORM_THRESH (~2 cm)",
+          "signal": "heel y rise from baseline",
+          "alert": "Heels lifting \u2014 press heels down"
+        },
+        "butt_wink_min_hip_angle_deg": {
+          "value": 58,
+          "unit": "deg",
+          "source": "config.py BUTT_WINK_HIP_ANGLE_MIN",
+          "signal": "shoulder-hip-knee angle",
+          "alert": "Lower back rounding \u2014 brace your core"
+        },
+        "butt_wink_max_knee_angle_deg": {
+          "value": 115,
+          "unit": "deg",
+          "source": "config.py BUTT_WINK_KNEE_ANGLE_MAX",
+          "signal": "knee angle gate \u2014 butt wink only checked when knee is at least this bent",
+          "alert": null
+        },
+        "neck_min_angle_deg": {
+          "value": 140,
+          "unit": "deg",
+          "source": "config.py NECK_ANGLE_MIN",
+          "signal": "ear-shoulder-hip angle",
+          "alert": "Neck not neutral \u2014 look straight ahead"
+        },
+        "depth_insufficient_alert": {
+          "value": "Not deep enough",
+          "unit": "alert string",
+          "source": "squat.py rep_trigger.depth_alert",
+          "signal": "raised when a rep never reached depth_target"
+        }
+      }
+    }
+  ],
+  "_validation_warning": "UNVALIDATED THRESHOLDS. Every value in the five ML-dataset exercises (heel_slide, mini_squat, seated_knee_extension, straight_leg_raise, terminal_knee_extension) is dataset-derived from docs/08_exercise_config.md and has NOT been reviewed or signed off by a clinician. A flag raised on these numbers means 'outside this dataset's observed range', NOT 'clinically incorrect'. Do not use in front of a patient until reviewed. See docs/VALIDATION_TODO.md. Only `squat` carries real values (legacy config.py)."
+}

@@ -81,6 +81,24 @@ class ExerciseDemoRegistry {
       case kElbowFlexionExtension:
         return _elbowFlexionConfig;
 
+      case kHeelSlide:
+        return _heelSlideConfig;
+
+      case kMiniSquat:
+        return _miniSquatConfig;
+
+      case kSeatedKneeExtension:
+        return _seatedKneeExtensionConfig;
+
+      case kStraightLegRaise:
+        return _straightLegRaiseConfig;
+
+      case kTerminalKneeExtension:
+        return _terminalKneeExtensionConfig;
+
+      case kSquat:
+        return _squatConfig;
+
       default:
         return _createWipFallbackConfig(raw);
     }
@@ -90,8 +108,8 @@ class ExerciseDemoRegistry {
   // 1. ASSISTED SHOULDER FLEXION WITH BAR (VALIDATED / PRIMARY)
   // ============================================================
 
-  static final ExerciseDemoConfig _assistedShoulderFlexionConfig =
-      ExerciseDemoConfig(
+  static final ExerciseDemoConfig
+  _assistedShoulderFlexionConfig = ExerciseDemoConfig(
     exerciseId: kAssistedShoulderFlexion,
     displayName: 'Assisted Shoulder Flexion with Bar',
     isWorkInProgress: false,
@@ -211,8 +229,8 @@ class ExerciseDemoRegistry {
   // 3. ASSISTED ELBOW FLEXION (CLINICALLY VALIDATED)
   // ============================================================
 
-  static final ExerciseDemoConfig _assistedElbowFlexionConfig =
-      ExerciseDemoConfig(
+  static final ExerciseDemoConfig
+  _assistedElbowFlexionConfig = ExerciseDemoConfig(
     exerciseId: kAssistedElbowFlexion,
     displayName: 'Assisted Elbow Flexion',
     isWorkInProgress: false,
@@ -325,6 +343,357 @@ class ExerciseDemoRegistry {
     ],
     painterBuilder: (progress, {bool isDark = true}) =>
         ElbowFlexionPainter(progress: progress, isDark: isDark),
+  );
+
+  // ============================================================
+  // 5. HEEL SLIDE
+  // ============================================================
+
+  static final ExerciseDemoConfig _heelSlideConfig = ExerciseDemoConfig(
+    exerciseId: kHeelSlide,
+    displayName: 'Heel Slide',
+    isWorkInProgress: false,
+    phases: const [
+      ExercisePhase(
+        phaseNumber: 1,
+        title: 'Starting Position',
+        description:
+            'Lie supine on a flat surface with both legs extended relaxed.',
+        startProgress: 0.0,
+        endProgress: 0.20,
+      ),
+      ExercisePhase(
+        phaseNumber: 2,
+        title: 'Sliding Inward',
+        description:
+            'Slowly bend your knee, sliding your heel smoothly toward your buttocks.',
+        startProgress: 0.20,
+        endProgress: 0.50,
+      ),
+      ExercisePhase(
+        phaseNumber: 3,
+        title: 'Peak Knee Flexion',
+        description:
+            'Hold momentarily at your comfortable flexion limit without hip lifting.',
+        startProgress: 0.50,
+        endProgress: 0.60,
+      ),
+      ExercisePhase(
+        phaseNumber: 4,
+        title: 'Controlled Return',
+        description:
+            'Smoothly slide your heel back down until your knee is fully extended.',
+        startProgress: 0.60,
+        endProgress: 0.95,
+      ),
+      ExercisePhase(
+        phaseNumber: 5,
+        title: 'Rest at Extension',
+        description:
+            'Pause briefly in the neutral starting position before next repetition.',
+        startProgress: 0.95,
+        endProgress: 1.0,
+      ),
+    ],
+    keyTips: const [
+      'Keep heel in light, continuous contact with the treatment surface.',
+      'Do not lift your pelvis off the mat.',
+      'Work strictly within comfortable, pain-free range of motion.',
+    ],
+    painterBuilder: (progress, {bool isDark = true}) =>
+        ElbowFlexionPainter(progress: progress, isDark: isDark),
+  );
+
+  // ============================================================
+  // 6. MINI SQUAT
+  // ============================================================
+
+  static final ExerciseDemoConfig _miniSquatConfig = ExerciseDemoConfig(
+    exerciseId: kMiniSquat,
+    displayName: 'Mini Squat',
+    isWorkInProgress: false,
+    phases: const [
+      ExercisePhase(
+        phaseNumber: 1,
+        title: 'Starting Position',
+        description:
+            'Stand upright with feet shoulder-width apart and toes pointing slightly outward.',
+        startProgress: 0.0,
+        endProgress: 0.20,
+      ),
+      ExercisePhase(
+        phaseNumber: 2,
+        title: 'Shallow Squat',
+        description:
+            'Bend knees to 30-45 degrees, tracking knees directly over your toes.',
+        startProgress: 0.20,
+        endProgress: 0.50,
+      ),
+      ExercisePhase(
+        phaseNumber: 3,
+        title: 'Bottom Hold',
+        description:
+            'Hold momentarily ensuring heels remain firmly planted on the floor.',
+        startProgress: 0.50,
+        endProgress: 0.60,
+      ),
+      ExercisePhase(
+        phaseNumber: 4,
+        title: 'Return to Stand',
+        description:
+            'Drive through your heels to return smoothly to an upright standing posture.',
+        startProgress: 0.60,
+        endProgress: 0.95,
+      ),
+      ExercisePhase(
+        phaseNumber: 5,
+        title: 'Full Extension',
+        description:
+            'Stand tall with knees unlocked before beginning next rep.',
+        startProgress: 0.95,
+        endProgress: 1.0,
+      ),
+    ],
+    keyTips: const [
+      'Avoid letting knees cave inward or bow outward.',
+      'Keep your chest lifted and avoid excessive forward torso lean.',
+      'Keep heels pressed firmly into the ground.',
+    ],
+    painterBuilder: (progress, {bool isDark = true}) =>
+        ShoulderRotationPainter(progress: progress, isDark: isDark),
+  );
+
+  // ============================================================
+  // 7. SEATED KNEE EXTENSION
+  // ============================================================
+
+  static final ExerciseDemoConfig
+  _seatedKneeExtensionConfig = ExerciseDemoConfig(
+    exerciseId: kSeatedKneeExtension,
+    displayName: 'Seated Knee Extension',
+    isWorkInProgress: false,
+    phases: const [
+      ExercisePhase(
+        phaseNumber: 1,
+        title: 'Starting Position',
+        description:
+            'Sit upright in a firm chair with back supported and knees bent at 90 degrees.',
+        startProgress: 0.0,
+        endProgress: 0.20,
+      ),
+      ExercisePhase(
+        phaseNumber: 2,
+        title: 'Straightening Leg',
+        description:
+            'Slowly straighten your knee, lifting your lower leg toward horizontal.',
+        startProgress: 0.20,
+        endProgress: 0.50,
+      ),
+      ExercisePhase(
+        phaseNumber: 3,
+        title: 'Terminal Extension',
+        description:
+            'Hold at full pain-free extension, engaging the quadriceps muscle.',
+        startProgress: 0.50,
+        endProgress: 0.60,
+      ),
+      ExercisePhase(
+        phaseNumber: 4,
+        title: 'Controlled Lowering',
+        description:
+            'Lower foot back down under control to the resting position.',
+        startProgress: 0.60,
+        endProgress: 0.95,
+      ),
+      ExercisePhase(
+        phaseNumber: 5,
+        title: 'Rest Position',
+        description: 'Pause before starting the next repetition.',
+        startProgress: 0.95,
+        endProgress: 1.0,
+      ),
+    ],
+    keyTips: const [
+      'Maintain an upright spine without slouching or rocking backward.',
+      'Do not lift your thigh off the chair surface.',
+      'Achieve steady, controlled terminal extension.',
+    ],
+    painterBuilder: (progress, {bool isDark = true}) =>
+        ElbowFlexionPainter(progress: progress, isDark: isDark),
+  );
+
+  // ============================================================
+  // 8. STRAIGHT LEG RAISE
+  // ============================================================
+
+  static final ExerciseDemoConfig _straightLegRaiseConfig = ExerciseDemoConfig(
+    exerciseId: kStraightLegRaise,
+    displayName: 'Straight Leg Raise',
+    isWorkInProgress: false,
+    phases: const [
+      ExercisePhase(
+        phaseNumber: 1,
+        title: 'Starting Position',
+        description:
+            'Lie flat on back with opposite knee bent and foot flat on the floor.',
+        startProgress: 0.0,
+        endProgress: 0.20,
+      ),
+      ExercisePhase(
+        phaseNumber: 2,
+        title: 'Straight Leg Lift',
+        description:
+            'Lock your knee straight and lift the entire leg to approximately 30-45 degrees.',
+        startProgress: 0.20,
+        endProgress: 0.50,
+      ),
+      ExercisePhase(
+        phaseNumber: 3,
+        title: 'Peak Elevation',
+        description:
+            'Hold momentarily at the top height, keeping your pelvis flat on the mat.',
+        startProgress: 0.50,
+        endProgress: 0.60,
+      ),
+      ExercisePhase(
+        phaseNumber: 4,
+        title: 'Slow Descent',
+        description: 'Lower your straight leg steadily back to the surface.',
+        startProgress: 0.60,
+        endProgress: 0.95,
+      ),
+      ExercisePhase(
+        phaseNumber: 5,
+        title: 'Neutral Rest',
+        description: 'Pause briefly before starting the next repetition.',
+        startProgress: 0.95,
+        endProgress: 1.0,
+      ),
+    ],
+    keyTips: const [
+      'Keep the exercising knee completely straight throughout the lift.',
+      'Do not lift your head or arch your lower back off the floor.',
+      'Move with a slow, controlled cadence.',
+    ],
+    painterBuilder: (progress, {bool isDark = true}) =>
+        AssistedElbowFlexionPainter(progress: progress, isDark: isDark),
+  );
+
+  // ============================================================
+  // 9. TERMINAL KNEE EXTENSION
+  // ============================================================
+
+  static final ExerciseDemoConfig
+  _terminalKneeExtensionConfig = ExerciseDemoConfig(
+    exerciseId: kTerminalKneeExtension,
+    displayName: 'Terminal Knee Extension',
+    isWorkInProgress: false,
+    phases: const [
+      ExercisePhase(
+        phaseNumber: 1,
+        title: 'Starting Position',
+        description:
+            'Lie on back with a bolster or rolled towel supporting under the knee.',
+        startProgress: 0.0,
+        endProgress: 0.20,
+      ),
+      ExercisePhase(
+        phaseNumber: 2,
+        title: 'Heel Elevation',
+        description:
+            'Straighten your knee by lifting your heel off the mat while keeping thigh firmly on bolster.',
+        startProgress: 0.20,
+        endProgress: 0.50,
+      ),
+      ExercisePhase(
+        phaseNumber: 3,
+        title: 'Peak Lockout',
+        description:
+            'Hold at maximum terminal knee extension, activating the inner quadriceps (VMO).',
+        startProgress: 0.50,
+        endProgress: 0.60,
+      ),
+      ExercisePhase(
+        phaseNumber: 4,
+        title: 'Controlled Descent',
+        description: 'Lower the heel back to the bed smoothly.',
+        startProgress: 0.60,
+        endProgress: 0.95,
+      ),
+      ExercisePhase(
+        phaseNumber: 5,
+        title: 'Rest',
+        description: 'Pause momentarily before the next repetition.',
+        startProgress: 0.95,
+        endProgress: 1.0,
+      ),
+    ],
+    keyTips: const [
+      'Keep the back of your thigh pressed firmly against the bolster.',
+      'Only the lower leg and heel should move.',
+      'Focus on full, pain-free knee extension.',
+    ],
+    painterBuilder: (progress, {bool isDark = true}) =>
+        ElbowFlexionPainter(progress: progress, isDark: isDark),
+  );
+
+  // ============================================================
+  // 10. SQUAT
+  // ============================================================
+
+  static final ExerciseDemoConfig _squatConfig = ExerciseDemoConfig(
+    exerciseId: kSquat,
+    displayName: 'Squat',
+    isWorkInProgress: false,
+    phases: const [
+      ExercisePhase(
+        phaseNumber: 1,
+        title: 'Starting Position',
+        description:
+            'Stand with feet shoulder-width apart, arms forward for balance, chest high.',
+        startProgress: 0.0,
+        endProgress: 0.20,
+      ),
+      ExercisePhase(
+        phaseNumber: 2,
+        title: 'Descent',
+        description:
+            'Hinge hips back and bend knees, sitting down and back with knees tracking over toes.',
+        startProgress: 0.20,
+        endProgress: 0.50,
+      ),
+      ExercisePhase(
+        phaseNumber: 3,
+        title: 'Bottom Depth',
+        description:
+            'Pause at parallel or target depth keeping spine neutral and heels grounded.',
+        startProgress: 0.50,
+        endProgress: 0.60,
+      ),
+      ExercisePhase(
+        phaseNumber: 4,
+        title: 'Ascent',
+        description:
+            'Push through heels and midfoot to return upward with upright torso.',
+        startProgress: 0.60,
+        endProgress: 0.95,
+      ),
+      ExercisePhase(
+        phaseNumber: 5,
+        title: 'Stand Tall',
+        description:
+            'Finish upright with hips and knees extended before the next repetition.',
+        startProgress: 0.95,
+        endProgress: 1.0,
+      ),
+    ],
+    keyTips: const [
+      'Push knees outward to prevent valgus cave.',
+      'Keep chest up and avoid excessive forward torso lean.',
+      'Keep whole foot flat and grounded throughout.',
+    ],
+    painterBuilder: (progress, {bool isDark = true}) =>
+        ShoulderRotationPainter(progress: progress, isDark: isDark),
   );
 
   // ============================================================

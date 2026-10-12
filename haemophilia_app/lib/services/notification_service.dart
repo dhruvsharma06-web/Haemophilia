@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import '../config/backend_config.dart';
 
 import '../models/user_model.dart';
 import '../screens/doctor/doctor_messages.dart';
@@ -346,8 +347,7 @@ class NotificationService {
 
     // 2. Dispatch to backend notification endpoint (FastAPI) for FCM push delivery
     try {
-      const backendUrl =
-          'https://lessons-family-councils-obvious.trycloudflare.com/v1/notifications/send';
+      final backendUrl = BackendConfig.sendNotificationUrl;
 
       final response = await http
           .post(

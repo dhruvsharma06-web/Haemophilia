@@ -1,4 +1,4 @@
-fastapi
+﻿fastapi
 uvicorn[standard]
 python-multipart
 opencv-python
@@ -7,3 +7,5 @@ numpy
 torch
 pytest
 httpx
+scikit-learn
+joblib

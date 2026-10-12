@@ -3,9 +3,10 @@ import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
+import '../config/backend_config.dart';
+
 class ApiService {
-  static const String baseUrl =
-      'https://lessons-family-councils-obvious.trycloudflare.com';
+  static String get baseUrl => BackendConfig.baseUrl;
 
   Future<Map<String, dynamic>> assessVideo({
     required Uint8List videoBytes,
