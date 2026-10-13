@@ -43,17 +43,13 @@ class _AssignExercisesScreenState extends State<AssignExercisesScreen> {
   // ============================================================
 
   final Map<String, bool> _selected = {
-    kAssistedShoulderFlexion: true,
-    kShoulderRotation: false,
-    kAssistedElbowFlexionV5: false,
-    kElbowFlexionExtension: false,
+    for (final exercise in kAllExercises)
+      exercise.id: exercise.id == kAssistedShoulderFlexion,
   };
 
   final Map<String, TextEditingController> _repControllers = {
-    kAssistedShoulderFlexion: TextEditingController(text: '10'),
-    kShoulderRotation: TextEditingController(text: '10'),
-    kAssistedElbowFlexionV5: TextEditingController(text: '10'),
-    kElbowFlexionExtension: TextEditingController(text: '10'),
+    for (final exercise in kAllExercises)
+      exercise.id: TextEditingController(text: '10'),
   };
 
   bool _saving = false;
@@ -541,12 +537,7 @@ class _AssignExercisesScreenState extends State<AssignExercisesScreen> {
 
     final selectedExercises = <Map<String, dynamic>>[];
 
-    final exerciseOrder = [
-      kAssistedShoulderFlexion,
-      kShoulderRotation,
-      kAssistedElbowFlexionV5,
-      kElbowFlexionExtension,
-    ];
+    final exerciseOrder = kAllExercises.map((exercise) => exercise.id);
 
     for (final exercise in exerciseOrder) {
       if (_selected[exercise] != true) {
@@ -979,13 +970,8 @@ class _AssignExercisesScreenState extends State<AssignExercisesScreen> {
 
                   const SizedBox(height: 18),
 
-                  _exerciseCard(kAssistedShoulderFlexion),
-
-                  _exerciseCard(kShoulderRotation),
-
-                  _exerciseCard(kAssistedElbowFlexionV5),
-
-                  _exerciseCard(kElbowFlexionExtension),
+                  for (final exercise in kAllExercises)
+                    _exerciseCard(exercise.id),
 
                   const SizedBox(height: 12),
 

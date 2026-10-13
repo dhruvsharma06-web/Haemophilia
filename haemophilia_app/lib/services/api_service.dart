@@ -14,6 +14,8 @@ class ApiService {
     final version = switch (id) {
       kAssistedElbowFlexionV5 => 'SVM_V5_Controller_V6_Telemetry2',
       kElbowFlexionExtension => 'Elbow_LSTM_V4_22F',
+      kHeelSlide || kMiniSquat || kSeatedKneeExtension || kStraightLegRaise ||
+      kTerminalKneeExtension || kSquat => 'LowerBody_Rules_v1',
       _ => null,
     };
     if (version == null) return;

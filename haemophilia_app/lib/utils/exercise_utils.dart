@@ -2,12 +2,20 @@ import 'package:flutter/material.dart';
 
 import 'app_localizations.dart';
 
-// Canonical exercise identifiers
+// Canonical exercise identifiers - Upper Body (existing)
 const String kAssistedShoulderFlexion = 'assisted_shoulder_flexion';
 const String kShoulderRotation = 'shoulder_rotation';
 const String kAssistedElbowFlexion = 'assisted_elbow_flexion';
 const String kAssistedElbowFlexionV5 = 'assisted_elbow_flexion_v5';
 const String kElbowFlexionExtension = 'elbow_flexion_extension';
+
+// Canonical exercise identifiers - Lower Body (integrated)
+const String kHeelSlide = 'heel_slide';
+const String kMiniSquat = 'mini_squat';
+const String kSeatedKneeExtension = 'seated_knee_extension';
+const String kStraightLegRaise = 'straight_leg_raise';
+const String kTerminalKneeExtension = 'terminal_knee_extension';
+const String kSquat = 'squat';
 
 /// Metadata for an exercise in the Haemophilia physiotherapy catalog.
 class ExerciseMetadata {
@@ -34,6 +42,7 @@ class ExerciseMetadata {
 
 /// Catalog of supported exercises and model variants
 const List<ExerciseMetadata> kAllExercises = [
+  // Upper-body exercises
   ExerciseMetadata(
     id: kAssistedShoulderFlexion,
     displayName: 'Assisted Shoulder Flexion with Bar',
@@ -42,7 +51,7 @@ const List<ExerciseMetadata> kAllExercises = [
     description: 'Two-handed bar elevation exercise targeting shoulder mobility and joint preservation.',
     icon: Icons.accessibility_new_rounded,
     isWorkInProgress: false,
-    statusLabel: 'Clinically Validated',
+    statusLabel: 'Movement feedback',
   ),
   ExerciseMetadata(
     id: kShoulderRotation,
@@ -72,7 +81,68 @@ const List<ExerciseMetadata> kAllExercises = [
     description: 'Smooth, controlled elbow bending and extension throughout comfortable pain-free range.',
     icon: Icons.fitness_center_rounded,
     isWorkInProgress: false,
-    statusLabel: 'Clinically Validated',
+    statusLabel: 'Movement feedback',
+  ),
+  // Lower-body exercises
+  ExerciseMetadata(
+    id: kHeelSlide,
+    displayName: 'Heel Slide',
+    shortName: 'Heel Slide',
+    targetJoint: 'Knee / Hip Joint',
+    description: 'Supine knee flexion and extension sliding the heel along the surface to restore knee range of motion.',
+    icon: Icons.airline_seat_legroom_extra_rounded,
+    isWorkInProgress: false,
+    statusLabel: 'Experimental movement feedback',
+  ),
+  ExerciseMetadata(
+    id: kMiniSquat,
+    displayName: 'Mini Squat',
+    shortName: 'Mini Squat',
+    targetJoint: 'Knee / Quads',
+    description: 'Controlled shallow squat assessing knee varus/valgus alignment, heel contact, and knee displacement.',
+    icon: Icons.downhill_skiing_rounded,
+    isWorkInProgress: false,
+    statusLabel: 'Experimental movement feedback',
+  ),
+  ExerciseMetadata(
+    id: kSeatedKneeExtension,
+    displayName: 'Seated Knee Extension',
+    shortName: 'Seated Knee Ext',
+    targetJoint: 'Quadriceps / Knee',
+    description: 'Seated knee extension strengthening quadriceps with posture monitoring for slouching and trunk rocking.',
+    icon: Icons.event_seat_rounded,
+    isWorkInProgress: false,
+    statusLabel: 'Experimental movement feedback',
+  ),
+  ExerciseMetadata(
+    id: kStraightLegRaise,
+    displayName: 'Straight Leg Raise',
+    shortName: 'Straight Leg Raise',
+    targetJoint: 'Hip Flexors / Quads',
+    description: 'Supine straight leg elevation maintaining complete knee extension while monitoring hip and head lifting.',
+    icon: Icons.accessibility_rounded,
+    isWorkInProgress: false,
+    statusLabel: 'Experimental movement feedback',
+  ),
+  ExerciseMetadata(
+    id: kTerminalKneeExtension,
+    displayName: 'Terminal Knee Extension',
+    shortName: 'Terminal Knee Ext',
+    targetJoint: 'Knee / VMO',
+    description: 'Supine knee extension over a bolster to isolate terminal vastus medialis obliquus extension.',
+    icon: Icons.airline_seat_flat_rounded,
+    isWorkInProgress: false,
+    statusLabel: 'Experimental movement feedback',
+  ),
+  ExerciseMetadata(
+    id: kSquat,
+    displayName: 'Squat',
+    shortName: 'Squat',
+    targetJoint: 'Lower Body / Hips / Knees',
+    description: 'Full functional squat evaluating depth, knee tracking, torso lean, heel lift, and lumbar posture.',
+    icon: Icons.directions_run_rounded,
+    isWorkInProgress: false,
+    statusLabel: 'Experimental movement feedback',
   ),
 ];
 
@@ -87,6 +157,48 @@ String normalizeExerciseId(String? exercise) {
       .replaceAll(' ', '_')
       .replaceAll('-', '_');
 
+  // Lower-body exercises
+  if (normalized == 'heel_slide' ||
+      normalized == 'heel_slides' ||
+      normalized.contains('heel_slide')) {
+    return kHeelSlide;
+  }
+
+  if (normalized == 'mini_squat' ||
+      normalized == 'mini_squats' ||
+      normalized.contains('mini_squat')) {
+    return kMiniSquat;
+  }
+
+  if (normalized == 'seated_knee_extension' ||
+      normalized == 'seated_knee_extensions' ||
+      normalized == 'seated_leg_extension' ||
+      normalized == 'seated_leg_extensions' ||
+      (normalized.contains('seated') && normalized.contains('knee'))) {
+    return kSeatedKneeExtension;
+  }
+
+  if (normalized == 'straight_leg_raise' ||
+      normalized == 'straight_leg_raises' ||
+      normalized == 'slr' ||
+      (normalized.contains('straight') && normalized.contains('leg'))) {
+    return kStraightLegRaise;
+  }
+
+  if (normalized == 'terminal_knee_extension' ||
+      normalized == 'terminal_knee_extensions' ||
+      normalized == 'tke' ||
+      (normalized.contains('terminal') && normalized.contains('knee'))) {
+    return kTerminalKneeExtension;
+  }
+
+  if (normalized == 'squat' ||
+      normalized == 'squats' ||
+      normalized.contains('squat')) {
+    return kSquat;
+  }
+
+  // Upper-body exercises
   if (normalized == 'assisted_shoulder_flexion' ||
       normalized == 'assisted_shoulder_flexion_with_bar' ||
       normalized.startsWith('assisted_shoulder_flexion') ||
@@ -122,6 +234,9 @@ bool isWorkInProgressExercise(String? exerciseName) {
   if (exerciseName == null || exerciseName.trim().isEmpty) return false;
   final canonical = normalizeExerciseId(exerciseName);
 
+  if (kAllExercises.any((exercise) => exercise.id == canonical)) return false;
+
+  // Legacy aliases remain supported.
   if (canonical == kAssistedShoulderFlexion ||
       canonical == kAssistedElbowFlexion ||
       canonical == kAssistedElbowFlexionV5 ||
@@ -150,6 +265,18 @@ String getExerciseDisplayName(String? exercise) {
       return 'Assisted Elbow Flexion';
     case kElbowFlexionExtension:
       return 'Elbow Flexion & Extension';
+    case kHeelSlide:
+      return 'Heel Slide';
+    case kMiniSquat:
+      return 'Mini Squat';
+    case kSeatedKneeExtension:
+      return 'Seated Knee Extension';
+    case kStraightLegRaise:
+      return 'Straight Leg Raise';
+    case kTerminalKneeExtension:
+      return 'Terminal Knee Extension';
+    case kSquat:
+      return 'Squat';
     default:
       return exercise;
   }
@@ -168,6 +295,18 @@ IconData getExerciseIcon(String? exercise) {
       return Icons.pan_tool_outlined;
     case kElbowFlexionExtension:
       return Icons.fitness_center_rounded;
+    case kHeelSlide:
+      return Icons.airline_seat_legroom_extra_rounded;
+    case kMiniSquat:
+      return Icons.downhill_skiing_rounded;
+    case kSeatedKneeExtension:
+      return Icons.event_seat_rounded;
+    case kStraightLegRaise:
+      return Icons.accessibility_rounded;
+    case kTerminalKneeExtension:
+      return Icons.airline_seat_flat_rounded;
+    case kSquat:
+      return Icons.directions_run_rounded;
     default:
       return Icons.fitness_center_rounded;
   }

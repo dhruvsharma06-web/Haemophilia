@@ -135,6 +135,9 @@ class AssessmentService:
                     # ---------------------------------------------
 
                     if results.pose_landmarks is None:
+                        if getattr(assessment, "uses_timestamps", False):
+                            assessment.process_frame(frame, None, frame_number=frame_number,
+                                                     timestamp_sec=frame_number / fps)
                         continue
 
                     # ---------------------------------------------

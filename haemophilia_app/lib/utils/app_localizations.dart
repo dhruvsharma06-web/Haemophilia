@@ -1,4 +1,5 @@
 import '../services/local_test_config.dart';
+import 'lower_body_translations.dart';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
@@ -84,6 +85,7 @@ String tr(String key, [BuildContext? context]) {
     AppLocaleScope.of(context);
   }
   if (!AppLocaleService.isHindi) return key;
+  if (lowerBodyHindi.containsKey(key.trim())) return lowerBodyHindi[key.trim()]!;
   if (_hindiTranslations.containsKey(key)) {
     return _hindiTranslations[key]!;
   }
@@ -275,6 +277,30 @@ class LanguageToggleButton extends StatelessWidget {
 /// Natural and readable Hindi translations dictionary.
 /// Technical names, usernames, exercise identifiers and numeric scores remain untranslated.
 const Map<String, String> _hindiTranslations = {
+  'Heel Slide': 'एड़ी खिसकाना',
+  'Mini Squat': 'हल्का स्क्वाट',
+  'Seated Knee Extension': 'बैठकर घुटना सीधा करना',
+  'Seated Knee Ext': 'बैठकर घुटना सीधा करना',
+  'Straight Leg Raise': 'सीधा पैर उठाना',
+  'Terminal Knee Extension': 'सहारे पर घुटना सीधा करना',
+  'Terminal Knee Ext': 'सहारे पर घुटना सीधा करना',
+  'Squat': 'स्क्वाट',
+  'Experimental movement feedback': 'प्रायोगिक गतिविधि प्रतिक्रिया',
+  'Movement feedback': 'गतिविधि प्रतिक्रिया',
+  'Knee / Hip Joint': 'घुटना / कूल्हा',
+  'Knee / Quads': 'घुटना / जांघ की मांसपेशियां',
+  'Quadriceps / Knee': 'जांघ की मांसपेशियां / घुटना',
+  'Hip Flexors / Quads': 'कूल्हे / जांघ की मांसपेशियां',
+  'Knee / VMO': 'घुटना / जांघ की अंदरूनी मांसपेशी',
+  'Lower Body / Hips / Knees': 'निचला शरीर / कूल्हे / घुटने',
+  'Supine knee flexion and extension sliding the heel along the surface to restore knee range of motion.': 'लेटकर एड़ी को सतह पर खिसकाते हुए घुटना मोड़ें और सीधा करें।',
+  'Controlled shallow squat assessing knee varus/valgus alignment, heel contact, and knee displacement.': 'हल्का स्क्वाट करते समय घुटनों की दिशा और एड़ियों के संपर्क पर नज़र रखें।',
+  'Seated knee extension strengthening quadriceps with posture monitoring for slouching and trunk rocking.': 'बैठकर घुटना सीधा करते समय शरीर की मुद्रा स्थिर रखें।',
+  'Supine straight leg elevation maintaining complete knee extension while monitoring hip and head lifting.': 'लेटकर सीधा पैर उठाते समय घुटने, कूल्हे और सिर की स्थिति पर नज़र रखें।',
+  'Supine knee extension over a bolster to isolate terminal vastus medialis obliquus extension.': 'लेटकर घुटने के नीचे सहारा रखकर घुटना सीधा करें।',
+  'Full functional squat evaluating depth, knee tracking, torso lean, heel lift, and lumbar posture.': 'डॉक्टर द्वारा बताई सीमा में स्क्वाट करें और घुटनों, एड़ियों तथा धड़ की मुद्रा पर नज़र रखें।',
+  'Show your shoulder, hip, knee and ankle clearly, then return to the starting position.': 'कंधा, कूल्हा, घुटना और टखना कैमरे में स्पष्ट दिखाएं, फिर शुरुआती स्थिति में लौटें।',
+  'Movement timed out. Return to your starting position.': 'गतिविधि का समय समाप्त हुआ। शुरुआती स्थिति में लौटें।',
   'Mark all as read': 'सभी सूचनाएँ पढ़ी हुई करें',
   'Available for 1 hour from the scheduled start time.':
       'सत्र के निर्धारित समय से 1 घंटे तक उपलब्ध।',

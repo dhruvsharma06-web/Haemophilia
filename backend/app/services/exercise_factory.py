@@ -16,6 +16,13 @@ def create_assessment(exercise: str, save_artifacts: bool = True, fps: float = 2
         .replace(" ", "_")
     )
 
+    from src.exercises.lower_body.lower_body_assessment import (
+        LowerBodyAssessment, canonicalize_lower_body_id,
+    )
+    lower_body = canonicalize_lower_body_id(exercise_normalized)
+    if lower_body:
+        return LowerBodyAssessment(lower_body, fps=fps)
+
     if 'assisted_elbow' in exercise_normalized:
         from src.exercises.assisted_elbow_v5_assessment import AssistedElbowV5Assessment
         model, device = model_registry.get_assisted_elbow_v5()
