@@ -1,4 +1,5 @@
 import '../../services/local_test_config.dart';
+import '../../utils/movement_feedback.dart';
 import '../../utils/firebase_errors.dart';
 import '../../widgets/app_text.dart';
 
@@ -882,10 +883,11 @@ class _SessionStatsGrid extends StatelessWidget {
                 label: tr('Average Duration'),
                 value: '${session.averageDuration.toStringAsFixed(1)}s',
               ),
-              _StatTile(
-                label: tr('AI Confidence'),
-                value: '${session.averageConfidence.toStringAsFixed(0)}%',
-              ),
+              if (session.repsData.any((rep) => rep['confidence'] != null))
+                _StatTile(
+                  label: tr('AI Confidence'),
+                  value: '${session.averageConfidence.toStringAsFixed(0)}%',
+                ),
             ];
 
             final columns = constraints.maxWidth >= 700 ? 3 : 2;
@@ -1023,21 +1025,8 @@ class _RepCard extends StatelessWidget {
   const _RepCard({required this.data, required this.fallbackRepNumber});
 
   String _formatPatientError(String error) {
-    final upper = error.toUpperCase().trim();
-    switch (upper) {
-      case 'RIGHT_ARM_LOW':
-        return 'Keep both arms level during the movement.';
-      case 'LEFT_ARM_LOW':
-        return 'Keep both arms level during the movement.';
-      case 'ARM_ASYMMETRY':
-        return 'Raise both arms with even height and symmetry.';
-      case 'BODY_TILT':
-        return 'Keep your torso upright and avoid leaning.';
-      case 'GENERAL_FORM_ERROR':
-        return 'Maintain steady posture through the full movement.';
-      default:
-        return error.replaceAll('_', ' ').toLowerCase();
-    }
+    return movementCorrection(error, hindi: AppLocaleService.isHindi) ??
+        movementErrorLabel(error, hindi: AppLocaleService.isHindi);
   }
 
   @override

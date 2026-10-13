@@ -1,4 +1,5 @@
 import '../../widgets/app_text.dart';
+import '../../utils/movement_feedback.dart';
 
 import 'package:flutter/material.dart';
 
@@ -112,12 +113,11 @@ class DoctorSessionDetail extends StatelessWidget {
                 tr('Avg duration'),
                 '${session.averageDuration.toStringAsFixed(1)}s',
               ),
-              _Stat(
-                tr('AI confidence'),
-                session.repsData.any((rep) => rep['confidence'] != null)
-                    ? '${session.averageConfidence.toStringAsFixed(1)}%'
-                    : '—',
-              ),
+              if (session.repsData.any((rep) => rep['confidence'] != null))
+                _Stat(
+                  tr('AI confidence'),
+                  '${session.averageConfidence.toStringAsFixed(1)}%',
+                ),
             ],
           ),
 
@@ -248,12 +248,8 @@ class _RepReview extends StatelessWidget {
                   tr('DURATION'),
                   '${_num(d['duration']).toStringAsFixed(1)}s',
                 ),
-                _M(
-                  tr('AI'),
-                  d['confidence'] == null
-                      ? '—'
-                      : '${_num(d['confidence']).toStringAsFixed(1)}%',
-                ),
+                if (d['confidence'] != null)
+                  _M(tr('AI'), '${_num(d['confidence']).toStringAsFixed(1)}%'),
               ],
             ),
 
@@ -306,8 +302,10 @@ class _RepReview extends StatelessWidget {
               const SizedBox(height: 13),
 
               Text(
-                d['errorType']?.toString().replaceAll('_', ' ').toUpperCase() ??
-                    '',
+                movementErrorLabel(
+                  d['errorType']?.toString(),
+                  hindi: AppLocaleService.isHindi,
+                ),
                 style: TextStyle(
                   color: Colors.red.shade700,
                   fontWeight: FontWeight.w800,
@@ -318,7 +316,7 @@ class _RepReview extends StatelessWidget {
               const SizedBox(height: 4),
 
               Text(
-                d['feedback']?.toString() ?? '',
+                tr(d['feedback']?.toString() ?? ''),
                 style: TextStyle(color: Colors.grey.shade700, height: 1.35),
               ),
             ],

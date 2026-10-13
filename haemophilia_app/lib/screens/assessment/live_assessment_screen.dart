@@ -8,17 +8,15 @@ import 'dart:math' as math;
 
 import 'package:camera/camera.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 import '../../widgets/session_safety_dialog.dart';
 
-import 'package:image/image.dart' as img;
-import 'package:web_socket_channel/io.dart';
-import 'package:web_socket_channel/web_socket_channel.dart';
-
 import '../../services/assessment_history_service.dart';
-import '../../services/api_service.dart';
+import '../../services/local_pose_service.dart';
+import '../../services/exercise_rules.dart';
+import '../../widgets/exercise_thresholds.dart';
 import '../../services/session_lifecycle_service.dart';
 import '../../utils/schedule_utils.dart';
 import '../../widgets/session_deadline.dart';
@@ -31,124 +29,6 @@ import '../../widgets/exercise_demo/exercise_demo_dialog.dart';
 // ================================================================
 // BACKGROUND ISOLATE FRAME CONVERSION (ULTRA-FAST YUV420 -> JPEG)
 // ================================================================
-
-class _CameraFrameData {
-  final Uint8List yBytes;
-  final Uint8List uBytes;
-  final Uint8List vBytes;
-  final int width;
-  final int height;
-  final int yRowStride;
-  final int uRowStride;
-  final int vRowStride;
-  final int uPixelStride;
-  final int vPixelStride;
-  final int sensorOrientation;
-  final bool isFrontCamera;
-
-  const _CameraFrameData({
-    required this.yBytes,
-    required this.uBytes,
-    required this.vBytes,
-    required this.width,
-    required this.height,
-    required this.yRowStride,
-    required this.uRowStride,
-    required this.vRowStride,
-    required this.uPixelStride,
-    required this.vPixelStride,
-    required this.sensorOrientation,
-    required this.isFrontCamera,
-  });
-}
-
-Uint8List? _convertFrameToJpegIsolate(_CameraFrameData data) {
-  try {
-    const int step = 2; // Downscale by 2 for lightweight MediaPipe input (e.g. 640x480 -> 240x320)
-    final int srcW = data.width;
-    final int srcH = data.height;
-
-    // Sensor frame is in landscape. Determine rotation needed to produce
-    // an upright portrait image for MediaPipe.
-    // On Android:
-    // - Front camera sensorOrientation is typically 270 degrees (requires 270° clockwise rotation)
-    // - Back camera sensorOrientation is typically 90 degrees (requires 90° clockwise rotation)
-    final int rotation = data.sensorOrientation % 360;
-    final bool rotate90or270 = (rotation == 90 || rotation == 270);
-    final int outW = (rotate90or270 ? srcH : srcW) ~/ step;
-    final int outH = (rotate90or270 ? srcW : srcH) ~/ step;
-
-    final img.Image rgbImage = img.Image(width: outW, height: outH);
-
-    final Uint8List yBytes = data.yBytes;
-    final Uint8List uBytes = data.uBytes;
-    final Uint8List vBytes = data.vBytes;
-
-    final int yRowStride = data.yRowStride;
-    final int uRowStride = data.uRowStride;
-    final int vRowStride = data.vRowStride;
-    final int uPixelStride = data.uPixelStride;
-    final int vPixelStride = data.vPixelStride;
-
-    for (int srcY = 0; srcY < srcH; srcY += step) {
-      final int yRowStart = srcY * yRowStride;
-      final int uvRow = srcY ~/ 2;
-      final int uRowStart = uvRow * uRowStride;
-      final int vRowStart = uvRow * vRowStride;
-
-      final int scaledY = srcY ~/ step;
-
-      for (int srcX = 0; srcX < srcW; srcX += step) {
-        final int yIndex = yRowStart + srcX;
-        final int uvCol = srcX ~/ 2;
-        final int uIndex = uRowStart + uvCol * uPixelStride;
-        final int vIndex = vRowStart + uvCol * vPixelStride;
-
-        final int yVal = yBytes[yIndex];
-        final int uVal = uBytes[uIndex] - 128;
-        final int vVal = vBytes[vIndex] - 128;
-
-        // Fast integer YUV to RGB approximation
-        final int r = (yVal + ((1436 * vVal) >> 10)).clamp(0, 255);
-        final int g = (yVal - ((352 * uVal + 731 * vVal) >> 10)).clamp(0, 255);
-        final int b = (yVal + ((1815 * uVal) >> 10)).clamp(0, 255);
-
-        final int scaledX = srcX ~/ step;
-
-        final int tgtX;
-        final int tgtY;
-        switch (rotation) {
-          case 270:
-            // 270 degrees clockwise: (x, y) -> (y, (outH - 1) - x)
-            tgtX = scaledY;
-            tgtY = (outH - 1) - scaledX;
-            break;
-          case 90:
-            // 90 degrees clockwise: (x, y) -> ((outW - 1) - y, x)
-            tgtX = (outW - 1) - scaledY;
-            tgtY = scaledX;
-            break;
-          case 180:
-            // 180 degrees: (x, y) -> ((outW - 1) - x, (outH - 1) - y)
-            tgtX = (outW - 1) - scaledX;
-            tgtY = (outH - 1) - scaledY;
-            break;
-          default:
-            // 0 degrees: (x, y) -> (x, y)
-            tgtX = scaledX;
-            tgtY = scaledY;
-            break;
-        }
-
-        rgbImage.setPixelRgb(tgtX, tgtY, r, g, b);
-      }
-    }
-
-    return Uint8List.fromList(img.encodeJpg(rgbImage, quality: 60));
-  } catch (_) {
-    return null;
-  }
-}
 
 class LiveAssessmentScreen extends StatefulWidget {
   final String exerciseName;
@@ -198,9 +78,7 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
   // CONFIGURATION
   // ============================================================
 
-  static final String websocketUrl = BackendConfig.liveAssessmentUri.toString();
-
-  static const Duration frameInterval = Duration(milliseconds: 50);
+  static const Duration frameInterval = Duration(milliseconds: 66);
 
   // ============================================================
   // CAMERA
@@ -214,16 +92,22 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
   bool _streaming = false;
 
   // ============================================================
-  // WEBSOCKET
+  // ON-DEVICE TRACKING
   // ============================================================
 
-  WebSocketChannel? _channel;
-  StreamSubscription? _socketSubscription;
+  final LocalPoseService _poseService = LocalPoseService();
+  ExerciseRulesAssessment? _rules;
+  final Stopwatch _assessmentClock = Stopwatch()..start();
+  int _poseGeneration = 0;
+  double _processingIntervalMs = 66;
+  int _processedPoses = 0;
+  double _poseTimeTotalMs = 0;
+  int _timedFrames = 0, _slowFrames = 0;
+  double _worstFrameMs = 0;
+  String? _repReviewFrame;
 
-  bool _socketConnecting = false;
-  bool _socketConnected = false;
-  Timer? _reconnectTimer;
-  int _reconnectAttempts = 0;
+  bool _assessmentStarting = false;
+  bool _assessmentReady = false;
   late final AnimationController _poseAnimation;
   List<LiveLandmark> _poseFrom = [];
   List<LiveLandmark> _poseTo = [];
@@ -231,39 +115,13 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
   double _poseIntervalMs = 80;
   String? _latestErrorFrame;
 
-  void _queueReconnect() {
-    if (!mounted ||
-        _isExitingOrSaving ||
-        _completed ||
-        _backgroundPaused ||
-        !_safetyAccepted ||
-        _reconnectTimer?.isActive == true ||
-        _reconnectAttempts >= 5) {
-      return;
-    }
-    _reconnectAttempts++;
-    _reconnectTimer = Timer(
-      Duration(seconds: _reconnectAttempts * 2),
-      () => unawaited(_retryConnection()),
-    );
-  }
-
   Future<void> _retryConnection() async {
     if (!mounted || _isExitingOrSaving || _completed || _backgroundPaused) {
       return;
     }
-    await _socketSubscription?.cancel();
-    _socketSubscription = null;
-    final oldChannel = _channel;
-    _channel = null;
-    try {
-      await oldChannel?.sink.close();
-    } catch (_) {}
-    _socketConnected = false;
-    _socketConnecting = false;
-    _inFlightFrames = 0;
-    await _connectWebSocket();
-    if (_socketConnected && mounted) {
+    await _stopLocalAssessment();
+    await _initializeLocalAssessment();
+    if (_assessmentReady && mounted) {
       try {
         if (!_sessionStarted) await _startActiveSessionInFirestore();
         if (!mounted) return;
@@ -281,18 +139,17 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
     }
   }
 
-  String _connectionStatus = 'Connecting...';
+  String _connectionStatus = 'Starting joint tracking...';
   String? _connectionError;
 
   // ============================================================
   // FRAME CONTROL & BACKPRESSURE
   // ============================================================
 
-  DateTime _lastAiFrameDispatched = DateTime.fromMillisecondsSinceEpoch(0);
+  DateTime _lastPoseDispatched = DateTime.fromMillisecondsSinceEpoch(0);
   bool _processingFrame = false;
-  int _inFlightFrames = 0;
   DateTime _lastStatsUpdated = DateTime.fromMillisecondsSinceEpoch(0);
-  String _lastBackendState = '';
+  String _lastMovementStage = '';
 
   // ============================================================
   // LIVE AI STATE & POSE NOTIFIERS
@@ -390,14 +247,12 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
     _terminalSession = true;
     _completed = true;
     _isExitingOrSaving = true;
-    _reconnectTimer?.cancel();
     _deadlineTimer?.cancel();
     try {
       if (_controller?.value.isStreamingImages == true) {
         await _controller!.stopImageStream();
       }
-      await _socketSubscription?.cancel();
-      await _channel?.sink.close();
+      await _stopLocalAssessment();
     } catch (e) {
       debugPrint('Stopping terminal session: $e');
     }
@@ -454,6 +309,7 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
   @override
   void initState() {
     super.initState();
+    SchedulerBinding.instance.addTimingsCallback(_recordFrameTimings);
     WidgetsBinding.instance.addObserver(this);
     _poseAnimation = AnimationController(vsync: this, duration: frameInterval)
       ..addListener(() {
@@ -593,7 +449,7 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
       }
       _safetyAccepted = true;
       await _initializeCamera();
-      await _connectWebSocket();
+      await _initializeLocalAssessment();
       await _startActiveSessionInFirestore();
 
       if (mounted) {
@@ -614,7 +470,7 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
             ? tr(e.message.toString())
             : firebaseErrorMessage(
                 e,
-                fallback: 'Could not connect to AI. Please try again.',
+                fallback: 'Could not start joint tracking. Please retry.',
               );
       });
     }
@@ -845,157 +701,65 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
   }
 
   // ============================================================
-  // WEBSOCKET CONNECTION
+  // ON-DEVICE TRACKING CONNECTION
   // ============================================================
 
-  Future<void> _connectWebSocket() async {
-    if (_socketConnecting || _socketConnected) {
-      return;
-    }
-
-    _socketConnecting = true;
-
+  Future<void> _initializeLocalAssessment() async {
+    if (_assessmentStarting || _assessmentReady) return;
+    _assessmentStarting = true;
     if (mounted) {
       setState(() {
-        _connectionStatus = 'Connecting to AI...';
+        _connectionStatus = 'Starting joint tracking...';
         _connectionError = null;
       });
     }
-
-    debugPrint('Connecting to WebSocket: $websocketUrl');
-
     try {
-      final currentEx = _assignedMode
-          ? _currentAssignedExercise()
-          : widget.exerciseName;
-      final parsedUri = Uri.parse(websocketUrl);
-      await ApiService().requireExerciseModel(currentEx);
-      final wsUri = parsedUri.replace(
-        queryParameters: {
-          ...parsedUri.queryParameters,
-          'exercise': currentEx,
-          'practice': (!_assignedMode).toString(),
-          'starting_hand': _currentCorrectReps.isOdd ? 'Right' : 'Left',
-        },
+      await _poseService.initialize();
+      if (!mounted || _terminalSession) return;
+      _rules = ExerciseRulesAssessment(
+        _currentAssignedExercise(),
+        hand: _currentCorrectReps.isOdd ? 'Right' : 'Left',
       );
-
-      final channel = IOWebSocketChannel.connect(
-        wsUri,
-        connectTimeout: const Duration(seconds: 10),
-      );
-
-      _channel = channel;
-
-      await channel.ready;
-
-      debugPrint('WebSocket connected successfully.');
-
-      _socketConnected = true;
-      _socketConnecting = false;
-      _reconnectTimer?.cancel();
-      _reconnectAttempts = 0;
-      _inFlightFrames = 0;
-
-      // If resuming at an exercise beyond index 0, tell backend AI to switch to it
-      if (_assignedMode && _currentAssignedIndex > 0) {
-        final currentEx = _currentAssignedExercise();
-        try {
-          channel.sink.add(
-            jsonEncode({
-              'type': 'switch_exercise',
-              'exercise': currentEx,
-              'starting_hand': _currentCorrectReps.isOdd ? 'Right' : 'Left',
-            }),
-          );
-          debugPrint('Resumed session: sent switch_exercise for $currentEx');
-        } catch (e) {
-          debugPrint('Failed to send switch_exercise on resume: $e');
-        }
-      }
-
+      _poseGeneration++;
+      _assessmentReady = true;
+      setState(() => _connectionStatus = 'On-device tracking');
+    } catch (error) {
+      _assessmentReady = false;
       if (mounted) {
-        setState(() {
-          _connectionStatus = 'AI Live';
-          _connectionError = null;
-        });
+        setState(
+          () => _connectionError = error is StateError
+              ? tr(error.message.toString())
+              : tr('Could not start joint tracking. Please retry.'),
+        );
       }
-
-      _socketSubscription = channel.stream.listen(
-        _handleSocketMessage,
-        onError: (error) {
-          if (_channel != channel) return;
-          debugPrint('WebSocket error: $error');
-
-          _socketConnected = false;
-          _socketConnecting = false;
-          _queueReconnect();
-
-          if (mounted) {
-            setState(() {
-              _connectionStatus = 'AI Connection Error';
-              _connectionError = error.toString();
-            });
-          }
-        },
-        onDone: () {
-          if (_channel != channel) return;
-          debugPrint('WebSocket connection closed.');
-
-          _socketConnected = false;
-          _socketConnecting = false;
-          _queueReconnect();
-
-          if (mounted) {
-            setState(() {
-              _connectionStatus = 'AI Disconnected';
-            });
-          }
-        },
-        cancelOnError: false,
-      );
-    } catch (e) {
-      debugPrint('WebSocket connection failed: $e');
-
-      _socketConnected = false;
-      _socketConnecting = false;
-      _queueReconnect();
-
-      if (mounted) {
-        setState(() {
-          _connectionStatus = 'AI Connection Failed';
-          _connectionError = e is StateError
-              ? tr(e.message.toString())
-              : firebaseErrorMessage(
-                  e,
-                  fallback: 'Could not connect to AI. Please try again.',
-                );
-        });
-      }
+    } finally {
+      _assessmentStarting = false;
     }
   }
 
+  Future<void> _stopLocalAssessment() async {
+    _poseGeneration++;
+    _assessmentReady = false;
+    _rules?.resetTracking();
+    _repReviewFrame = null;
+    await _poseService.reset();
+  }
+
   // ============================================================
-  // WEBSOCKET MESSAGE HANDLING
+  // ON-DEVICE TRACKING MESSAGE HANDLING
   // ============================================================
 
-  void _handleSocketMessage(dynamic message) {
+  void _handleAssessmentState(Map<String, dynamic> data) {
     if (_terminalSession) return;
     try {
-      if (message is! String) {
-        return;
-      }
-
-      final Map<String, dynamic> data =
-          jsonDecode(message) as Map<String, dynamic>;
-
       if (data['type'] == 'error') {
-        debugPrint('Backend error: ${data['message']}');
+        debugPrint('Assessment error: ${data['message']}');
 
         if (mounted) {
           setState(() {
-            _connectionStatus = 'AI Error';
+            _connectionStatus = 'Tracking error';
             _connectionError =
-                data['message']?.toString() ?? 'Unknown backend error';
+                data['message']?.toString() ?? 'Joint tracking unavailable';
           });
         }
 
@@ -1028,14 +792,9 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
       final completedRep = data['completed_rep'];
       final bool hasCompletedRep = completedRep is Map;
 
-      // Release backpressure immediately: backend has returned a response
-      if (_inFlightFrames > 0) {
-        _inFlightFrames--;
-      }
-
       // State transition debugging (only emits when state actually changes)
       final String backendState = data['state']?.toString().toUpperCase() ?? '';
-      if (backendState.isNotEmpty && backendState != _lastBackendState) {
+      if (backendState.isNotEmpty && backendState != _lastMovementStage) {
         if (backendState == 'RAISING') {
           debugPrint('[REP DEBUG] movement started');
         } else if (backendState == 'TOP') {
@@ -1043,7 +802,7 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
         } else if (backendState == 'LOWERING') {
           debugPrint('[REP DEBUG] movement returned');
         }
-        _lastBackendState = backendState;
+        _lastMovementStage = backendState;
       }
 
       if (_isExitingOrSaving || _backgroundPaused || _completed) return;
@@ -1131,7 +890,7 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
       final bool repCountChanged = newRepCount != _repCount;
       final now = DateTime.now();
       final bool throttleElapsed =
-          now.difference(_lastStatsUpdated).inMilliseconds >= 150;
+          now.difference(_lastStatsUpdated).inMilliseconds >= 250;
 
       _score = _toDouble(data['score']);
       _scoreAvailable = data['score'] is num && (data['score'] as num).isFinite;
@@ -1147,6 +906,15 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
           'return_completion',
           'detection_tolerances',
           'score_kind',
+          'threshold_summary',
+          'camera_view',
+          'required_target',
+          'target_reached',
+          'target_hold_progress',
+          'incorrect_step',
+          'left_angle',
+          'right_angle',
+          'score_components',
         ])
           key: data[key],
       };
@@ -1166,8 +934,8 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
         _lastStatsUpdated = now;
         if (mounted) {
           setState(() {
-            _socketConnected = true;
-            _connectionStatus = 'AI Live';
+            _assessmentReady = true;
+            _connectionStatus = 'On-device tracking';
             _repCount = math.max(
               _currentTotalReps,
               math.max(newRepCount, _repCount),
@@ -1177,7 +945,7 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
         _syncActiveSessionProgress(force: hasCompletedRep);
       }
     } catch (e) {
-      debugPrint('Could not process WebSocket message: $e');
+      debugPrint('Could not process assessment measurements: $e');
     }
   }
 
@@ -1209,19 +977,10 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
     }
 
     try {
-      if (_channel == null || !_socketConnected) {
-        throw StateError('WebSocket is not connected.');
-      }
-
-      await ApiService().requireExerciseModel(nextExercise);
-      _channel!.sink.add(
-        jsonEncode({'type': 'switch_exercise', 'exercise': nextExercise}),
-      );
-
-      debugPrint(
-        'Requested exercise switch: '
-        '${_currentAssignedExercise()} -> $nextExercise',
-      );
+      _poseGeneration++;
+      await _poseService.reset();
+      _rules = ExerciseRulesAssessment(nextExercise);
+      _repReviewFrame = null;
     } catch (e) {
       debugPrint('Could not switch exercise: $e');
 
@@ -1265,10 +1024,6 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
       _errorType = '';
     });
 
-    // Give the backend a short moment to replace the assessment object before
-    // the next live frames are evaluated.
-    await Future<void>.delayed(const Duration(milliseconds: 500));
-
     _switchingExercise = false;
   }
 
@@ -1289,16 +1044,8 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
     }
     _streaming = false;
 
-    // 2. Close WebSocket and cancel subscription
-    await _socketSubscription?.cancel();
-    _socketSubscription = null;
-    try {
-      await _channel?.sink.close();
-    } catch (e) {
-      debugPrint('Error closing WebSocket: $e');
-    }
-    _channel = null;
-    _socketConnected = false;
+    // 2. Stop local measurement before finalizing
+    await _stopLocalAssessment();
     await Future.wait(_pendingRepWrites);
     await _progressWrites;
 
@@ -1603,8 +1350,10 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
       return;
     }
 
-    if (!_socketConnected) {
-      debugPrint('Waiting for WebSocket before starting image stream.');
+    if (!_assessmentReady) {
+      debugPrint(
+        'Waiting for local tracking before starting the camera stream.',
+      );
 
       return;
     }
@@ -1620,7 +1369,7 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
 
       if (mounted) {
         setState(() {
-          _connectionError = 'Could not start camera stream: $e';
+          _connectionError = tr('Could not start the camera. Please retry.');
         });
       }
     }
@@ -1629,89 +1378,96 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
   Future<void> _processCameraImage(CameraImage cameraImage) async {
     if (!mounted ||
         _isExitingOrSaving ||
-        !_socketConnected ||
-        _channel == null) {
+        _backgroundPaused ||
+        _completed ||
+        _switchingExercise ||
+        !_assessmentReady ||
+        _rules == null ||
+        _processingFrame) {
       return;
     }
-
-    // 1. Drop frame if local conversion is currently busy
-    if (_processingFrame) {
-      return;
-    }
-
     final now = DateTime.now();
-
-    // Drop excess camera frames instead of queuing stale movement on the server.
-    if (_inFlightFrames >= 2) {
-      if (now.difference(_lastAiFrameDispatched).inSeconds >= 5) {
-        _socketConnected = false;
-        if (mounted) {
-          setState(() {
-            _connectionStatus = 'AI Disconnected';
-            _connectionError = tr('Connection interrupted. Reconnecting…');
-          });
-        }
-        _queueReconnect();
-      }
+    if (now.difference(_lastPoseDispatched).inMilliseconds <
+        _processingIntervalMs) {
       return;
     }
-
-    // 3. Minimum interval throttle (50ms = 20 FPS AI inference rate expected by backend)
-    if (now.difference(_lastAiFrameDispatched) < frameInterval) {
-      return;
-    }
-
-    if (cameraImage.format.group != ImageFormatGroup.yuv420 ||
-        cameraImage.planes.length < 3) {
-      return;
-    }
-
     _processingFrame = true;
-
+    _lastPoseDispatched = now;
+    final generation = _poseGeneration;
+    final timestamp = _assessmentClock.elapsedMicroseconds / 1000000;
+    final timer = Stopwatch()..start();
     try {
-      // Extract raw plane data on main isolate (instantaneous < 0.1ms)
-      final frameData = _CameraFrameData(
-        yBytes: cameraImage.planes[0].bytes,
-        uBytes: cameraImage.planes[1].bytes,
-        vBytes: cameraImage.planes[2].bytes,
-        width: cameraImage.width,
-        height: cameraImage.height,
-        yRowStride: cameraImage.planes[0].bytesPerRow,
-        uRowStride: cameraImage.planes[1].bytesPerRow,
-        vRowStride: cameraImage.planes[2].bytesPerRow,
-        uPixelStride: cameraImage.planes[1].bytesPerPixel ?? 1,
-        vPixelStride: cameraImage.planes[2].bytesPerPixel ?? 1,
-        sensorOrientation: _controller?.description.sensorOrientation ?? 0,
-        isFrontCamera:
-            _controller?.description.lensDirection == CameraLensDirection.front,
+      final controller = _controller;
+      if (controller == null) return;
+      final pose = await _poseService.detect(
+        cameraImage,
+        controller.description,
+        controller.value.deviceOrientation,
       );
-
-      // Run fast conversion + in-place rotation + JPEG compression in background isolate
-      final Uint8List? jpegBytes = await compute(
-        _convertFrameToJpegIsolate,
-        frameData,
-      );
-
-      if (jpegBytes == null || jpegBytes.isEmpty) {
-        return;
-      }
-
-      if (!mounted ||
+      if (pose == null ||
+          !mounted ||
+          generation != _poseGeneration ||
           _isExitingOrSaving ||
-          !_socketConnected ||
-          _channel == null) {
+          _backgroundPaused ||
+          _completed) {
         return;
       }
-
-      _inFlightFrames++;
-      _lastAiFrameDispatched = DateTime.now();
-      _channel!.sink.add(jpegBytes);
-    } catch (e) {
-      debugPrint('Frame processing error: $e');
-      if (_inFlightFrames > 0) {
-        _inFlightFrames--;
+      final landmarks = (pose['landmarks'] as List)
+          .map((p) => Map<String, dynamic>.from(p as Map))
+          .toList();
+      final state = _rules!.update(
+        landmarks,
+        (pose['width'] as num).toDouble(),
+        (pose['height'] as num).toDouble(),
+        timestamp,
+      );
+      if (state['state'] == 'READY') {
+        _repReviewFrame = null;
+        _latestErrorFrame = null;
+      }
+      final rep = state['completed_rep'];
+      if (_repReviewFrame == null &&
+          (state['form'] == 'incorrect' ||
+              (rep is Map && rep['form'] == 'incorrect'))) {
+        final bytes = await _poseService.reviewImage();
+        if (bytes != null && generation == _poseGeneration) {
+          _repReviewFrame = 'data:image/jpeg;base64,${base64Encode(bytes)}';
+          state['error_frame_url'] = _repReviewFrame;
+        }
+      }
+      if (rep is Map && rep['form'] == 'incorrect' && _repReviewFrame != null) {
+        rep['error_frame_url'] = _repReviewFrame;
+      }
+      if (!mounted ||
+          generation != _poseGeneration ||
+          _isExitingOrSaving ||
+          _backgroundPaused ||
+          _completed) {
+        return;
+      }
+      _handleAssessmentState(state);
+    } catch (error) {
+      debugPrint('On-device pose processing failed: $error');
+      _rules?.resetTracking();
+      _assessmentReady = false;
+      if (mounted) {
+        setState(
+          () => _connectionError = tr(
+            'Could not process camera frames. Please retry.',
+          ),
+        );
       }
     } finally {
+      _processedPoses++;
+      _poseTimeTotalMs += timer.elapsedMicroseconds / 1000;
+      if (_processedPoses % 60 == 0) {
+        debugPrint(
+          'LOCAL_POSE_PERF samples=$_processedPoses avgMs=${(_poseTimeTotalMs / _processedPoses).toStringAsFixed(1)} intervalMs=${_processingIntervalMs.toStringAsFixed(1)} uiFrames=$_timedFrames slowUiFrames=$_slowFrames worstUiMs=${_worstFrameMs.toStringAsFixed(1)}',
+        );
+      }
+      _processingIntervalMs =
+          (_processingIntervalMs * .7 + timer.elapsedMilliseconds * 1.2 * .3)
+              .clamp(66, 200);
       _processingFrame = false;
     }
   }
@@ -1788,7 +1544,7 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
       return;
     }
     try {
-      if (!_socketConnected) await _connectWebSocket();
+      if (!_assessmentReady) await _initializeLocalAssessment();
       await _startActiveSessionInFirestore();
       _backgroundPaused = false;
       await _startImageStream();
@@ -1920,13 +1676,7 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
     } catch (_) {}
     _streaming = false;
 
-    await _socketSubscription?.cancel();
-    _socketSubscription = null;
-    try {
-      await _channel?.sink.close();
-    } catch (_) {}
-    _channel = null;
-    _socketConnected = false;
+    await _stopLocalAssessment();
     await Future.wait(_pendingRepWrites);
     await _progressWrites;
 
@@ -2098,13 +1848,7 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
     } catch (_) {}
     _streaming = false;
 
-    await _socketSubscription?.cancel();
-    _socketSubscription = null;
-    try {
-      await _channel?.sink.close();
-    } catch (_) {}
-    _channel = null;
-    _socketConnected = false;
+    await _stopLocalAssessment();
     await Future.wait(_pendingRepWrites);
     await _progressWrites;
 
@@ -2402,6 +2146,28 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
         return tr('LIMITED RANGE OF MOTION');
       case 'GENERAL_FORM_ERROR':
         return tr('GENERAL FORM ERROR');
+      case 'TARGET_NOT_HELD':
+        return tr('Target not held');
+      case 'INCOMPLETE_RETURN':
+        return tr('Incomplete return');
+      case 'TOO_FAST':
+        return tr('Movement too fast');
+      case 'UPPER_ARM_POSITION':
+        return tr('Upper arm position');
+      case 'SUPPORT_MISSING':
+        return tr('Support missing');
+      case 'ELBOW_POSITION':
+        return tr('Elbow position');
+      case 'KNEE_BENT':
+        return tr('Keep knee straight');
+      case 'HIP_LIFT':
+        return tr('Hip lifted');
+      case 'HEEL_LIFT':
+        return tr('Heel lifted');
+      case 'KNEE_ALIGNMENT':
+        return tr('Knee alignment');
+      case 'THIGH_MOVEMENT':
+        return tr('Thigh moved');
       default:
         return value.replaceAll('_', ' ').toUpperCase();
     }
@@ -2543,6 +2309,8 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
     final error =
         rep['error_type']?.toString() ?? rep['error']?.toString() ?? '';
     final feedback = rep['feedback']?.toString() ?? 'Rep completed.';
+    final usesLocalRules = rep['assessment_method'] == 'on_device_angle_rules';
+    final displayError = usesLocalRules ? tr(feedback) : _errorLabel(error);
 
     final score = _completedDouble(rep, 'score');
     final rom = _completedDouble(
@@ -2557,6 +2325,12 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
       'confidence',
       fallback: _completedDouble(rep, 'lstm_confidence'),
     );
+    final smoothness = _completedDouble(rep, 'smoothness');
+    final returnCompletion = _completedDouble(rep, 'return_completion');
+    final components = rep['score_components'];
+    String component(String key) => components is Map && components[key] is num
+        ? '${(components[key] as num).toStringAsFixed(0)}/100'
+        : '—';
 
     final errorFrameUrl = _errorFrameUrl(rep);
 
@@ -2575,7 +2349,7 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
             Expanded(
               child: AppText(
                 'REP ${rep['rep_number'] ?? _repCount} ${form.toUpperCase()}'
-                '${incorrect && error.isNotEmpty ? ' — ${_errorLabel(error)}' : ' • ROM: ${rom.toStringAsFixed(0)}°'}',
+                '${incorrect && error.isNotEmpty ? ' — $displayError' : ' • ROM: ${rom.toStringAsFixed(0)}°'}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -2682,7 +2456,7 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
           if (incorrect && error.isNotEmpty) ...[
             const SizedBox(height: 3),
             Text(
-              _errorLabel(error),
+              displayError,
               style: const TextStyle(
                 color: Colors.redAccent,
                 fontSize: 11,
@@ -2747,26 +2521,51 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
           Row(
             children: [
               _completedMetric(
-                'SCORE',
+                usesLocalRules ? tr('MOVEMENT SCORE') : 'SCORE',
                 rep['score'] == null ? '—' : '${score.toStringAsFixed(0)}/100',
               ),
-              _completedMetric('ROM', '${rom.toStringAsFixed(1)}°'),
-              _completedMetric('SPEED', speed),
-              _completedMetric('DUR', '${duration.toStringAsFixed(1)}s'),
+              _completedMetric(tr('ROM'), '${rom.toStringAsFixed(1)}°'),
+              _completedMetric(tr('SPEED'), tr(speed)),
+              _completedMetric(
+                tr('Duration'),
+                '${duration.toStringAsFixed(1)}s',
+              ),
             ],
           ),
 
           const SizedBox(height: 4),
 
+          if (usesLocalRules && components is Map) ...[
+            Row(
+              children: [
+                _completedMetric(tr('Range score'), component('range')),
+                _completedMetric(tr('Posture score'), component('posture')),
+                _completedMetric(tr('Pace score'), component('pace')),
+              ],
+            ),
+            const SizedBox(height: 4),
+          ],
+
           Row(
             children: [
-              _completedMetric(
-                'CONFIDENCE',
-                rep['confidence'] == null
-                    ? '—'
-                    : '${confidence.toStringAsFixed(0)}%',
-              ),
-              _completedMetric('SPEED', rep['speed']?.toString() ?? 'Good'),
+              if (usesLocalRules) ...[
+                _completedMetric(
+                  tr('SMOOTHNESS'),
+                  '${smoothness.toStringAsFixed(0)}%',
+                ),
+                _completedMetric(
+                  tr('RETURN'),
+                  '${returnCompletion.toStringAsFixed(0)}%',
+                ),
+              ] else ...[
+                _completedMetric(
+                  'CONFIDENCE',
+                  rep['confidence'] == null
+                      ? '—'
+                      : '${confidence.toStringAsFixed(0)}%',
+                ),
+                _completedMetric('SPEED', rep['speed']?.toString() ?? 'Good'),
+              ],
             ],
           ),
         ],
@@ -2977,7 +2776,10 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
             left: 10,
             right: 10,
             bottom: 70,
-            child: _buildFeedbackPanel(),
+            child: GestureDetector(
+              onTap: _showFeedbackDetails,
+              child: _buildFeedbackPanel(),
+            ),
           ),
 
         // End assessment button.
@@ -3032,14 +2834,14 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
   }
 
   Widget _buildTopPanel() {
-    final bool aiLive = _socketConnected;
+    final bool aiLive = _assessmentReady;
     final bool isWip = isWorkInProgressExercise(_currentAssignedExercise());
 
     Color statusColor;
 
     if (aiLive) {
       statusColor = Colors.greenAccent;
-    } else if (_socketConnecting) {
+    } else if (_assessmentStarting) {
       statusColor = Colors.orangeAccent;
     } else {
       statusColor = Colors.redAccent;
@@ -3164,7 +2966,10 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Container(
                 width: 8,
@@ -3194,7 +2999,6 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
                 const SizedBox(width: 6),
                 buildWipBadge(isDark: true, compact: true),
               ],
-              const Spacer(),
               if (_assignedMode) ...[
                 AppText(
                   '$_currentCorrectReps/${_currentAssignedTarget()} Correct',
@@ -3238,8 +3042,10 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
           const SizedBox(height: 6),
 
           // Streamlined stats strip: SCORE, ROM, SPEED, FORM
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
+          Wrap(
+            alignment: WrapAlignment.spaceAround,
+            spacing: 14,
+            runSpacing: 6,
             children: [
               _compactStat(
                 tr(
@@ -3264,7 +3070,38 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
             ],
           ),
 
-          if (_movementMetrics['expected_hand'] != null) ...[
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () => showDialog<void>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: Text(tr('Movement thresholds')),
+                  content: SingleChildScrollView(
+                    child: ExerciseThresholds(
+                      exercise: _currentAssignedExercise(),
+                    ),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: Text(tr('Close')),
+                    ),
+                  ],
+                ),
+              ),
+              icon: const Icon(
+                Icons.straighten_rounded,
+                size: 16,
+                color: Colors.white70,
+              ),
+              label: Text(
+                tr('Movement thresholds'),
+                style: const TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+            ),
+          ),
+          if (_movementMetrics['state'] != null) ...[
             const SizedBox(height: 8),
             Wrap(
               spacing: 14,
@@ -3280,8 +3117,34 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
                 ),
                 _compactStat(
                   tr('Angle'),
-                  '${_toDouble(_movementMetrics['angle']).toStringAsFixed(0)}°',
+                  _movementMetrics['angle'] == null
+                      ? '—'
+                      : '${_toDouble(_movementMetrics['angle']).toStringAsFixed(0)}°',
                 ),
+                _compactStat(
+                  tr('Target'),
+                  '${_rules?.rule.increasing == true ? '≥' : '≤'}${_rules?.rule.target.toStringAsFixed(0) ?? '—'}°',
+                ),
+                _compactStat(
+                  tr('Target held'),
+                  _movementMetrics['target_reached'] == true
+                      ? tr('Yes')
+                      : tr('Not yet'),
+                ),
+                if (_rules?.rule.usesBothArms == true) ...[
+                  _compactStat(
+                    tr('Left angle'),
+                    _movementMetrics['left_angle'] == null
+                        ? '—'
+                        : '${_toDouble(_movementMetrics['left_angle']).toStringAsFixed(0)}°',
+                  ),
+                  _compactStat(
+                    tr('Right angle'),
+                    _movementMetrics['right_angle'] == null
+                        ? '—'
+                        : '${_toDouble(_movementMetrics['right_angle']).toStringAsFixed(0)}°',
+                  ),
+                ],
                 _compactStat(
                   tr('Duration'),
                   _movementMetrics['duration'] == null
@@ -3317,13 +3180,11 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
                 shadows: [Shadow(color: Colors.black, blurRadius: 4)],
               ),
             ),
-            if (!_socketConnected)
+            if (!_assessmentReady)
               TextButton.icon(
-                onPressed: _socketConnecting
+                onPressed: _assessmentStarting
                     ? null
                     : () {
-                        _reconnectTimer?.cancel();
-                        _reconnectAttempts = 0;
                         unawaited(_retryConnection());
                       },
                 icon: const Icon(Icons.refresh, size: 16),
@@ -3448,7 +3309,9 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
               children: [
                 if (_errorType.isNotEmpty) ...[
                   Text(
-                    _errorLabel(_errorType),
+                    _movementMetrics['incorrect_step'] == null
+                        ? _errorLabel(_errorType)
+                        : '${tr('Incorrect step')}: ${tr(_movementMetrics['incorrect_step'].toString())} · ${_errorLabel(_errorType)}',
                     style: const TextStyle(
                       color: Colors.redAccent,
                       fontWeight: FontWeight.bold,
@@ -3476,6 +3339,42 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
       ),
     );
   }
+
+  Future<void> _showFeedbackDetails() => showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(
+        tr(
+          _form.toLowerCase().contains('incorrect')
+              ? 'Incorrect movement'
+              : 'Movement feedback',
+        ),
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(tr(_feedback)),
+            if (_movementMetrics['incorrect_step'] != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                '${tr('Incorrect step')}: ${tr(_movementMetrics['incorrect_step'].toString())}',
+              ),
+            ],
+            const SizedBox(height: 12),
+            ExerciseThresholds(exercise: _currentAssignedExercise()),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(tr('Close')),
+        ),
+      ],
+    ),
+  );
 
   Widget _buildErrorScreen(String message) {
     return Center(
@@ -3520,26 +3419,21 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
 
   @override
   void dispose() {
+    SchedulerBinding.instance.removeTimingsCallback(_recordFrameTimings);
     _assignmentWatch?.cancel();
     _deadlineTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
 
     _isExitingOrSaving = true;
     _streaming = false;
-    _socketConnected = false;
-    _reconnectTimer?.cancel();
+    _assessmentReady = false;
     _poseAnimation.dispose();
 
     _landmarksNotifier.dispose();
     _formNotifier.dispose();
 
-    _socketSubscription?.cancel();
-    _socketSubscription = null;
-
-    try {
-      _channel?.sink.close();
-      _channel = null;
-    } catch (_) {}
+    _poseGeneration++;
+    _poseService.dispose();
 
     try {
       if (_controller != null && _controller!.value.isStreamingImages) {
@@ -3550,6 +3444,20 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
     _controller?.dispose();
 
     super.dispose();
+  }
+
+  void _recordFrameTimings(List<FrameTiming> timings) {
+    for (final timing in timings) {
+      final ms =
+          math.max(
+            timing.buildDuration.inMicroseconds,
+            timing.rasterDuration.inMicroseconds,
+          ) /
+          1000;
+      _timedFrames++;
+      if (ms > 16.7) _slowFrames++;
+      _worstFrameMs = math.max(_worstFrameMs, ms);
+    }
   }
 }
 

@@ -1,4 +1,7 @@
 import 'local_test_config.dart';
+
+import 'dart:convert';
+
 import 'session_lifecycle_service.dart';
 import '../utils/schedule_utils.dart';
 
@@ -146,6 +149,15 @@ class AssessmentHistoryService {
       'feedbackDetails': rep['feedback_details'],
       'angleTrace': rep['angle_trace'],
       'experimental': rep['experimental'] == true,
+      'assessmentMethod': rep['assessment_method']?.toString(),
+      'thresholds': rep['thresholds'],
+      'scoreComponents': rep['score_components'],
+      'incorrectStep': rep['incorrect_step'],
+      'targetReached': rep['target_reached'],
+      'requiredTarget': rep['required_target'],
+      'leftPeakAngle': rep['left_peak_angle'],
+      'rightPeakAngle': rep['right_peak_angle'],
+      'errorCodes': rep['error_codes'],
       'errorType':
           rep['error_type']?.toString() ?? rep['error']?.toString() ?? '',
       'feedback': rep['feedback']?.toString() ?? '',
@@ -175,15 +187,18 @@ class AssessmentHistoryService {
     required int repNumber,
     required String url,
   }) async {
-    final response = await http
-        .get(Uri.parse(url))
-        .timeout(const Duration(seconds: 15));
-
-    if (response.statusCode != 200) {
-      throw Exception('Backend returned HTTP ${response.statusCode}.');
+    final Uint8List bytes;
+    if (url.startsWith('data:image/jpeg;base64,')) {
+      bytes = base64Decode(url.substring('data:image/jpeg;base64,'.length));
+    } else {
+      final response = await http
+          .get(Uri.parse(url))
+          .timeout(const Duration(seconds: 15));
+      if (response.statusCode != 200) {
+        throw StateError('Could not load the review image.');
+      }
+      bytes = response.bodyBytes;
     }
-
-    final Uint8List bytes = response.bodyBytes;
     if (bytes.isEmpty) {
       throw Exception('Backend returned an empty error-frame image.');
     }

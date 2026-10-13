@@ -219,7 +219,7 @@ class ExerciseDemoRegistry {
   );
 
   // ============================================================
-  // 3. ASSISTED ELBOW FLEXION (CLINICALLY VALIDATED)
+  // 3. ASSISTED ELBOW FLEXION (PROVISIONAL TRACKING GUIDANCE)
   // ============================================================
 
   static final ExerciseDemoConfig _assistedElbowFlexionConfig =
@@ -275,7 +275,7 @@ class ExerciseDemoRegistry {
       );
 
   // ============================================================
-  // 4. ELBOW FLEXION & EXTENSION (CLINICALLY VALIDATED)
+  // 4. ELBOW FLEXION & EXTENSION (PROVISIONAL TRACKING GUIDANCE)
   // ============================================================
 
   static final ExerciseDemoConfig _elbowFlexionConfig = ExerciseDemoConfig(
@@ -286,44 +286,41 @@ class ExerciseDemoRegistry {
       ExercisePhase(
         phaseNumber: 1,
         title: 'Starting Position',
-        description:
-            'Hold arm at side with elbow extended, palm facing forward.',
+        description: 'Keep both upper arms beside your torso. Straighten both elbows to at least 155° and wait for Ready.',
         startProgress: 0.0,
         endProgress: 0.20,
       ),
       ExercisePhase(
         phaseNumber: 2,
         title: 'Bending (Flexion)',
-        description: 'Smoothly bend the elbow upward, keeping upper arm still against torso.',
+        description: 'Bend both elbows together while keeping both upper arms steady beside your torso.',
         startProgress: 0.20,
         endProgress: 0.50,
       ),
       ExercisePhase(
         phaseNumber: 3,
         title: 'Peak Flexion',
-        description:
-            'Briefly hold at top with hand approaching shoulder height.',
+        description: 'Reach 90° or less at both elbows and hold briefly. Stay within your clinician’s comfortable range.',
         startProgress: 0.50,
         endProgress: 0.60,
       ),
       ExercisePhase(
         phaseNumber: 4,
         title: 'Straightening (Extension)',
-        description:
-            'Lower forearm back down with steady control to starting position.',
+        description: 'Straighten both elbows together with control. Return within 8° of your own starting angle.',
         startProgress: 0.60,
         endProgress: 0.95,
       ),
       ExercisePhase(
         phaseNumber: 5,
         title: 'Return to Start',
-        description: 'Pause briefly before beginning next repetition.',
+        description: 'Pause at the starting position until Ready appears. An incorrect repetition must be retried.',
         startProgress: 0.95,
         endProgress: 1.0,
       ),
     ],
     keyTips: const [
-      'Keep upper arm locked beside your torso.',
+      'Keep both upper arms beside your torso.',
       'Perform movement smoothly without swinging.',
       'Work within comfortable pain-free range.',
       'Follow your clinician’s guidance on repetition targets and pacing.',

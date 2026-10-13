@@ -1,4 +1,5 @@
 import '../../services/local_test_config.dart';
+import '../../utils/movement_feedback.dart';
 import '../../utils/firebase_errors.dart';
 import '../../widgets/app_text.dart';
 
@@ -672,7 +673,13 @@ class _PatientDashboardState extends State<PatientDashboard> {
                                       rep['feedback']?.toString() ?? '';
                                   if (form.contains('incorrect') ||
                                       error.isNotEmpty) {
-                                    if (error.contains('ARM_LOW') ||
+                                    final correction = movementCorrection(
+                                      error,
+                                      hindi: AppLocaleService.isHindi,
+                                    );
+                                    if (correction != null) {
+                                      recentFocusTip = correction;
+                                    } else if (error.contains('ARM_LOW') ||
                                         error.contains('RIGHT_ARM_LOW') ||
                                         error.contains('LEFT_ARM_LOW')) {
                                       recentFocusTip = 'Keep both arms level during the movement.';

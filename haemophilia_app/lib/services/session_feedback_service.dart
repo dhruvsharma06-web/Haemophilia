@@ -1,3 +1,5 @@
+import '../utils/movement_feedback.dart';
+
 /// Natural-language generation grounded in recorded metrics. A trained model
 /// needs clinician-labelled examples; no synthetic medical conclusions are used.
 class SessionFeedback {
@@ -86,12 +88,17 @@ SessionFeedback generateSessionFeedback({
   final ordered = issues.entries.toList()
     ..sort((a, b) => b.value.compareTo(a.value));
   for (final issue in ordered.take(3)) {
+    final label = movementErrorLabel(issue.key, hindi: hindi);
     doctor.add(
       choose(
-        'Recorded form flag: ${issue.key} (${issue.value} repetitions). Review the relevant movements before changing the plan.',
-        'रिकॉर्ड किया गया रूप संबंधी संकेत: ${issue.key} (${issue.value} दोहराव)। योजना बदलने से पहले संबंधित गतिविधियों की समीक्षा करें।',
+        'Recorded form flag: $label (${issue.value} repetitions). Review the relevant movements before changing the plan.',
+        'रिकॉर्ड किया गया रूप संबंधी संकेत: $label (${issue.value} दोहराव)। योजना बदलने से पहले संबंधित गतिविधियों की समीक्षा करें।',
       ),
     );
+  }
+  for (final issue in ordered.take(2)) {
+    final correction = movementCorrection(issue.key, hindi: hindi);
+    if (correction != null) patient.add(correction);
   }
   for (final e in exercises.entries) {
     doctor.add(

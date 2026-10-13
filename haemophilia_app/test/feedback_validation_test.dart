@@ -21,8 +21,36 @@ void main() {
       exercises: const {'Shoulder Rotation': (3, 4)},
     );
     expect(feedback.brief, contains('3 of 4'));
-      expect(feedback.doctorDetails.join(' '), contains('do not establish'));
+    expect(feedback.doctorDetails.join(' '), contains('do not establish'));
   });
+  test(
+    'new movement-rule flags become readable report feedback in both languages',
+    () {
+      for (final hindi in [false, true]) {
+        final report = generateSessionFeedback(
+          total: 3,
+          correct: 1,
+          target: 3,
+          status: 'completed',
+          issues: {'TARGET_NOT_HELD': 2, 'SUPPORT_MISSING': 1},
+          exercises: {},
+          hindi: hindi,
+        );
+        expect(
+          report.doctorDetails.join(' '),
+          isNot(contains('TARGET_NOT_HELD')),
+        );
+        expect(
+          report.patientDetails.join(' '),
+          contains(hindi ? 'आरामदायक सीमा' : 'comfortable range'),
+        );
+        expect(
+          report.patientDetails.join(' '),
+          contains(hindi ? 'सहारा' : 'supporting'),
+        );
+      }
+    },
+  );
   test(
     'mobile validation rejects malformed local and India country-code numbers',
     () {

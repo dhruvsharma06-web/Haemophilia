@@ -1,4 +1,5 @@
 import '../../services/local_test_config.dart';
+import '../../utils/movement_feedback.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -333,7 +334,13 @@ class _SessionReportDetailState extends State<SessionReportDetail> {
                         if (report.issueCounts.isEmpty)
                           Text(tr('No form issues were recorded.')),
                         for (final entry in report.issueCounts.entries)
-                          _ReportLine(entry.key, '${entry.value}'),
+                          _ReportLine(
+                            movementErrorLabel(
+                              entry.key,
+                              hindi: AppLocaleService.isHindi,
+                            ),
+                            '${entry.value}',
+                          ),
                       ],
                     ),
                     const SizedBox(height: 12),

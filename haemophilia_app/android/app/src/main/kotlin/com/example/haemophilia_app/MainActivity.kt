@@ -9,8 +9,10 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
+    private var localPose: LocalPoseBridge? = null
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        localPose = LocalPoseBridge(flutterEngine.dartExecutor.binaryMessenger)
         val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel("haemophilia_notifications", "Messages and sessions", NotificationManager.IMPORTANCE_HIGH)
@@ -33,5 +35,11 @@ class MainActivity : FlutterActivity() {
                 else -> result.notImplemented()
             }
         }
+    }
+
+    override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        localPose?.close()
+        localPose = null
+        super.cleanUpFlutterEngine(flutterEngine)
     }
 }

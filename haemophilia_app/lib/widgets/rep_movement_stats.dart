@@ -22,6 +22,12 @@ class RepMovementStats extends StatelessWidget {
     final completion = number('returnCompletion', 'return_completion');
     final speed = number('angularSpeed', 'angular_speed');
     final hand = rep['hand']?.toString();
+    final components = rep['scoreComponents'] ?? rep['score_components'];
+    double? component(String key) {
+      final value = components is Map ? components[key] : null;
+      return value is num && value.isFinite ? value.toDouble() : null;
+    }
+
     final values = <String, String>{
       if (hand != null) 'Arm': tr(hand),
       if (minimum != null && maximum != null)
@@ -31,6 +37,23 @@ class RepMovementStats extends StatelessWidget {
         'Smoothness': '${smoothness.toStringAsFixed(0)}/100',
       if (completion != null) 'Return': '${completion.toStringAsFixed(0)}%',
       if (speed != null) 'Angular speed': '${speed.toStringAsFixed(0)}°/s',
+      for (final entry in {
+        'range': 'Range score',
+        'posture': 'Posture score',
+        'pace': 'Pace score',
+      }.entries)
+        if (component(entry.key) case final value?)
+          entry.value: '${value.toStringAsFixed(0)}/100',
+      if (rep['targetReached'] != null || rep['target_reached'] != null)
+        'Target held': tr(
+          (rep['targetReached'] ?? rep['target_reached']) == true
+              ? 'Yes'
+              : 'No',
+        ),
+      if ((rep['incorrectStep'] ?? rep['incorrect_step']) != null)
+        'Incorrect step': tr(
+          (rep['incorrectStep'] ?? rep['incorrect_step']).toString(),
+        ),
     };
     if (values.isEmpty) return const SizedBox.shrink();
     return Column(
@@ -47,13 +70,15 @@ class RepMovementStats extends StatelessWidget {
               ),
           ],
         ),
-        if (rep['scoreKind'] == 'descriptive_movement_control' ||
+        if (rep['scoreKind'] == 'descriptive_movement_quality' ||
+            rep['score_kind'] == 'descriptive_movement_quality' ||
+            rep['scoreKind'] == 'descriptive_movement_control' ||
             rep['score_kind'] == 'descriptive_movement_control')
           Padding(
             padding: const EdgeInsets.only(top: 6),
             child: Text(
               tr(
-                'Control and smoothness describe recorded movement; they are not AI confidence or medical scores.',
+                'Movement scores describe the recorded range, posture, return, and pace. They are provisional tracking feedback.',
               ),
               style: Theme.of(context).textTheme.bodySmall,
             ),
