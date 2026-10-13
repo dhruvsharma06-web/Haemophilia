@@ -8,11 +8,6 @@ class BackendConfig {
   static Uri endpoint(String path) =>
       Uri.parse('${baseUrl.replaceFirst(RegExp(r'/+$'), '')}$path');
 
-  static Uri get liveAssessmentUri {
-    final uri = endpoint('/v1/assessments/live');
-    return uri.replace(scheme: uri.scheme == 'https' ? 'wss' : 'ws');
-  }
-
   static String get errorFrameBaseUrl =>
       endpoint('/v1/assets/error-frames/').toString();
 }

@@ -1,8 +1,11 @@
 import 'dart:math' as math;
 
+import 'package:flutter/material.dart';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:haemophilia_app/services/exercise_rules.dart';
 import 'package:haemophilia_app/utils/exercise_utils.dart';
+import 'package:haemophilia_app/utils/wireframe_style.dart';
 
 List<Map<String, dynamic>> pose(
   String id,
@@ -10,6 +13,7 @@ List<Map<String, dynamic>> pose(
   String hand = 'Left',
   bool support = true,
   double? rightDegrees,
+  bool rightLeg = false,
 }) {
   final p = List.generate(
     33,
@@ -86,6 +90,12 @@ List<Map<String, dynamic>> pose(
     put(27, 500 - 200 * math.cos(a), 350 + 200 * math.sin(a));
     put(29, 700, 600);
   }
+  if (rightLeg) {
+    for (final i in [11, 23, 25, 27, 29, 31]) {
+      p[i + 1] = {...p[i], 'x': 1 - (p[i]['x'] as double)};
+      p[i]['visibility'] = .1;
+    }
+  }
   return p;
 }
 
@@ -97,6 +107,7 @@ List<Map<String, dynamic>> cycle(
   double time = 0,
   String hand = 'Left',
   bool support = true,
+  bool rightLeg = false,
 }) {
   final reps = <Map<String, dynamic>>[];
   final values = [
@@ -109,7 +120,13 @@ List<Map<String, dynamic>> cycle(
   var frameIndex = 0;
   for (final v in values) {
     final s = e.update(
-      pose(id, v, hand: hand, support: support || frameIndex < 8),
+      pose(
+        id,
+        v,
+        hand: hand,
+        support: support || frameIndex < 8,
+        rightLeg: rightLeg,
+      ),
       1000,
       1000,
       time,
@@ -128,9 +145,9 @@ void main() {
     (kAssistedShoulderFlexion, 20, 160),
     (kShoulderRotation, 0, 40),
     (kAssistedElbowFlexionV5, 150, 80),
-    (kElbowFlexionExtension, 160, 90),
+    (kElbowFlexionExtension, 160, 65),
     (kHeelSlide, 178, 80),
-    (kMiniSquat, 178, 120),
+    (kMiniSquat, 178, 140),
     (kSeatedKneeExtension, 85, 170),
     (kStraightLegRaise, 178, 130),
     (kTerminalKneeExtension, 140, 178),
@@ -145,7 +162,140 @@ void main() {
       expect(reps.single['range_of_motion'], greaterThanOrEqualTo(15));
       expect(reps.single.containsKey('confidence'), false);
     });
+    test('${item.$1}: valid ready and movement use a green wireframe', () {
+      final e = ExerciseRulesAssessment(item.$1);
+      Map<String, dynamic>? state;
+      for (var i = 0; i < 8; i++) {
+        state = e.update(pose(item.$1, item.$2), 1000, 1000, i * .08);
+      }
+      expect(state!['state'], 'READY');
+      expect(wireframeColor(state['form']), Colors.greenAccent);
+      for (var i = 1; i <= 12; i++) {
+        state = e.update(
+          pose(item.$1, item.$2 + (item.$3 - item.$2) * i / 16),
+          1000,
+          1000,
+          .64 + i * .08,
+        );
+      }
+      expect(wireframeColor(state!['form']), Colors.greenAccent);
+    });
+    if (!ExerciseRule.forExercise(item.$1).isUpperBody) {
+      test('${item.$1}: visible right leg can complete a repetition', () {
+        final e = ExerciseRulesAssessment(item.$1);
+        final reps = cycle(e, item.$1, item.$2, item.$3, rightLeg: true);
+        expect(reps, hasLength(1));
+        expect(reps.single['form'], 'correct');
+        expect(reps.single['hand'], 'Right');
+      });
+    }
   }
+  test('overly deep mini squat is incorrect despite reaching its target', () {
+    final e = ExerciseRulesAssessment(kMiniSquat);
+    final r = cycle(e, kMiniSquat, 178, 110).single;
+    expect(r['form'], 'incorrect');
+    expect(r['error_codes'], contains('SQUAT_TOO_DEEP'));
+    expect(r['target_reached'], true);
+    expect(r['score'], lessThanOrEqualTo(55));
+  });
+  test('a 30-degree mini squat is accepted, matching tutorial guidance', () {
+    final e = ExerciseRulesAssessment(kMiniSquat);
+    expect(cycle(e, kMiniSquat, 178, 150).single['form'], 'correct');
+  });
+  test(
+    'exact bilateral start threshold completes without floating-point lockout',
+    () {
+      final e = ExerciseRulesAssessment(kElbowFlexionExtension);
+      expect(
+        cycle(e, kElbowFlexionExtension, 155, 65).single['form'],
+        'correct',
+      );
+    },
+  );
+  for (final item in [
+    (kHeelSlide, 178.0, 80.0),
+    (kSeatedKneeExtension, 85.0, 175.0),
+    (kStraightLegRaise, 178.0, 130.0),
+    (kTerminalKneeExtension, 140.0, 178.0),
+  ]) {
+    test(
+      '${item.$1}: movement selects the right leg when both are visible',
+      () {
+        final e = ExerciseRulesAssessment(item.$1);
+        final values = [
+          ...List.filled(8, item.$2),
+          for (var i = 1; i <= 16; i++) item.$2 + (item.$3 - item.$2) * i / 16,
+          ...List.filled(8, item.$3),
+          for (var i = 1; i <= 16; i++) item.$3 + (item.$2 - item.$3) * i / 16,
+          ...List.filled(10, item.$2),
+        ];
+        final reps = <Map>[];
+        for (var i = 0; i < values.length; i++) {
+          final p = pose(item.$1, item.$2);
+          final moving = pose(item.$1, values[i]);
+          for (final j in [11, 23, 25, 27, 29, 31]) {
+            p[j + 1] = {...moving[j], 'x': 1 - (moving[j]['x'] as double)};
+          }
+          final state = e.update(p, 1000, 1000, i * .08);
+          if (state['completed_rep'] is Map) reps.add(state['completed_rep']);
+        }
+        expect(reps, hasLength(1));
+        expect(reps.single['hand'], 'Right');
+        expect(reps.single['form'], 'correct');
+      },
+    );
+  }
+  test('bilateral return must reach each arm’s own starting angle', () {
+    final e = ExerciseRulesAssessment(kElbowFlexionExtension);
+    final values = [
+      ...List.filled(8, 175.0),
+      for (var i = 1; i <= 16; i++) 175.0 - 110 * i / 16,
+      ...List.filled(6, 65.0),
+      for (var i = 1; i <= 16; i++) 65.0 + 100 * i / 16,
+      ...List.filled(40, 165.0),
+    ];
+    Map<String, dynamic>? s;
+    for (var i = 0; i < values.length; i++) {
+      final returning = i >= 30;
+      s = e.update(
+        pose(
+          kElbowFlexionExtension,
+          values[i],
+          rightDegrees: returning ? math.min(175, values[i] + 10) : null,
+        ),
+        1000,
+        1000,
+        i * .08,
+      );
+    }
+    expect(e.repCount, 0);
+    expect(s!['error_type'], 'INCOMPLETE_RETURN');
+  });
+  test('all exercises reject a completed shallow movement', () {
+    for (final rule in ExerciseRule.catalog) {
+      final rest = rule.relative ? 0.0 : rule.start;
+      final peak = rule.increasing ? rest + 12 : rest - 12;
+      final e = ExerciseRulesAssessment(rule.id);
+      final r = cycle(e, rule.id, rest, peak);
+      expect(r, hasLength(1), reason: rule.id);
+      expect(r.single['form'], 'incorrect', reason: rule.id);
+      expect(e.correctCount, 0, reason: rule.id);
+      expect(r.single['score'], lessThanOrEqualTo(50), reason: rule.id);
+    }
+  });
+  test(
+    'partial skeleton remains visible while a required joint is missing',
+    () {
+      final e = ExerciseRulesAssessment(kStraightLegRaise);
+      final p = pose(kStraightLegRaise, 178);
+      p[25]['visibility'] = .1;
+      p[26]['visibility'] = .1;
+      final s = e.update(p, 1000, 1000, 0);
+      expect(s['tracking_valid'], false);
+      expect(s['landmarks'], hasLength(33));
+      expect(wireframeColor(s['form']), Colors.blueGrey.shade300);
+    },
+  );
   test('incomplete cycles and noise cannot count', () {
     final e = ExerciseRulesAssessment(kHeelSlide);
     for (var i = 0; i < 100; i++) {
@@ -368,5 +518,36 @@ void main() {
     }
     expect(e.repCount, 0);
     expect(state!['error_type'], 'INCOMPLETE_RETURN');
+  });
+  test('inward rotation cannot receive an outward-rotation correct score', () {
+    final e = ExerciseRulesAssessment(kShoulderRotation);
+    final rep = cycle(e, kShoulderRotation, 0, -40).single;
+    expect(rep['form'], 'incorrect');
+    expect(rep['error_codes'], contains('ROTATION_DIRECTION'));
+    expect(rep['target_reached'], false);
+    expect(rep['score'], lessThanOrEqualTo(50));
+  });
+  test('outward rotation remains correct with mirrored camera coordinates', () {
+    final e = ExerciseRulesAssessment(kShoulderRotation);
+    final values = [
+      ...List.filled(8, 0.0),
+      for (var i = 1; i <= 16; i++) 40.0 * i / 16,
+      ...List.filled(8, 40.0),
+      for (var i = 1; i <= 16; i++) 40.0 - 40.0 * i / 16,
+      ...List.filled(10, 0.0),
+    ];
+    Map<String, dynamic>? rep;
+    for (var i = 0; i < values.length; i++) {
+      final p = pose(kShoulderRotation, values[i]);
+      for (final joint in p) {
+        joint['x'] = 1 - (joint['x'] as double);
+      }
+      final state = e.update(p, 1000, 1000, i * .08);
+      if (state['completed_rep'] is Map) {
+        rep = Map<String, dynamic>.from(state['completed_rep']);
+      }
+    }
+    expect(rep, isNotNull);
+    expect(rep!['form'], 'correct');
   });
 }

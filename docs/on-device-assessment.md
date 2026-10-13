@@ -13,13 +13,17 @@ The app displays these values before and during an exercise. `Start` and `target
 | Assisted shoulder flexion | both shoulders ≤40° | both shoulders ≥150° | 75° | within 10° | Front |
 | Shoulder rotation | within 8° of observed start | both forearms move ≥20° | 15° | within 4° | Front |
 | Assisted elbow flexion | active elbow ≥150° | active elbow ≤90° | 50° | within 8° | Front |
-| Elbow flexion and extension | both elbows ≥155° | both elbows ≤90° | 50° | within 8° | Front oblique |
+| Elbow flexion and extension | both elbows ≥155° | both elbows ≤75° | 70° | within 8° | Front oblique |
 | Heel slide | knee ≥170° | knee ≤90° | 15° | within 10° | Side |
-| Mini squat | knee ≥165° | knee ≤130° | 15° | within 8° | Front or side |
-| Seated knee extension | knee ≤95° | knee ≥160° | 15° | within 10° | Side |
-| Straight leg raise | hip ≥172° | hip ≤140° | 15° | within 10° | Side |
+| Mini squat | knee ≥165° | knee ≤150°, no sustained reading below 130° | 15° | within 8° | Side |
+| Seated knee extension | knee ≤95° | knee ≥170° | 15° | within 10° | Side |
+| Straight leg raise | hip ≥172° | hip ≤135° | 15° | within 10° | Side |
 | Terminal knee extension | knee ≤145° | knee ≥170° | 15° | within 6° | Side |
-| Squat | knee ≥155° | knee ≤120° | 15° | within 10° | Front or side |
+| Squat | knee ≥155° | knee ≤120° | 15° | within 10° | Side |
+
+These are `OnDeviceRules_v3` settings. See [exercise references and angle conversion](exercise-rule-references.md) for NHS/WFH sources and the distinction between sourced exercise goals and software scoring tolerances. Tutorials show the animation first and a small angle summary below it. The ordinary elbow demo is a forward curl with fixed upper arms, and the assisted demo begins extended and bends upward with support. The six lower-body drawings are checked against the actual rule engine in tests.
+
+Valid ready/movement stages use a green wireframe, confirmed errors red, transient adjustments amber and unavailable tracking neutral. Visible joints are drawn even if another required joint is temporarily missing. The engine chooses the visible leg and, in single-leg exercises with both legs visible, switches to the leg that starts moving; that choice remains fixed during the repetition. Lying exercises can retry pose detection with the body oriented upright, then map coordinates back onto the original preview. The normal case still processes one frame at a time. The compact default view exposes stage, active limb, angle, target-held status and last completed score; expanded statistics remain available.
 
 These are provisional software presets, not clinical prescriptions or proof of safe movement. Most joint angles are 2D screen projections and change with camera placement. Elbow joint angles use ML Kit's estimated x/y/z positions to avoid a forearm pointing toward the camera collapsing to a degenerate 2D angle. Estimated depth is also imperfect. Shoulder rotation uses a relative forearm x/z orientation proxy from the pose detector; it cannot measure clinical axial shoulder rotation reliably. Occlusion, unusual anatomy, support devices, and changes in camera orientation can also affect the result. The patient should use the range prescribed by their clinician and stop for pain or bleeding. No diagnostic or clinical accuracy claim is made for the descriptive movement score.
 
@@ -31,9 +35,9 @@ The prototype score follows the former shoulder assessment's structure: 45% form
 
 ## Review evidence and remaining validation
 
-- All 80 Flutter regression tests passed, including 21 exercise-rule tests and narrow English/Hindi tutorial layout checks. Static analysis found no issues in the changed assessment, tutorial, history, and report files.
+- All 118 Flutter regression tests passed after the corrections, including rules for all 10 exercises, direct lower-body animation-to-rule contracts, rotation direction/mirroring and narrow English/Hindi tutorial layout checks. Static analysis found no issues in the changed files. Both native coordinate-remapping tests passed.
 - Tests cover all 10 clean synthetic movement cycles, incomplete range/return, one-arm-only elbow movement, a single-frame target spike, sustained versus brief posture errors, loss of tracking, alternation with support, and degenerate joint geometry. These tests verify state transitions and data shape; they do not establish accuracy on patients.
-- On the connected CPH2691 phone, one short practice run before the v2 rule changes reported 60 processed pose frames averaging 29 ms each at a 66 ms dispatch interval. Two of 365 sampled UI frames exceeded 16.7 ms, with a worst sampled frame of 25.7 ms. The user confirmed the wireframe and feedback appeared smoothly. The detector and frame pipeline remain the same; the final v2 exercise rules still need filmed checks on real movements.
+- On the connected CPH2691 phone, one short practice run before the v2 rule changes reported 60 processed pose frames averaging 29 ms each at a 66 ms dispatch interval. Two of 365 sampled UI frames exceeded 16.7 ms, with a worst sampled frame of 25.7 ms. The user confirmed smoothness then subsequently reported failures in other exercises. The v3 lying-orientation recovery, visible-leg selection and corrected tutorials therefore need fresh phone checks; the earlier performance run does not verify those changes.
 - Each exercise still needs filmed validation with varied participants, cameras, lighting, viewpoints, and range limitations before clinical use. Check false rep counts and missed reps as well as smoothness. Clinicians should review and approve exercise thresholds and feedback wording.
 
 Android release builds need `android/app/proguard-rules.pro`: WorkManager's Room 2.2 generated database is created by reflection, so its constructor must survive R8 shrinking. Without this rule, the release APK crashes before `MainActivity` starts.

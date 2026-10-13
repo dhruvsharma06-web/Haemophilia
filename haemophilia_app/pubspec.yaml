@@ -26,7 +26,6 @@ dependencies:
   firebase_messaging: ^16.7.0
 
   camera: ^0.12.1
-  web_socket_channel: ^3.0.3
   image: ^4.9.2
 
   flutter_launcher_icons: ^0.14.4

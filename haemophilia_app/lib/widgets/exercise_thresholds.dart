@@ -4,13 +4,14 @@ import '../services/exercise_rules.dart';
 import '../utils/app_localizations.dart';
 
 String localizedThresholds(ExerciseRule rule) {
+  final both = rule.usesBothArms ? '${tr('Both arms')}: ' : '';
   if (rule.relative) {
-    return '${tr(rule.joint)}: ${tr('Movement from start')} ≥${rule.target.toStringAsFixed(0)}°; '
-        '${tr('Return within')} ${rule.start.toStringAsFixed(0)}°.';
+    return '$both${tr(rule.joint)}: ${tr('Movement from start')} ≥${rule.target.toStringAsFixed(0)}°; '
+        '${tr('Return within')} ${rule.returnBand.toStringAsFixed(0)}°.';
   }
   final restSign = rule.increasing ? '≤' : '≥';
   final targetSign = rule.increasing ? '≥' : '≤';
-  return '${tr(rule.joint)}: ${tr('Start')} $restSign${rule.start.toStringAsFixed(0)}° → '
+  return '$both${tr(rule.joint)}: ${tr('Start')} $restSign${rule.start.toStringAsFixed(0)}° → '
       '${tr('Target')} $targetSign${rule.target.toStringAsFixed(0)}° → '
       '${tr('Return')} $restSign${rule.start.toStringAsFixed(0)}°.';
 }
@@ -18,16 +19,48 @@ String localizedThresholds(ExerciseRule rule) {
 class ExerciseThresholds extends StatelessWidget {
   final String exercise;
   final bool dark;
+  final bool compact;
   const ExerciseThresholds({
     super.key,
     required this.exercise,
     this.dark = false,
+    this.compact = false,
   });
   @override
   Widget build(BuildContext context) {
     AppLocaleScope.of(context);
     final rule = ExerciseRule.forExercise(exercise);
     final color = dark ? Colors.white : Theme.of(context).colorScheme.onSurface;
+    if (compact) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.teal.withValues(alpha: .06),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              localizedThresholds(rule),
+              style: TextStyle(
+                color: color,
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              '${tr('Hold briefly')} (${ExerciseRule.targetHoldSeconds} s) · ${tr('Return within')} ${rule.returnBand.toStringAsFixed(0)}° · ${tr('Tracking margin')} ±${ExerciseRule.angleMargin.toStringAsFixed(0)}°',
+              style: TextStyle(
+                color: color.withValues(alpha: .75),
+                fontSize: 10.5,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     final restSign = rule.increasing ? '≤' : '≥';
     final targetSign = rule.increasing ? '≥' : '≤';
     final both = rule.usesBothArms ? '${tr('Both arms')}: ' : '';

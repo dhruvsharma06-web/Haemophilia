@@ -1,4 +1,5 @@
 import '../../services/local_test_config.dart';
+import '../../utils/wireframe_style.dart';
 import '../../utils/firebase_errors.dart';
 import '../../widgets/app_text.dart';
 
@@ -300,7 +301,7 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
   // UI VIEW MODE (COMPACT / EXPANDED)
   // ============================================================
 
-  bool _isCompactView = false;
+  bool _isCompactView = true;
 
   // ============================================================
   // LIFECYCLE
@@ -714,7 +715,7 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
       });
     }
     try {
-      await _poseService.initialize();
+      await _poseService.initialize(_currentAssignedExercise());
       if (!mounted || _terminalSession) return;
       _rules = ExerciseRulesAssessment(
         _currentAssignedExercise(),
@@ -2158,6 +2159,8 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
         return tr('Support missing');
       case 'ELBOW_POSITION':
         return tr('Elbow position');
+      case 'ROTATION_DIRECTION':
+        return tr('Rotation direction');
       case 'KNEE_BENT':
         return tr('Keep knee straight');
       case 'HIP_LIFT':
@@ -2166,6 +2169,8 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
         return tr('Heel lifted');
       case 'KNEE_ALIGNMENT':
         return tr('Knee alignment');
+      case 'SQUAT_TOO_DEEP':
+        return tr('Squat too deep');
       case 'THIGH_MOVEMENT':
         return tr('Thigh moved');
       default:
@@ -2851,108 +2856,147 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
     if (_isCompactView) {
       return _buildGlassContainer(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        child: Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                color: statusColor,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: statusColor.withValues(alpha: 0.6),
-                    blurRadius: 4,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 6),
-            Flexible(
-              child: Text(
-                _currentExerciseDisplayName(),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12.5,
-                  shadows: [Shadow(color: Colors.black, blurRadius: 4)],
-                ),
-              ),
-            ),
-            if (isWip) ...[
-              const SizedBox(width: 6),
-              buildWipBadge(isDark: true, compact: true),
-            ],
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.16),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                _assignedMode
-                    ? '$_currentCorrectReps/${_currentAssignedTarget()} reps'
-                    : 'REP $_repCount',
-                style: const TextStyle(
-                  color: Colors.greenAccent,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 11.5,
-                  shadows: [Shadow(color: Colors.black, blurRadius: 4)],
-                ),
-              ),
-            ),
-            const SizedBox(width: 6),
-            Tooltip(
-              message: 'How to perform',
-              child: InkWell(
-                onTap: () {
-                  showExerciseDemoDialog(
-                    context,
-                    exerciseName: _currentExerciseDisplayName(),
-                  );
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(4),
+            Row(
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0284C7).withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                      color: const Color(0xFF38BDF8).withValues(alpha: 0.4),
+                    color: statusColor,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: statusColor.withValues(alpha: 0.6),
+                        blurRadius: 4,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    _currentExerciseDisplayName(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12.5,
+                      shadows: [Shadow(color: Colors.black, blurRadius: 4)],
                     ),
                   ),
-                  child: const Icon(
-                    Icons.play_circle_outline_rounded,
-                    color: Color(0xFF38BDF8),
-                    size: 15,
-                  ),
                 ),
-              ),
-            ),
-            const SizedBox(width: 4),
-            Tooltip(
-              message: 'Expand UI',
-              child: InkWell(
-                onTap: () {
-                  setState(() {
-                    _isCompactView = false;
-                  });
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(4),
+                if (isWip) ...[
+                  const SizedBox(width: 6),
+                  buildWipBadge(isDark: true, compact: true),
+                ],
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.12),
+                    color: Colors.white.withValues(alpha: 0.16),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: const Icon(
-                    Icons.unfold_more_rounded,
-                    color: Colors.white70,
-                    size: 15,
+                  child: Text(
+                    _assignedMode
+                        ? '$_currentCorrectReps/${_currentAssignedTarget()} reps'
+                        : 'REP $_repCount',
+                    style: const TextStyle(
+                      color: Colors.greenAccent,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11.5,
+                      shadows: [Shadow(color: Colors.black, blurRadius: 4)],
+                    ),
                   ),
                 ),
-              ),
+                const SizedBox(width: 6),
+                Tooltip(
+                  message: 'How to perform',
+                  child: InkWell(
+                    onTap: () {
+                      showExerciseDemoDialog(
+                        context,
+                        exerciseName: _currentExerciseDisplayName(),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0284C7).withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: const Color(0xFF38BDF8).withValues(alpha: 0.4),
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.play_circle_outline_rounded,
+                        color: Color(0xFF38BDF8),
+                        size: 15,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Tooltip(
+                  message: 'Expand UI',
+                  child: InkWell(
+                    onTap: () {
+                      setState(() {
+                        _isCompactView = false;
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Icon(
+                        Icons.unfold_more_rounded,
+                        color: Colors.white70,
+                        size: 15,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 5),
+            Wrap(
+              spacing: 12,
+              runSpacing: 4,
+              children: [
+                _compactStat(
+                  tr('Stage'),
+                  tr((_movementMetrics['state'] ?? 'POSITIONING').toString()),
+                ),
+                _compactStat(
+                  tr(_rules?.rule.isUpperBody == false ? 'Leg' : 'Arm'),
+                  tr((_movementMetrics['expected_hand'] ?? '—').toString()),
+                ),
+                _compactStat(
+                  tr('Angle'),
+                  _movementMetrics['angle'] == null
+                      ? '—'
+                      : '${_toDouble(_movementMetrics['angle']).toStringAsFixed(0)}°',
+                ),
+                _compactStat(
+                  tr('Target held'),
+                  _movementMetrics['target_reached'] == true
+                      ? tr('Yes')
+                      : tr('Not yet'),
+                ),
+                _compactStat(
+                  tr('Last score'),
+                  _scoreAvailable ? _score.toStringAsFixed(0) : '—',
+                ),
+              ],
             ),
           ],
         ),
@@ -3052,7 +3096,7 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
                   _movementMetrics['score_kind'] ==
                           'descriptive_movement_control'
                       ? 'CONTROL'
-                      : 'SCORE',
+                      : 'Last score',
                 ),
                 _scoreAvailable ? _score.toStringAsFixed(0) : '—',
               ),
@@ -3108,7 +3152,7 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
               runSpacing: 6,
               children: [
                 _compactStat(
-                  tr('Arm'),
+                  tr(_rules?.rule.isUpperBody == false ? 'Leg' : 'Arm'),
                   tr(_movementMetrics['expected_hand'].toString()),
                 ),
                 _compactStat(
@@ -3264,7 +3308,7 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
               incorrect
                   ? Icons.warning_amber_rounded
                   : Icons.accessibility_new_rounded,
-              color: incorrect ? Colors.redAccent : Colors.greenAccent,
+              color: wireframeColor(_form),
               size: 18,
             ),
             const SizedBox(width: 8),
@@ -3298,7 +3342,7 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
             incorrect
                 ? Icons.warning_amber_rounded
                 : Icons.accessibility_new_rounded,
-            color: incorrect ? Colors.redAccent : Colors.greenAccent,
+            color: wireframeColor(_form),
             size: 22,
           ),
           const SizedBox(width: 8),
@@ -3484,6 +3528,14 @@ class LiveLandmark {
 // ================================================================
 
 class PosePainter extends CustomPainter {
+  bool _visible(LiveLandmark point) =>
+      point.visibility >= .4 &&
+      point.x.isFinite &&
+      point.y.isFinite &&
+      point.x >= 0 &&
+      point.x <= 1 &&
+      point.y >= 0 &&
+      point.y <= 1;
   final ValueNotifier<List<LiveLandmark>> landmarksNotifier;
   final ValueNotifier<String> formNotifier;
   final bool isFrontCamera;
@@ -3551,31 +3603,14 @@ class PosePainter extends CustomPainter {
       return;
     }
 
-    final bool incorrect = form.toLowerCase().contains('incorrect');
-
-    final bool active =
-        form.toLowerCase().contains('correct') ||
-        form.toLowerCase().contains('incorrect') ||
-        form.toLowerCase().contains('raising') ||
-        form.toLowerCase().contains('top') ||
-        form.toLowerCase().contains('lowering');
-
     final Paint linePaint = Paint()
       ..strokeWidth = 3
       ..strokeCap = StrokeCap.round
-      ..color = incorrect
-          ? Colors.redAccent
-          : active
-          ? Colors.greenAccent
-          : const Color(0xFF38BDF8);
+      ..color = wireframeColor(form);
 
     final Paint pointPaint = Paint()
       ..style = PaintingStyle.fill
-      ..color = incorrect
-          ? Colors.redAccent
-          : active
-          ? Colors.greenAccent
-          : const Color(0xFF38BDF8);
+      ..color = wireframeColor(form);
 
     // Precompute all 33 screen offsets once to avoid over 100 allocations per frame
     final points = List<Offset>.filled(33, Offset.zero);
@@ -3584,7 +3619,7 @@ class PosePainter extends CustomPainter {
 
     for (int i = 0; i < 33; i++) {
       final lm = landmarks[i];
-      // The image sent to MediaPipe is rotated into upright portrait in isolate.
+      // ML Kit returns coordinates in the upright camera image.
       // For front camera, Flutter's CameraPreview mirrors horizontally, so mirror X.
       // For back camera, preview is not mirrored.
       final double x = isFrontCamera
@@ -3598,8 +3633,7 @@ class PosePainter extends CustomPainter {
       final int first = connection[0];
       final int second = connection[1];
 
-      if (landmarks[first].visibility < 0.25 ||
-          landmarks[second].visibility < 0.25) {
+      if (!_visible(landmarks[first]) || !_visible(landmarks[second])) {
         continue;
       }
 
@@ -3607,7 +3641,7 @@ class PosePainter extends CustomPainter {
     }
 
     for (int i = 0; i < 33; i++) {
-      if (landmarks[i].visibility < 0.25) {
+      if (!_visible(landmarks[i])) {
         continue;
       }
 

@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:haemophilia_app/utils/app_localizations.dart';
 import 'package:haemophilia_app/widgets/exercise_demo/exercise_demo_dialog.dart';
+import 'package:haemophilia_app/widgets/exercise_demo/exercise_demo.dart';
+import 'package:haemophilia_app/widgets/exercise_thresholds.dart';
+import 'package:haemophilia_app/services/exercise_rules.dart';
 
 void main() {
   for (final language in ['en', 'hi']) {
@@ -14,11 +17,7 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
       addTearDown(() => AppLocaleService.currentLocale.value = 'en');
-      for (final exercise in [
-        'elbow_flexion_extension',
-        'assisted_elbow_flexion_v5',
-        'shoulder_rotation',
-      ]) {
+      for (final exercise in ExerciseRule.catalog.map((r) => r.id)) {
         await tester.pumpWidget(
           MaterialApp(
             builder: (context, child) => MediaQuery(
@@ -40,7 +39,16 @@ void main() {
         await tester.tap(find.text('Open tutorial'));
         await tester.pump(const Duration(milliseconds: 400));
         expect(tester.takeException(), isNull, reason: exercise);
-        expect(find.text(tr('Angle targets and stages')), findsOneWidget);
+        expect(
+          tester
+              .widget<ExerciseThresholds>(find.byType(ExerciseThresholds))
+              .compact,
+          true,
+        );
+        expect(
+          tester.getTopLeft(find.byType(ExerciseDemo)).dy,
+          lessThan(tester.getTopLeft(find.byType(ExerciseThresholds)).dy),
+        );
         await tester.pumpWidget(const SizedBox());
       }
     });

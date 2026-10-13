@@ -83,8 +83,8 @@ class ExerciseRule {
       'Elbow angle',
       155,
       145,
-      90,
-      minimumRom: 50,
+      75,
+      minimumRom: 70,
       returnBand: 8,
       outwardStage: 'FLEXING',
       returnStage: 'EXTENDING',
@@ -96,18 +96,18 @@ class ExerciseRule {
       'Knee angle',
       165,
       150,
-      130,
+      150,
       returnBand: 8,
       outwardStage: 'LOWERING',
       returnStage: 'RISING',
-      cameraView: 'Front or side view',
+      cameraView: 'Side view',
     ),
     ExerciseRule(
       kSeatedKneeExtension,
       'Knee angle',
       95,
       100,
-      160,
+      170,
       increasing: true,
       outwardStage: 'EXTENDING',
       returnStage: 'BENDING',
@@ -117,7 +117,7 @@ class ExerciseRule {
       'Hip angle',
       172,
       165,
-      140,
+      135,
       outwardStage: 'RAISING',
       returnStage: 'LOWERING',
     ),
@@ -140,7 +140,7 @@ class ExerciseRule {
       120,
       outwardStage: 'LOWERING',
       returnStage: 'RISING',
-      cameraView: 'Front or side view',
+      cameraView: 'Side view',
     ),
   ];
 
@@ -157,6 +157,12 @@ class ExerciseRule {
     kAssistedShoulderFlexion,
     kShoulderRotation,
     kElbowFlexionExtension,
+  ].contains(id);
+  bool get isUpperBody => [
+    kAssistedShoulderFlexion,
+    kAssistedElbowFlexionV5,
+    kElbowFlexionExtension,
+    kShoulderRotation,
   ].contains(id);
 
   List<String> get postureGuidance => switch (id) {
@@ -202,6 +208,7 @@ class _Point {
 class ExerciseRulesAssessment {
   final ExerciseRule rule;
   String hand;
+  String _leg = 'Left';
   String stage = 'POSITIONING';
   int repCount = 0, correctCount = 0;
   double? _lastTime, _readySince, _onsetSince, _returnSince, _startedAt;
@@ -214,6 +221,8 @@ class ExerciseRulesAssessment {
   double? _leftPeak, _rightPeak;
   String? _incorrectStep;
   double? _baseline,
+      _baselineLeft,
+      _baselineRight,
       _best,
       _lastAngle,
       _baselineTilt,
@@ -222,9 +231,11 @@ class ExerciseRulesAssessment {
       _baselineThigh;
   double? _leftRotationBaseline, _rightRotationBaseline;
   bool _armed = false, _targetReached = false;
+  bool _currentAlert = false;
   final List<(double, double)> _trace = [];
   final Map<String, double> _errorSince = {};
   final Set<String> _errors = {};
+  final Map<String, Map<String, double>> _readyLegs = {};
   double? _frameWidth, _frameHeight;
   Map<String, dynamic> _lastResult = {};
 
@@ -234,6 +245,7 @@ class ExerciseRulesAssessment {
   void resetTracking() {
     stage = 'POSITIONING';
     _armed = false;
+    _currentAlert = false;
     _readySince = null;
     _onsetSince = null;
     _returnSince = null;
@@ -249,6 +261,9 @@ class ExerciseRulesAssessment {
     _incorrectStep = null;
     _startedAt = null;
     _baseline = null;
+    _baselineLeft = null;
+    _baselineRight = null;
+    _readyLegs.clear();
     _best = null;
     _lastAngle = null;
     _leftRotationBaseline = null;
@@ -313,7 +328,7 @@ class ExerciseRulesAssessment {
     }
     bool visible(int id) =>
         id < points.length &&
-        points[id].visibility >= .55 &&
+        points[id].visibility >= .4 &&
         points[id].x.isFinite &&
         points[id].y.isFinite &&
         points[id].x >= 0 &&
@@ -343,29 +358,71 @@ class ExerciseRulesAssessment {
           math.pi;
     }
 
-    final upper = [
-      kAssistedShoulderFlexion,
-      kAssistedElbowFlexionV5,
-      kElbowFlexionExtension,
-      kShoulderRotation,
-    ].contains(rule.id);
+    final upper = rule.isUpperBody;
     final bilateral = rule.usesBothArms;
-    final activeRight = rule.id == kAssistedElbowFlexionV5 && hand == 'Right';
+    if (!upper && !_armed && _startedAt == null) {
+      double quality(List<int> ids) => ids.every(visible)
+          ? ids.map((id) => points[id].visibility).reduce(math.min)
+          : 0;
+      final needsHeel = [kHeelSlide, kMiniSquat, kSquat].contains(rule.id);
+      final leftQuality = quality([11, 23, 25, 27, if (needsHeel) 29]);
+      final rightQuality = quality([12, 24, 26, 28, if (needsHeel) 30]);
+      if (rightQuality > leftQuality + .05) {
+        _leg = 'Right';
+      } else if (leftQuality > rightQuality + .05) {
+        _leg = 'Left';
+      }
+    }
+    // When both legs are visible, use the leg that actually starts moving.
+    // The choice is frozen for the repetition, including its own ready baseline.
+    if (!upper &&
+        _armed &&
+        _startedAt == null &&
+        ![kMiniSquat, kSquat].contains(rule.id) &&
+        _readyLegs.length == 2) {
+      double movement(String side) {
+        final right = side == 'Right';
+        final value = rule.id == kStraightLegRaise
+            ? joint(right ? 12 : 11, right ? 24 : 23, right ? 26 : 25)
+            : joint(right ? 24 : 23, right ? 26 : 25, right ? 28 : 27);
+        return value == null ? 0 : (value - _readyLegs[side]!['angle']!).abs();
+      }
+
+      final other = _leg == 'Left' ? 'Right' : 'Left';
+      final otherMotion = movement(other);
+      if (otherMotion >= 12 && otherMotion > movement(_leg) + 8) {
+        _leg = other;
+        final ready = _readyLegs[_leg]!;
+        _baseline = ready['angle'];
+        _baselineTilt = ready['tilt'];
+        _baselineHipY = ready['hipY'];
+        _baselineHeelY = ready['heelY'];
+        _baselineThigh = ready['thigh'];
+      }
+    }
+    final activeRight = upper
+        ? rule.id == kAssistedElbowFlexionV5 && hand == 'Right'
+        : _leg == 'Right';
     final sh = activeRight ? 12 : 11,
         el = activeRight ? 14 : 13,
         wr = activeRight ? 16 : 15;
     final hip = activeRight ? 24 : 23;
-    final required = upper ? <int>[sh, el, wr, hip] : <int>[11, 23, 25, 27];
+    final knee = activeRight ? 26 : 25,
+        ankle = activeRight ? 28 : 27,
+        heel = activeRight ? 30 : 29;
+    final required = upper
+        ? <int>[sh, el, wr, hip]
+        : <int>[sh, hip, knee, ankle];
     if (bilateral || rule.id == kAssistedElbowFlexionV5) {
       required.addAll([11, 12, 13, 14, 15, 16, 23, 24]);
     }
     if (rule.id == kHeelSlide || rule.id == kMiniSquat || rule.id == kSquat) {
-      required.add(29);
+      required.add(heel);
     }
     if (!required.every(visible)) {
       resetTracking();
       return _state(
-        [],
+        landmarks,
         null,
         'Show the required joints clearly, then return to the starting position.',
       );
@@ -388,11 +445,16 @@ class ExerciseRulesAssessment {
       if (left != null && right != null) {
         _leftRotationBaseline ??= left;
         _rightRotationBaseline ??= right;
-        double difference(double a, double b) =>
-            ((a - b + 540) % 360 - 180).abs();
-        leftAngle = difference(left, _leftRotationBaseline!);
-        rightAngle = difference(right, _rightRotationBaseline!);
-        driver = (leftAngle + rightAngle) / 2;
+        double difference(double a, double b) => (a - b + 540) % 360 - 180;
+        final midline = (points[11].x + points[12].x) / 2;
+        // Outward is away from the torso on each side, independent of camera mirroring.
+        leftAngle =
+            difference(left, _leftRotationBaseline!) *
+            (points[11].x - midline).sign;
+        rightAngle =
+            difference(right, _rightRotationBaseline!) *
+            (points[12].x - midline).sign;
+        driver = (leftAngle.abs() + rightAngle.abs()) / 2;
       }
     } else if (upper) {
       leftAngle = elbowAngle(11, 13, 15);
@@ -411,12 +473,12 @@ class ExerciseRulesAssessment {
       rightAngle = rule.id == kStraightLegRaise
           ? joint(12, 24, 26)
           : joint(24, 26, 28);
-      driver = leftAngle;
+      driver = activeRight ? rightAngle : leftAngle;
     }
     if (driver == null || !driver.isFinite) {
       resetTracking();
       return _state(
-        [],
+        landmarks,
         null,
         'Joint angle unavailable. Reposition the camera.',
       );
@@ -434,23 +496,32 @@ class ExerciseRulesAssessment {
     _filteredLeft = leftAngle;
     _filteredRight = rightAngle;
     if (bilateral && leftAngle != null && rightAngle != null) {
-      driver = (leftAngle + rightAngle) / 2;
+      driver = rule.relative
+          ? (leftAngle.abs() + rightAngle.abs()) / 2
+          : (leftAngle + rightAngle) / 2;
     } else if (upper) {
       driver = activeRight ? rightAngle : leftAngle;
     } else {
-      driver = leftAngle;
+      driver = activeRight ? rightAngle : leftAngle;
     }
     final angleNow = driver!;
     final torso = points[sh].distance(points[hip]);
     if (torso < 20) {
       resetTracking();
-      return _state([], null, 'Move closer so your joints can be tracked.');
+      return _state(
+        landmarks,
+        null,
+        'Move closer so your joints can be tracked.',
+      );
     }
     final tilt =
         math.atan2(points[sh].x - points[hip].x, points[hip].y - points[sh].y) *
         180 /
         math.pi;
-    final atRest = bilateral
+    final atRest = rule.relative
+        ? math.max(leftAngle!.abs(), rightAngle!.abs()) <=
+              rule.start + ExerciseRule.angleMargin
+        : bilateral
         ? rule.increasing
               ? math.max(leftAngle!, rightAngle!) <=
                     rule.start + ExerciseRule.angleMargin
@@ -498,6 +569,9 @@ class ExerciseRulesAssessment {
       }
     }
     if (rule.id == kShoulderRotation) {
+      if (leftAngle! < -5 || rightAngle! < -5) {
+        alerts.add('Rotate your forearms outward, away from your torso.');
+      }
       final le = elbowAngle(11, 13, 15), re = elbowAngle(12, 14, 16);
       if (le == null ||
           re == null ||
@@ -528,7 +602,7 @@ class ExerciseRulesAssessment {
         alerts.add('Keep the working elbow close to your torso.');
       }
     }
-    if (rule.id == kStraightLegRaise && (joint(23, 25, 27) ?? 0) < 160) {
+    if (rule.id == kStraightLegRaise && (joint(hip, knee, ankle) ?? 0) < 160) {
       alerts.add('Keep the lifting knee straight.');
     }
     if (!upper &&
@@ -539,17 +613,20 @@ class ExerciseRulesAssessment {
           kSeatedKneeExtension,
           kTerminalKneeExtension,
         ].contains(rule.id) &&
-        (_baselineHipY! - points[23].y) / height > .03) {
+        (_baselineHipY! - points[hip].y) / height > .03) {
       alerts.add('Keep your hip on the support surface.');
     }
     if ([kHeelSlide, kMiniSquat, kSquat].contains(rule.id) &&
         active &&
         _baselineHeelY != null &&
-        (_baselineHeelY! - points[29].y) / height > .03) {
+        (_baselineHeelY! - points[heel].y) / height > .03) {
       alerts.add('Keep your heel on the surface.');
     }
+    if (rule.id == kMiniSquat && angleNow < 130) {
+      alerts.add('Keep the mini squat shallow. Bend no more than 45 degrees.');
+    }
     if ([kMiniSquat, kSquat].contains(rule.id) &&
-        [12, 24, 26, 28].every(visible)) {
+        [11, 12, 23, 24, 25, 26, 27, 28].every(visible)) {
       final ankleWidth = (points[27].x - points[28].x).abs();
       final shoulderWidth = (points[11].x - points[12].x).abs();
       if (shoulderWidth > torso * .4 &&
@@ -565,7 +642,10 @@ class ExerciseRulesAssessment {
     }
     if (rule.id == kTerminalKneeExtension && _baselineThigh != null) {
       final thigh =
-          math.atan2(points[25].y - points[23].y, points[25].x - points[23].x) *
+          math.atan2(
+            points[knee].y - points[hip].y,
+            points[knee].x - points[hip].x,
+          ) *
           180 /
           math.pi;
       if ((thigh - _baselineThigh!).abs() > 15) {
@@ -573,6 +653,7 @@ class ExerciseRulesAssessment {
       }
     }
 
+    _currentAlert = alerts.isNotEmpty;
     Map<String, dynamic>? completed;
     if (!active) {
       if (!_armed && atRest && alerts.isEmpty) {
@@ -584,14 +665,56 @@ class ExerciseRulesAssessment {
           _armed = true;
           stage = 'READY';
           if (!rule.relative) _baseline = angleNow;
+          _baselineLeft = leftAngle;
+          _baselineRight = rightAngle;
           _baselineTilt = tilt;
           _baselineHipY = points[hip].y;
-          _baselineHeelY = points.length > 29 ? points[29].y : null;
+          _baselineHeelY = points.length > heel ? points[heel].y : null;
           if (!upper) {
+            for (final right in [false, true]) {
+              final s = right ? 12 : 11, h = right ? 24 : 23;
+              final k = right ? 26 : 25, a = right ? 28 : 27;
+              final foot = right ? 30 : 29;
+              final value = right ? rightAngle : leftAngle;
+              final rest =
+                  value != null &&
+                  (rule.increasing
+                      ? value <= rule.start + ExerciseRule.angleMargin
+                      : value >= rule.start - ExerciseRule.angleMargin);
+              if (rest &&
+                  [
+                    s,
+                    h,
+                    k,
+                    a,
+                    if ([kHeelSlide, kMiniSquat, kSquat].contains(rule.id))
+                      foot,
+                  ].every(visible)) {
+                _readyLegs[right ? 'Right' : 'Left'] = {
+                  'angle': value,
+                  'hipY': points[h].y,
+                  'heelY': points[foot].y,
+                  'tilt':
+                      math.atan2(
+                        points[s].x - points[h].x,
+                        points[h].y - points[s].y,
+                      ) *
+                      180 /
+                      math.pi,
+                  'thigh':
+                      math.atan2(
+                        points[k].y - points[h].y,
+                        points[k].x - points[h].x,
+                      ) *
+                      180 /
+                      math.pi,
+                };
+              }
+            }
             _baselineThigh =
                 math.atan2(
-                  points[25].y - points[23].y,
-                  points[25].x - points[23].x,
+                  points[knee].y - points[hip].y,
+                  points[knee].x - points[hip].x,
                 ) *
                 180 /
                 math.pi;
@@ -699,9 +822,10 @@ class ExerciseRulesAssessment {
       final distanceToStart = (angleNow - baseline).abs();
       final bothReturned =
           !bilateral ||
-          rule.relative ||
-          rule.increasing ||
-          math.min(leftAngle!, rightAngle!) >= rule.start;
+          (rule.relative
+              ? math.max(leftAngle!.abs(), rightAngle!.abs()) <= rule.returnBand
+              : (leftAngle! - _baselineLeft!).abs() <= rule.returnBand &&
+                    (rightAngle! - _baselineRight!).abs() <= rule.returnBand);
       final fullyReturned =
           atRest && bothReturned && distanceToStart <= rule.returnBand;
       if (stage == rule.returnStage && fullyReturned) {
@@ -831,15 +955,17 @@ class ExerciseRulesAssessment {
                       : activeRight
                       ? 'Right'
                       : 'Left')
-                : 'Left',
+                : _leg,
             'model_identity': 'On-device joint tracking + angle rules',
-            'model_version': 'OnDeviceRules_v2',
+            'model_version': 'OnDeviceRules_v3',
             'assessment_method': 'on_device_angle_rules',
             'experimental': true,
             'clinically_validated': false,
             'thresholds': {
               'start': rule.start,
-              'enter': rule.enter,
+              'movementOnsetDegrees': 8.0,
+              'minimumRom': rule.minimumRom,
+              'angleMargin': ExerciseRule.angleMargin,
               'target': rule.target,
               'relative': rule.relative,
               'targetHoldSeconds': ExerciseRule.targetHoldSeconds,
@@ -914,10 +1040,14 @@ class ExerciseRulesAssessment {
     'Keep the working elbow close to your torso.' ||
     'Keep your elbows beside your torso.' => 'ELBOW_FLARE',
     'Keep both elbows bent near 90 degrees.' => 'ELBOW_POSITION',
+    'Rotate your forearms outward, away from your torso.' =>
+      'ROTATION_DIRECTION',
     'Keep the lifting knee straight.' => 'KNEE_BENT',
     'Keep your hip on the support surface.' => 'HIP_LIFT',
     'Keep your heel on the surface.' => 'HEEL_LIFT',
     'Keep your knees aligned with your feet.' => 'KNEE_ALIGNMENT',
+    'Keep the mini squat shallow. Bend no more than 45 degrees.' =>
+      'SQUAT_TOO_DEEP',
     'Keep your thigh resting on the support.' => 'THIGH_MOVEMENT',
     _ => 'MOVEMENT_RULE',
   };
@@ -935,15 +1065,19 @@ class ExerciseRulesAssessment {
         ? hand
         : rule.usesBothArms
         ? 'Both'
-        : 'Left',
+        : _leg,
     'angle': angle,
     'rep_count': repCount,
     'correct_reps': correctCount,
     'form': _errors.isNotEmpty
         ? 'incorrect'
-        : stage == 'POSITIONING'
+        : angle == null
         ? 'Waiting'
-        : stage,
+        : _currentAlert
+        ? 'Adjusting'
+        : _armed || _startedAt != null
+        ? 'correct'
+        : 'Waiting',
     'feedback': feedback,
     'error_type': _errors.isEmpty ? '' : _errorCode(_errors.first),
     'incorrect_step': _incorrectStep,

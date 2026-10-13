@@ -54,4 +54,5 @@ flutter {
 
 dependencies {
     implementation("com.google.mlkit:pose-detection:18.0.0-beta5")
+    testImplementation("junit:junit:4.13.2")
 }

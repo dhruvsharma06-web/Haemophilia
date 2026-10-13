@@ -104,8 +104,6 @@ Future<void> showExerciseDemoDialog(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      ExerciseThresholds(exercise: exerciseName, dark: isDark),
-                      const SizedBox(height: 16),
                       // Reusable Demo Widget
                       ExerciseDemo(
                         exerciseId: exerciseName,
@@ -113,6 +111,12 @@ Future<void> showExerciseDemoDialog(
                         isDark: isDark,
                       ),
 
+                      const SizedBox(height: 10),
+                      ExerciseThresholds(
+                        exercise: exerciseName,
+                        dark: isDark,
+                        compact: true,
+                      ),
                       const SizedBox(height: 18),
 
                       // Key Clinical Tips Card

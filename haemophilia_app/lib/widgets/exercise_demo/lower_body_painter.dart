@@ -53,9 +53,19 @@ class LowerBodyPainter extends CustomPainter {
     Offset? restingKnee, restingAnkle;
     bool lying = false;
     if (exercise == kSquat || exercise == kMiniSquat) {
-      final depth = exercise == kMiniSquat ? 32.0 : 65.0;
-      hip = Offset(174 - 24 * t, 135 + depth * t);
+      final peak = exercise == kMiniSquat ? 140.0 : 110.0;
+      final kneeDegrees = 175 + (peak - 175) * t;
+      final distanceToAnkle = 144 * math.sin(kneeDegrees * math.pi / 360);
+      final hipOffsetX = 25 + (exercise == kMiniSquat ? 20 : 30) * t;
       ankle = const Offset(200, 270);
+      hip =
+          ankle -
+          Offset(
+            hipOffsetX,
+            math.sqrt(
+              distanceToAnkle * distanceToAnkle - hipOffsetX * hipOffsetX,
+            ),
+          );
       // Two segments of equal length joined at the knee.
       final delta = ankle - hip;
       final distance = delta.distance;
@@ -85,12 +95,15 @@ class LowerBodyPainter extends CustomPainter {
       restingAnkle = const Offset(305, 225);
       canvas.drawLine(const Offset(35, 241), const Offset(330, 241), support);
       if (exercise == kStraightLegRaise) {
-        final a = -.65 * t;
+        restingKnee = hip + const Offset(40, -55);
+        restingAnkle = hip + const Offset(80, 0);
+        final a = -math.pi / 4 * t;
         knee = hip + Offset(math.cos(a), math.sin(a)) * 75;
         ankle = hip + Offset(math.cos(a), math.sin(a)) * 150;
       } else if (exercise == kTerminalKneeExtension) {
         knee = const Offset(222, 190);
-        final a = .5 * (1 - t);
+        final thighDirection = math.atan2(knee.dy - hip.dy, knee.dx - hip.dx);
+        final a = thighDirection + (50 * math.pi / 180) * (1 - t);
         ankle = knee + Offset(math.cos(a), math.sin(a)) * 72;
         canvas.drawRRect(
           RRect.fromRectAndRadius(
@@ -101,7 +114,7 @@ class LowerBodyPainter extends CustomPainter {
         );
       } else {
         // Heel remains on the mat while the knee rises.
-        ankle = Offset(305 - 62 * t, 225);
+        ankle = Offset(305 - (150 - 150 / math.sqrt(2)) * t, 225);
         final d = (ankle - hip).distance;
         knee =
             (hip + ankle) / 2 +

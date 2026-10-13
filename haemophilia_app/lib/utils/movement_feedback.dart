@@ -14,6 +14,7 @@ const _movementErrors = <String, (String, String)>{
     'दूसरे हाथ का सहारा नहीं दिया',
   ),
   'ELBOW_POSITION': ('Elbow position', 'कोहनी की स्थिति'),
+  'ROTATION_DIRECTION': ('Rotation direction', 'घुमाने की दिशा'),
   'ELBOW_FLARE': ('Elbow moved away from torso', 'कोहनी धड़ से दूर हुई'),
   'ELBOW_FLARE_DETECTED': (
     'Elbow moved away from torso',
@@ -25,6 +26,7 @@ const _movementErrors = <String, (String, String)>{
   'HIP_LIFT': ('Hip lifted', 'कूल्हा उठा'),
   'HEEL_LIFT': ('Heel lifted', 'एड़ी उठी'),
   'KNEE_ALIGNMENT': ('Knee alignment', 'घुटने की दिशा'),
+  'SQUAT_TOO_DEEP': ('Squat too deep', 'स्क्वाट बहुत गहरा है'),
   'THIGH_MOVEMENT': ('Thigh moved', 'जांघ हिली'),
   'GENERAL_FORM_ERROR': (
     'Movement form needs adjustment',
@@ -54,9 +56,17 @@ String? movementCorrection(String? code, {bool hindi = false}) {
       'Use a steady pace through the outward and return stages.',
       'आगे की गतिविधि और वापसी दोनों चरणों में गति स्थिर रखें।',
     ),
+    'SQUAT_TOO_DEEP' => (
+      'Use a shallow mini squat with about 30–45° of knee bend. Keep your heels down and use support if needed.',
+      'मिनी स्क्वाट में घुटना लगभग 30–45° तक ही मोड़ें। एड़ियां ज़मीन पर रखें और ज़रूरत हो तो सहारा लें।',
+    ),
     'SUPPORT_MISSING' => (
       'Keep the opposite hand supporting the working forearm. Retry the same side when ready.',
       'व्यायाम वाली अग्रबाहु को दूसरे हाथ से सहारा दें। तैयार होने पर उसी हाथ से फिर प्रयास करें।',
+    ),
+    'ROTATION_DIRECTION' => (
+      'Keep your elbows beside your torso and rotate the forearms outward, then return to neutral.',
+      'कोहनियां धड़ के पास रखते हुए अग्रबाहुओं को बाहर की ओर घुमाएं, फिर शुरुआती स्थिति में लौटें।',
     ),
     'BODY_TILT' => (
       'Keep your torso steady and review your camera position.',

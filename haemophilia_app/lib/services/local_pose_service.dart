@@ -4,18 +4,27 @@ import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import '../utils/exercise_utils.dart';
+
 class LocalPoseService {
   static const _channel = MethodChannel('hemo/local_pose');
   bool _busy = false;
   bool _disposed = false;
 
-  Future<void> initialize() async {
+  Future<void> initialize(String exercise) async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
       throw StateError(
         'On-device exercise tracking currently requires an Android phone.',
       );
     }
-    await _channel.invokeMethod<void>('initialize');
+    final id = normalizeExerciseId(exercise);
+    await _channel.invokeMethod<void>('initialize', {
+      'sideways': [
+        kHeelSlide,
+        kStraightLegRaise,
+        kTerminalKneeExtension,
+      ].contains(id),
+    });
   }
 
   Future<Map<String, dynamic>?> detect(

@@ -293,14 +293,14 @@ class ExerciseDemoRegistry {
       ExercisePhase(
         phaseNumber: 2,
         title: 'Bending (Flexion)',
-        description: 'Bend both elbows together while keeping both upper arms steady beside your torso.',
+        description: 'Curl both forearms toward your shoulders. Keep both upper arms beside your torso and avoid swinging.',
         startProgress: 0.20,
         endProgress: 0.50,
       ),
       ExercisePhase(
         phaseNumber: 3,
         title: 'Peak Flexion',
-        description: 'Reach 90° or less at both elbows and hold briefly. Stay within your clinician’s comfortable range.',
+        description: 'Reach 75° or less at both elbows and hold briefly. Stay within your clinician’s comfortable range.',
         startProgress: 0.50,
         endProgress: 0.60,
       ),
@@ -524,7 +524,7 @@ class ExerciseDemoRegistry {
       ExercisePhase(
         phaseNumber: 2,
         title: 'Straight Leg Lift',
-        description: 'Lock your knee straight and lift the entire leg to approximately 30-45 degrees.',
+        description: 'Keep the lifting knee straight and raise the leg to about 45 degrees, within your prescribed comfortable range.',
         startProgress: 0.20,
         endProgress: 0.50,
       ),
