@@ -147,7 +147,7 @@ void main() {
     (kAssistedElbowFlexionV5, 150, 80),
     (kElbowFlexionExtension, 160, 65),
     (kHeelSlide, 178, 80),
-    (kMiniSquat, 178, 140),
+    (kMiniSquat, 178, 125),
     (kSeatedKneeExtension, 85, 170),
     (kStraightLegRaise, 178, 130),
     (kTerminalKneeExtension, 140, 178),
@@ -198,9 +198,9 @@ void main() {
     expect(r['target_reached'], true);
     expect(r['score'], lessThanOrEqualTo(55));
   });
-  test('a 30-degree mini squat is accepted, matching tutorial guidance', () {
+  test('the source mini squat target is accepted at 130 degrees', () {
     final e = ExerciseRulesAssessment(kMiniSquat);
-    expect(cycle(e, kMiniSquat, 178, 150).single['form'], 'correct');
+    expect(cycle(e, kMiniSquat, 178, 130).single['form'], 'correct');
   });
   test(
     'exact bilateral start threshold completes without floating-point lockout',

@@ -53,7 +53,7 @@ class LowerBodyPainter extends CustomPainter {
     Offset? restingKnee, restingAnkle;
     bool lying = false;
     if (exercise == kSquat || exercise == kMiniSquat) {
-      final peak = exercise == kMiniSquat ? 140.0 : 110.0;
+      final peak = exercise == kMiniSquat ? 130.0 : 120.0;
       final kneeDegrees = 175 + (peak - 175) * t;
       final distanceToAnkle = 144 * math.sin(kneeDegrees * math.pi / 360);
       final hipOffsetX = 25 + (exercise == kMiniSquat ? 20 : 30) * t;
@@ -97,7 +97,7 @@ class LowerBodyPainter extends CustomPainter {
       if (exercise == kStraightLegRaise) {
         restingKnee = hip + const Offset(40, -55);
         restingAnkle = hip + const Offset(80, 0);
-        final a = -math.pi / 4 * t;
+        final a = -(40 * math.pi / 180) * t;
         knee = hip + Offset(math.cos(a), math.sin(a)) * 75;
         ankle = hip + Offset(math.cos(a), math.sin(a)) * 150;
       } else if (exercise == kTerminalKneeExtension) {

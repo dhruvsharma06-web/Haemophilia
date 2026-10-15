@@ -85,13 +85,13 @@ void main() {
       },
     );
   }
-  test('mini squat demonstration bends 40 degrees, inside the 30–45 range', () {
+  test('mini squat demonstration reaches the source branch 130-degree target', () {
     final s = lines(
       LowerBodyPainter(exercise: kMiniSquat, progress: .55),
       const Size(360, 300),
       9,
     );
-    expect(180 - joint(s[1].$1, s[1].$2, s[2].$2), closeTo(40, .01));
+    expect(joint(s[1].$1, s[1].$2, s[2].$2), closeTo(130, .01));
   });
   test(
     'ordinary curl bends both elbows forward with stationary upper arms',

@@ -406,7 +406,7 @@ class ExerciseDemoRegistry {
       ExercisePhase(
         phaseNumber: 2,
         title: 'Shallow Squat',
-        description: 'Bend knees to 30-45 degrees, tracking knees directly over your toes.',
+        description: 'Bend both knees gently toward the shown target within your comfortable range, keeping them aligned with your feet.',
         startProgress: 0.20,
         endProgress: 0.50,
       ),
@@ -524,7 +524,7 @@ class ExerciseDemoRegistry {
       ExercisePhase(
         phaseNumber: 2,
         title: 'Straight Leg Lift',
-        description: 'Keep the lifting knee straight and raise the leg to about 45 degrees, within your prescribed comfortable range.',
+        description: 'Keep the lifting knee straight and raise the leg to about 40 degrees, within your prescribed comfortable range.',
         startProgress: 0.20,
         endProgress: 0.50,
       ),
@@ -646,7 +646,7 @@ class ExerciseDemoRegistry {
       ExercisePhase(
         phaseNumber: 3,
         title: 'Bottom Depth',
-        description: 'Pause at parallel or target depth keeping spine neutral and heels grounded.',
+        description: 'Pause briefly at the shown partial-squat depth within your comfortable range, keeping your heels grounded.',
         startProgress: 0.50,
         endProgress: 0.60,
       ),

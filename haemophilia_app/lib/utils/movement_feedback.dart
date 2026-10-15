@@ -57,8 +57,8 @@ String? movementCorrection(String? code, {bool hindi = false}) {
       'आगे की गतिविधि और वापसी दोनों चरणों में गति स्थिर रखें।',
     ),
     'SQUAT_TOO_DEEP' => (
-      'Use a shallow mini squat with about 30–45° of knee bend. Keep your heels down and use support if needed.',
-      'मिनी स्क्वाट में घुटना लगभग 30–45° तक ही मोड़ें। एड़ियां ज़मीन पर रखें और ज़रूरत हो तो सहारा लें।',
+      'Use a supported mini squat within your comfortable range. Keep your heels down and knees aligned with your feet.',
+      'अपनी आरामदायक सीमा में सहारा लेकर मिनी स्क्वाट करें। एड़ियां नीचे और घुटने पैरों की दिशा में रखें।',
     ),
     'SUPPORT_MISSING' => (
       'Keep the opposite hand supporting the working forearm. Retry the same side when ready.',

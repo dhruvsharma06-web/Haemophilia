@@ -90,13 +90,16 @@ class ExerciseRule {
       returnStage: 'EXTENDING',
       cameraView: 'Front oblique view',
     ),
+    // Lower-body display targets follow codex/lower-body-integration's
+    // backend/app/config/exercises.json. These remain provisional camera
+    // measurements rather than prescribed range-of-motion limits.
     ExerciseRule(kHeelSlide, 'Knee angle', 170, 150, 90),
     ExerciseRule(
       kMiniSquat,
       'Knee angle',
       165,
       150,
-      150,
+      130,
       returnBand: 8,
       outwardStage: 'LOWERING',
       returnStage: 'RISING',
@@ -107,7 +110,7 @@ class ExerciseRule {
       'Knee angle',
       95,
       100,
-      170,
+      160,
       increasing: true,
       outwardStage: 'EXTENDING',
       returnStage: 'BENDING',
@@ -117,7 +120,7 @@ class ExerciseRule {
       'Hip angle',
       172,
       165,
-      135,
+      140,
       outwardStage: 'RAISING',
       returnStage: 'LOWERING',
     ),
@@ -132,6 +135,9 @@ class ExerciseRule {
       outwardStage: 'EXTENDING',
       returnStage: 'BENDING',
     ),
+    // The source squat config enters at 105 degrees but targets 120 degrees:
+    // that starts the rep after the target was crossed. Retain the working
+    // 145-degree onset while using its 155-degree return and 120-degree target.
     ExerciseRule(
       kSquat,
       'Knee angle',
@@ -622,8 +628,8 @@ class ExerciseRulesAssessment {
         (_baselineHeelY! - points[heel].y) / height > .03) {
       alerts.add('Keep your heel on the surface.');
     }
-    if (rule.id == kMiniSquat && angleNow < 130) {
-      alerts.add('Keep the mini squat shallow. Bend no more than 45 degrees.');
+    if (rule.id == kMiniSquat && angleNow < 120) {
+      alerts.add('Keep the mini squat controlled and shallow.');
     }
     if ([kMiniSquat, kSquat].contains(rule.id) &&
         [11, 12, 23, 24, 25, 26, 27, 28].every(visible)) {
@@ -1046,7 +1052,7 @@ class ExerciseRulesAssessment {
     'Keep your hip on the support surface.' => 'HIP_LIFT',
     'Keep your heel on the surface.' => 'HEEL_LIFT',
     'Keep your knees aligned with your feet.' => 'KNEE_ALIGNMENT',
-    'Keep the mini squat shallow. Bend no more than 45 degrees.' =>
+    'Keep the mini squat controlled and shallow.' =>
       'SQUAT_TOO_DEEP',
     'Keep your thigh resting on the support.' => 'THIGH_MOVEMENT',
     _ => 'MOVEMENT_RULE',

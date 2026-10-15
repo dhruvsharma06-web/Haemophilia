@@ -17,6 +17,7 @@ import '../../widgets/session_safety_dialog.dart';
 import '../../services/assessment_history_service.dart';
 import '../../services/local_pose_service.dart';
 import '../../services/exercise_rules.dart';
+import '../../services/lower_body_assessment.dart';
 import '../../widgets/exercise_thresholds.dart';
 import '../../services/session_lifecycle_service.dart';
 import '../../utils/schedule_utils.dart';
@@ -705,6 +706,14 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
   // ON-DEVICE TRACKING CONNECTION
   // ============================================================
 
+  ExerciseRulesAssessment _createLocalRules(String exercise,
+      {String hand = 'Left'}) {
+    final rule = ExerciseRule.forExercise(exercise);
+    return rule.isUpperBody
+        ? ExerciseRulesAssessment(exercise, hand: hand)
+        : LowerBodyAssessment(exercise);
+  }
+
   Future<void> _initializeLocalAssessment() async {
     if (_assessmentStarting || _assessmentReady) return;
     _assessmentStarting = true;
@@ -717,7 +726,7 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
     try {
       await _poseService.initialize(_currentAssignedExercise());
       if (!mounted || _terminalSession) return;
-      _rules = ExerciseRulesAssessment(
+      _rules = _createLocalRules(
         _currentAssignedExercise(),
         hand: _currentCorrectReps.isOdd ? 'Right' : 'Left',
       );
@@ -980,7 +989,10 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
     try {
       _poseGeneration++;
       await _poseService.reset();
-      _rules = ExerciseRulesAssessment(nextExercise);
+      // Lying exercises need native sideways pose search. Reset alone keeps
+      // the old exercise's sideways setting, so configure each new exercise.
+      await _poseService.initialize(nextExercise);
+      _rules = _createLocalRules(nextExercise);
       _repReviewFrame = null;
     } catch (e) {
       debugPrint('Could not switch exercise: $e');
@@ -2993,7 +3005,8 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
                       : tr('Not yet'),
                 ),
                 _compactStat(
-                  tr('Last score'),
+                  tr(ExerciseRule.forExercise(_currentAssignedExercise())
+                          .isUpperBody ? 'Last score' : 'Camera score'),
                   _scoreAvailable ? _score.toStringAsFixed(0) : '—',
                 ),
               ],
@@ -3096,7 +3109,10 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
                   _movementMetrics['score_kind'] ==
                           'descriptive_movement_control'
                       ? 'CONTROL'
-                      : 'Last score',
+                      : _movementMetrics['score_kind'] ==
+                              'rule_heuristic_not_accuracy'
+                          ? 'Camera score'
+                          : 'Last score',
                 ),
                 _scoreAvailable ? _score.toStringAsFixed(0) : '—',
               ),
@@ -3113,6 +3129,18 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
               ),
             ],
           ),
+
+          if (!ExerciseRule.forExercise(_currentAssignedExercise()).isUpperBody)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                tr('Camera estimate; confirm form with your clinician.'),
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.76),
+                  fontSize: 10,
+                ),
+              ),
+            ),
 
           Align(
             alignment: Alignment.centerLeft,
