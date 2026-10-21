@@ -3205,6 +3205,8 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
                   tr('Target'),
                   _rules?.rule.id == kElbowFlexionExtension
                       ? 'L ≤${_toDouble(_movementMetrics['required_left_target']).toStringAsFixed(2)}° / R ≤${_toDouble(_movementMetrics['required_right_target']).toStringAsFixed(2)}°'
+                      : _rules?.rule.id == kShoulderRotation
+                      ? '±${_toDouble(_movementMetrics['required_target']).toStringAsFixed(0)}°'
                       : '${_rules?.rule.increasing == true ? '≥' : '≤'}${_rules?.rule.target.toStringAsFixed(0) ?? '—'}°',
                 ),
                 _compactStat(

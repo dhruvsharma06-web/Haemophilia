@@ -9,12 +9,22 @@
 ## In Progress
 - On-device angle-threshold assessment replacing the LSTM models. The user confirmed the direction on 2026-10-21: processing runs on the phone, and each exercise gets measured angle thresholds from supplied files rather than a trained classifier.
 - Scope: all upper-body exercises **except** assisted shoulder flexion with the wand. Assisted shoulder flexion keeps its existing path.
-- Delivered 2026-10-21: elbow flexion and extension (first exercise supplied). See "Elbow flexion and extension" below.
+- Delivered 2026-10-21: elbow flexion and extension, then shoulder rotation. See their sections below.
 
 ## Pending
-- Awaiting the threshold files for the remaining upper-body exercises (assisted elbow flexion, shoulder rotation) and confirmation of how assisted shoulder flexion should stay unchanged.
+- Awaiting the threshold files for the remaining upper-body exercise (assisted elbow flexion) and confirmation of how assisted shoulder flexion should stay unchanged.
+- Shoulder rotation's numbers are proposed engineering settings, not measurements. They need the recording review the report itself asks for before any patient use.
 - Device validation on a real phone for every converted exercise: labelled recordings, left/right identification, mirroring, occlusion, performance and threshold-boundary cases.
 - Lower-body angle smoothing and clinical calibration remain outstanding, unchanged by this work.
+
+## Shoulder rotation (2026-10-21)
+- Source: `Shoulder_Rotation_Threshold_Report.pdf`, a draft engineering specification dated 2026-10-15. Bundled in `docs/calibration/shoulder-rotation.json`.
+- Unlike the elbow file, this is a specification rather than measurements. Only the elbow bend range (60-120°, target 90°) and the 12° sideways lean are retained from the previous implementation; all other limits are proposed starting settings, and the report says so explicitly.
+- The report warns the old counting values 8, 10, 3, 15 and 20 were normalized displacement units, not degrees. None were converted. The unused 15° minimum-excursion and 25° left/right ROM difference constants were not adopted.
+- Engine: `haemophilia_app/lib/services/shoulder_rotation_assessment.dart`, dispatched when the exercise is `shoulder_rotation`. Torso-relative body frame from world landmarks, forearm-azimuth proxy, ±5° centre band, 20° extreme held 0.15 s, 0.5 s neutral calibration, 20% posture persistence, 0.7 visibility, intentional tracking-gap abandonment.
+- Enables `worldPose` for this exercise, so it shares the native MediaPipe path added for the elbow.
+- Replaces the legacy camera-azimuth proxy and its old `ROTATION_DIRECTION` / `INCOMPLETE_RETURN` codes; the legacy fixture tests for those were updated to assert that path no longer produces a verdict.
+- Tests: 22 direct engine tests plus 5 integration assertions. Whole suite 184 tests.
 
 ## Elbow flexion and extension (2026-10-21)
 - Source files: `mediapipe_angle_thresholds.json`, `angle_statistics.csv`, `reviewed_rep_measurements.csv` (22 approved reps, one session, `person_specific_candidate`). Bundled values are in `docs/calibration/elbow-flexion-extension.json`; raw reviewed CSV data is not shipped in the app.
@@ -68,6 +78,8 @@
 - Continue from the latest completed task.
 - Do not overwrite existing changes.
 - Branch: `codex/upper-body-angle-thresholds` (created 2026-10-21), based on `codex/lower-body-source-integration`.
-- Next exercise to convert: whichever threshold file arrives next. Follow the elbow pattern — bundle the supplied constants verbatim in a `docs/calibration/*.json`, add an engine under `lib/services/`, dispatch from `ExerciseRulesAssessment.update` only for that exercise, and select the pose backend in `LocalPoseService.initialize`.
+- Next exercise to convert: whichever threshold file arrives next. Follow the established pattern — bundle the supplied constants verbatim in a `docs/calibration/*.json` with a test asserting the engine matches it, add an engine under `lib/services/`, dispatch from `ExerciseRulesAssessment.update` only for that exercise, and select the pose backend in `LocalPoseService.initialize`.
 - The remaining upper-body conversions will need the same native decision as the elbow: ML Kit image landmarks are not interchangeable with MediaPipe world landmarks, so an exercise measured in world coordinates must request `worldPose` and must not silently fall back.
+- Two traps already cost time and will recur: a per-arm threshold with a same-frame bilateral `&&` gate never latches when the arms converge asymptotically, and a causal low-pass filter never quite reaches its input, so threshold comparisons need a small convergence tolerance (documented as numerical, never as a clinical margin).
+- Shoulder rotation is the first conversion whose source was a *specification* rather than measurements. Keep that distinction visible in code and UI copy; do not let a proposed setting read as a measured or validated one.
 - Preserve the existing untracked agent/configuration files identified at the start of this session.

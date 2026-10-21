@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import '../utils/exercise_utils.dart';
 import 'elbow_world_assessment.dart';
+import 'shoulder_rotation_assessment.dart';
 
 /// Camera measurements and provisional assessment presets, not clinical prescriptions.
 class ExerciseRule {
@@ -34,6 +35,9 @@ class ExerciseRule {
   String get thresholdSummary {
     if (id == kElbowFlexionExtension) {
       return ElbowWorldAssessment.thresholdSummary;
+    }
+    if (id == kShoulderRotation) {
+      return ShoulderRotationAssessment.thresholdSummary;
     }
     final startSign = increasing ? '≤' : '≥';
     final targetSign = increasing ? '≥' : '≤';
@@ -217,6 +221,8 @@ class _Point {
 /// Pure Dart: no trained form classifier, network, image conversion or file writes.
 class ExerciseRulesAssessment {
   final ElbowWorldAssessment _elbowWorld = ElbowWorldAssessment();
+  final ShoulderRotationAssessment _shoulderRotation =
+      ShoulderRotationAssessment();
   final ExerciseRule rule;
   String hand;
   String _leg = 'Left';
@@ -255,6 +261,7 @@ class ExerciseRulesAssessment {
 
   void resetTracking() {
     if (rule.id == kElbowFlexionExtension) _elbowWorld.resetTracking();
+    if (rule.id == kShoulderRotation) _shoulderRotation.resetTracking();
     stage = 'POSITIONING';
     _armed = false;
     _currentAlert = false;
@@ -313,6 +320,20 @@ class ExerciseRulesAssessment {
   }) {
     if (rule.id == kElbowFlexionExtension) {
       final result = _elbowWorld.update(
+        landmarks,
+        width,
+        height,
+        time,
+        worldLandmarks: worldLandmarks,
+        angleSource: angleSource,
+      );
+      repCount = result['rep_count'] as int;
+      correctCount = result['correct_reps'] as int;
+      stage = result['state'] as String;
+      return result;
+    }
+    if (rule.id == kShoulderRotation) {
+      final result = _shoulderRotation.update(
         landmarks,
         width,
         height,

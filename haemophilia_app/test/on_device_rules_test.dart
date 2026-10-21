@@ -159,11 +159,12 @@ extension WorldPoseFixture on ExerciseRulesAssessment {
 }
 
 void main() {
+  // Elbow flexion/extension and shoulder rotation have their own threshold
+  // engines and dedicated test files. This generic fixture drives the shared
+  // rule path, so those two are exercised there instead.
   for (final item in <(String, double, double)>[
     (kAssistedShoulderFlexion, 20, 160),
-    (kShoulderRotation, 0, 40),
     (kAssistedElbowFlexionV5, 150, 80),
-    (kElbowFlexionExtension, 160, 65),
     (kHeelSlide, 178, 80),
     (kMiniSquat, 178, 125),
     (kSeatedKneeExtension, 85, 170),
@@ -301,6 +302,13 @@ void main() {
   });
   test('all exercises reject a completed shallow movement', () {
     for (final rule in ExerciseRule.catalog) {
+      // Elbow and shoulder rotation were converted to their own threshold
+      // engines. Their shared legacy cycle fixture does not calibrate or
+      // supply MediaPipe world landmarks, so they are covered by their own
+      // dedicated test files instead.
+      if (rule.id == kElbowFlexionExtension || rule.id == kShoulderRotation) {
+        continue;
+      }
       final rest = rule.relative ? 0.0 : rule.start;
       final peak = rule.increasing ? rest + 12 : rest - 12;
       final e = ExerciseRulesAssessment(rule.id);
@@ -532,6 +540,10 @@ void main() {
     },
   );
   test('small shoulder rotation requires a close return to neutral', () {
+    // The old incomplete-return code belonged to the superseded proxy rules.
+    // The new engine requires a centre crossing before the opposite extreme,
+    // so this same sequence must not produce a repetition or a verdict from
+    // the legacy path.
     final e = ExerciseRulesAssessment(kShoulderRotation);
     final values = [
       ...List.filled(8, 0.0),
@@ -540,22 +552,28 @@ void main() {
       for (var i = 1; i <= 16; i++) 40.0 - 34 * i / 16,
       ...List.filled(40, 6.0),
     ];
-    Map<String, dynamic>? state;
     for (var i = 0; i < values.length; i++) {
-      state = e.updateWithWorldFixture(pose(kShoulderRotation, values[i]), 1000, 1000, i * .08);
+      e.updateWithWorldFixture(pose(kShoulderRotation, values[i]), 1000, 1000, i * .08);
     }
     expect(e.repCount, 0);
-    expect(state!['error_type'], 'INCOMPLETE_RETURN');
+    expect(e.correctCount, 0);
   });
-  test('inward rotation cannot receive an outward-rotation correct score', () {
+  test('shoulder rotation no longer uses the legacy azimuth proxy', () {
+    // The supplied 15 October 2026 specification replaces the old
+    // camera-azimuth proxy and its normalized 8/10/3/15/20 counting values
+    // with an explicit body-frame rule set. The shared legacy cycle fixture
+    // supplies neither world landmarks nor a calibrated neutral, so this
+    // exercise must now report an unassessable state rather than a verdict.
     final e = ExerciseRulesAssessment(kShoulderRotation);
-    final rep = cycle(e, kShoulderRotation, 0, -40).single;
-    expect(rep['form'], 'incorrect');
-    expect(rep['error_codes'], contains('ROTATION_DIRECTION'));
-    expect(rep['target_reached'], false);
-    expect(rep['score'], lessThanOrEqualTo(50));
+    final reps = cycle(e, kShoulderRotation, 0, 40);
+    expect(reps, isEmpty);
+    expect(e.repCount, 0);
+    expect(e.correctCount, 0);
   });
-  test('outward rotation remains correct with mirrored camera coordinates', () {
+  test('mirrored image coordinates cannot fake a rotation verdict', () {
+    // Sign alignment is now the new engine's responsibility, and it works
+    // from the torso-relative body frame rather than image x. A mirrored
+    // image-plane fixture must not produce a verdict here at all.
     final e = ExerciseRulesAssessment(kShoulderRotation);
     final values = [
       ...List.filled(8, 0.0),
@@ -564,18 +582,14 @@ void main() {
       for (var i = 1; i <= 16; i++) 40.0 - 40.0 * i / 16,
       ...List.filled(10, 0.0),
     ];
-    Map<String, dynamic>? rep;
     for (var i = 0; i < values.length; i++) {
       final p = pose(kShoulderRotation, values[i]);
       for (final joint in p) {
         joint['x'] = 1 - (joint['x'] as double);
       }
-      final state = e.updateWithWorldFixture(p, 1000, 1000, i * .08);
-      if (state['completed_rep'] is Map) {
-        rep = Map<String, dynamic>.from(state['completed_rep']);
-      }
+      e.updateWithWorldFixture(p, 1000, 1000, i * .08);
     }
-    expect(rep, isNotNull);
-    expect(rep!['form'], 'correct');
+    expect(e.repCount, 0);
+    expect(e.correctCount, 0);
   });
 }
