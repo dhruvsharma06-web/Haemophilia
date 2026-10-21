@@ -19,6 +19,7 @@ class LocalPoseService {
     }
     final id = normalizeExerciseId(exercise);
     await _channel.invokeMethod<void>('initialize', {
+      'worldPose': id == kElbowFlexionExtension,
       'sideways': [
         kHeelSlide,
         kStraightLegRaise,

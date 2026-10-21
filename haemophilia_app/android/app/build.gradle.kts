@@ -54,5 +54,9 @@ flutter {
 
 dependencies {
     implementation("com.google.mlkit:pose-detection:18.0.0-beta5")
+    // World-coordinate pose landmarks for the exercises whose thresholds were
+    // measured with MediaPipe Pose world landmarks. ML Kit remains the default
+    // for every other exercise.
+    implementation("com.google.mediapipe:tasks-vision:0.10.14")
     testImplementation("junit:junit:4.13.2")
 }

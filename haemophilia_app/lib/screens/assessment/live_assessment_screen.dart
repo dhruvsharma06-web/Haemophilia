@@ -919,6 +919,10 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
           'threshold_summary',
           'camera_view',
           'required_target',
+          'required_left_target',
+          'required_right_target',
+          'left_range_of_motion',
+          'right_range_of_motion',
           'target_reached',
           'target_hold_progress',
           'incorrect_step',
@@ -1433,6 +1437,10 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
         (pose['width'] as num).toDouble(),
         (pose['height'] as num).toDouble(),
         timestamp,
+        worldLandmarks: (pose['world_landmarks'] as List?)
+            ?.map((point) => Map<String, dynamic>.from(point as Map))
+            .toList(),
+        angleSource: pose['angle_source'] as String?,
       );
       if (state['state'] == 'READY') {
         _repReviewFrame = null;
@@ -3195,7 +3203,9 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
                 ),
                 _compactStat(
                   tr('Target'),
-                  '${_rules?.rule.increasing == true ? '≥' : '≤'}${_rules?.rule.target.toStringAsFixed(0) ?? '—'}°',
+                  _rules?.rule.id == kElbowFlexionExtension
+                      ? 'L ≤${_toDouble(_movementMetrics['required_left_target']).toStringAsFixed(2)}° / R ≤${_toDouble(_movementMetrics['required_right_target']).toStringAsFixed(2)}°'
+                      : '${_rules?.rule.increasing == true ? '≥' : '≤'}${_rules?.rule.target.toStringAsFixed(0) ?? '—'}°',
                 ),
                 _compactStat(
                   tr('Target held'),

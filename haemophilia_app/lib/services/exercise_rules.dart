@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import '../utils/exercise_utils.dart';
+import 'elbow_world_assessment.dart';
 
 /// Camera measurements and provisional assessment presets, not clinical prescriptions.
 class ExerciseRule {
@@ -31,6 +32,9 @@ class ExerciseRule {
   });
 
   String get thresholdSummary {
+    if (id == kElbowFlexionExtension) {
+      return ElbowWorldAssessment.thresholdSummary;
+    }
     final startSign = increasing ? '≤' : '≥';
     final targetSign = increasing ? '≥' : '≤';
     if (relative) {
@@ -81,11 +85,11 @@ class ExerciseRule {
     ExerciseRule(
       kElbowFlexionExtension,
       'Elbow angle',
-      155,
+      ElbowWorldAssessment.rightExtensionMin,
       145,
-      75,
-      minimumRom: 70,
-      returnBand: 8,
+      ElbowWorldAssessment.leftFlexionMax,
+      minimumRom: ElbowWorldAssessment.leftRomMin,
+      returnBand: ElbowWorldAssessment.leftReturnErrorMax,
       outwardStage: 'FLEXING',
       returnStage: 'EXTENDING',
       cameraView: 'Front oblique view',
@@ -212,6 +216,7 @@ class _Point {
 /// Complete cycles with hysteresis, timed holds and loss-of-tracking guards.
 /// Pure Dart: no trained form classifier, network, image conversion or file writes.
 class ExerciseRulesAssessment {
+  final ElbowWorldAssessment _elbowWorld = ElbowWorldAssessment();
   final ExerciseRule rule;
   String hand;
   String _leg = 'Left';
@@ -249,6 +254,7 @@ class ExerciseRulesAssessment {
     : rule = ExerciseRule.forExercise(exercise);
 
   void resetTracking() {
+    if (rule.id == kElbowFlexionExtension) _elbowWorld.resetTracking();
     stage = 'POSITIONING';
     _armed = false;
     _currentAlert = false;
@@ -301,8 +307,24 @@ class ExerciseRulesAssessment {
     List<Map<String, dynamic>> landmarks,
     double width,
     double height,
-    double time,
-  ) {
+    double time, {
+    List<Map<String, dynamic>>? worldLandmarks,
+    String? angleSource,
+  }) {
+    if (rule.id == kElbowFlexionExtension) {
+      final result = _elbowWorld.update(
+        landmarks,
+        width,
+        height,
+        time,
+        worldLandmarks: worldLandmarks,
+        angleSource: angleSource,
+      );
+      repCount = result['rep_count'] as int;
+      correctCount = result['correct_reps'] as int;
+      stage = result['state'] as String;
+      return result;
+    }
     if (!time.isFinite ||
         !width.isFinite ||
         !height.isFinite ||

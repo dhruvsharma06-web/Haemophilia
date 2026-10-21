@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../services/exercise_rules.dart';
+import '../services/elbow_world_assessment.dart';
+import '../utils/exercise_utils.dart';
 import '../utils/app_localizations.dart';
 
 String localizedThresholds(ExerciseRule rule) {
+  if (rule.id == kElbowFlexionExtension) return rule.thresholdSummary;
   final both = rule.usesBothArms ? '${tr('Both arms')}: ' : '';
   if (rule.relative) {
     return '$both${tr(rule.joint)}: ${tr('Movement from start')} ≥${rule.target.toStringAsFixed(0)}°; '
@@ -31,6 +34,36 @@ class ExerciseThresholds extends StatelessWidget {
     AppLocaleScope.of(context);
     final rule = ExerciseRule.forExercise(exercise);
     final color = dark ? Colors.white : Theme.of(context).colorScheme.onSurface;
+    if (rule.id == kElbowFlexionExtension) {
+      return Container(
+        padding: EdgeInsets.all(compact ? 10 : 14),
+        decoration: BoxDecoration(
+          color: Colors.teal.withValues(alpha: dark ? .12 : .06),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              tr('Angle targets and stages'),
+              style: TextStyle(color: color, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              ElbowWorldAssessment.thresholdSummary,
+              style: TextStyle(color: color, fontSize: compact ? 11.5 : 12.5),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Person-specific candidate reference, not a clinical prescription. '
+              'MediaPipe world-coordinate tracking; no additional angle margin. '
+              'Follow your prescribed comfortable range; stop if painful.',
+              style: TextStyle(color: color.withValues(alpha: .75), fontSize: 11),
+            ),
+          ],
+        ),
+      );
+    }
     if (compact) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),

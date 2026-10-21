@@ -286,7 +286,7 @@ class ExerciseDemoRegistry {
       ExercisePhase(
         phaseNumber: 1,
         title: 'Starting Position',
-        description: 'Keep both upper arms beside your torso. Straighten both elbows to at least 155° and wait for Ready.',
+        description: 'Keep both upper arms beside your torso. Meet the separately shown left and right extension thresholds and wait for Ready.',
         startProgress: 0.0,
         endProgress: 0.20,
       ),
@@ -300,14 +300,14 @@ class ExerciseDemoRegistry {
       ExercisePhase(
         phaseNumber: 3,
         title: 'Peak Flexion',
-        description: 'Reach 75° or less at both elbows and hold briefly. Stay within your clinician’s comfortable range.',
+        description: 'Reach each arm’s separately shown flexion target and hold briefly. These person-specific references do not replace your clinician’s comfortable range.',
         startProgress: 0.50,
         endProgress: 0.60,
       ),
       ExercisePhase(
         phaseNumber: 4,
         title: 'Straightening (Extension)',
-        description: 'Straighten both elbows together with control. Return within 8° of your own starting angle.',
+        description: 'Straighten both elbows together with control. Meet each arm’s shown extension and return-error limits.',
         startProgress: 0.60,
         endProgress: 0.95,
       ),

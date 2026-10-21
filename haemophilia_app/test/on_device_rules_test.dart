@@ -119,7 +119,7 @@ List<Map<String, dynamic>> cycle(
   ];
   var frameIndex = 0;
   for (final v in values) {
-    final s = e.update(
+    final s = e.updateWithWorldFixture(
       pose(
         id,
         v,
@@ -138,6 +138,24 @@ List<Map<String, dynamic>> cycle(
     frameIndex++;
   }
   return reps;
+}
+
+extension WorldPoseFixture on ExerciseRulesAssessment {
+  Map<String, dynamic> updateWithWorldFixture(
+    List<Map<String, dynamic>> landmarks,
+    double width,
+    double height,
+    double time,
+  ) => update(
+    landmarks,
+    width,
+    height,
+    time,
+    worldLandmarks: rule.id == kElbowFlexionExtension ? landmarks : null,
+    angleSource: rule.id == kElbowFlexionExtension
+        ? 'pose_world_landmarks'
+        : null,
+  );
 }
 
 void main() {
@@ -166,12 +184,12 @@ void main() {
       final e = ExerciseRulesAssessment(item.$1);
       Map<String, dynamic>? state;
       for (var i = 0; i < 8; i++) {
-        state = e.update(pose(item.$1, item.$2), 1000, 1000, i * .08);
+        state = e.updateWithWorldFixture(pose(item.$1, item.$2), 1000, 1000, i * .08);
       }
       expect(state!['state'], 'READY');
       expect(wireframeColor(state['form']), Colors.greenAccent);
       for (var i = 1; i <= 12; i++) {
-        state = e.update(
+        state = e.updateWithWorldFixture(
           pose(item.$1, item.$2 + (item.$3 - item.$2) * i / 16),
           1000,
           1000,
@@ -203,7 +221,7 @@ void main() {
     expect(cycle(e, kMiniSquat, 178, 130).single['form'], 'correct');
   });
   test(
-    'exact bilateral start threshold completes without floating-point lockout',
+    'bilateral extension above both candidate thresholds completes',
     () {
       final e = ExerciseRulesAssessment(kElbowFlexionExtension);
       expect(
@@ -236,7 +254,7 @@ void main() {
           for (final j in [11, 23, 25, 27, 29, 31]) {
             p[j + 1] = {...moving[j], 'x': 1 - (moving[j]['x'] as double)};
           }
-          final state = e.update(p, 1000, 1000, i * .08);
+          final state = e.updateWithWorldFixture(p, 1000, 1000, i * .08);
           if (state['completed_rep'] is Map) reps.add(state['completed_rep']);
         }
         expect(reps, hasLength(1));
@@ -254,10 +272,10 @@ void main() {
       for (var i = 1; i <= 16; i++) 65.0 + 100 * i / 16,
       ...List.filled(40, 165.0),
     ];
-    Map<String, dynamic>? s;
+    Map<String, dynamic>? rep;
     for (var i = 0; i < values.length; i++) {
       final returning = i >= 30;
-      s = e.update(
+      final s = e.updateWithWorldFixture(
         pose(
           kElbowFlexionExtension,
           values[i],
@@ -267,9 +285,19 @@ void main() {
         1000,
         i * .08,
       );
+      if (s['completed_rep'] is Map) {
+        rep = Map<String, dynamic>.from(s['completed_rep'] as Map);
+      }
     }
-    expect(e.repCount, 0);
-    expect(s!['error_type'], 'INCOMPLETE_RETURN');
+    expect(e.repCount, 1);
+    expect(e.correctCount, 0);
+    // The left arm settles at 165, which clears its extension floor but sits
+    // 10 deg from its own 175 deg start, beyond the 7.76 deg return limit. The
+    // completed repetition is therefore incorrect; the live state has already
+    // reset to POSITIONING by the end of the trailing frames.
+    expect(rep, isNotNull);
+    expect(rep!['form'], 'incorrect');
+    expect(rep['error_codes'], contains('LEFT_INCOMPLETE_RETURN'));
   });
   test('all exercises reject a completed shallow movement', () {
     for (final rule in ExerciseRule.catalog) {
@@ -290,7 +318,7 @@ void main() {
       final p = pose(kStraightLegRaise, 178);
       p[25]['visibility'] = .1;
       p[26]['visibility'] = .1;
-      final s = e.update(p, 1000, 1000, 0);
+      final s = e.updateWithWorldFixture(p, 1000, 1000, 0);
       expect(s['tracking_valid'], false);
       expect(s['landmarks'], hasLength(33));
       expect(wireframeColor(s['form']), Colors.blueGrey.shade300);
@@ -299,26 +327,26 @@ void main() {
   test('incomplete cycles and noise cannot count', () {
     final e = ExerciseRulesAssessment(kHeelSlide);
     for (var i = 0; i < 100; i++) {
-      e.update(pose(kHeelSlide, 177 + (i % 2)), 1000, 1000, i * .08);
+      e.updateWithWorldFixture(pose(kHeelSlide, 177 + (i % 2)), 1000, 1000, i * .08);
     }
     for (var i = 100; i < 120; i++) {
-      e.update(pose(kHeelSlide, 80), 1000, 1000, i * .08);
+      e.updateWithWorldFixture(pose(kHeelSlide, 80), 1000, 1000, i * .08);
     }
     expect(e.repCount, 0);
   });
   test('tracking loss discards a partial repetition', () {
     final e = ExerciseRulesAssessment(kHeelSlide);
     for (var i = 0; i < 8; i++) {
-      e.update(pose(kHeelSlide, 178), 1000, 1000, i * .08);
+      e.updateWithWorldFixture(pose(kHeelSlide, 178), 1000, 1000, i * .08);
     }
     for (var i = 8; i < 18; i++) {
-      e.update(pose(kHeelSlide, 80), 1000, 1000, i * .08);
+      e.updateWithWorldFixture(pose(kHeelSlide, 80), 1000, 1000, i * .08);
     }
     final p = pose(kHeelSlide, 80);
     p[25]['visibility'] = .1;
-    e.update(p, 1000, 1000, 1.5);
+    e.updateWithWorldFixture(p, 1000, 1000, 1.5);
     for (var i = 20; i < 30; i++) {
-      e.update(pose(kHeelSlide, 178), 1000, 1000, i * .08);
+      e.updateWithWorldFixture(pose(kHeelSlide, 178), 1000, 1000, i * .08);
     }
     expect(e.repCount, 0);
     expect(cycle(e, kHeelSlide, 178, 80, time: 3), hasLength(1));
@@ -368,11 +396,11 @@ void main() {
     expect(ExerciseRulesAssessment.angle([0, 0], [0, 0], [1, 1]), isNull);
     final e = ExerciseRulesAssessment(kHeelSlide);
     for (var i = 0; i < 8; i++) {
-      e.update(pose(kHeelSlide, 178), 1000, 1000, i * .08);
+      e.updateWithWorldFixture(pose(kHeelSlide, 178), 1000, 1000, i * .08);
     }
-    e.update(pose(kHeelSlide, 80), 1000, 1000, .8);
-    e.update(pose(kHeelSlide, 80), 1000, 1000, 1);
-    e.update(pose(kHeelSlide, 178), 1000, 1000, 10);
+    e.updateWithWorldFixture(pose(kHeelSlide, 80), 1000, 1000, .8);
+    e.updateWithWorldFixture(pose(kHeelSlide, 80), 1000, 1000, 1);
+    e.updateWithWorldFixture(pose(kHeelSlide, 178), 1000, 1000, 10);
     expect(e.repCount, 0);
   });
   test(
@@ -388,7 +416,7 @@ void main() {
         ...List.filled(10, 160.0),
       ];
       for (var i = 0; i < values.length; i++) {
-        final s = e.update(
+        final s = e.updateWithWorldFixture(
           pose(kElbowFlexionExtension, values[i], rightDegrees: 160),
           1000,
           1000,
@@ -416,7 +444,7 @@ void main() {
     ];
     Map<String, dynamic>? rep;
     for (var i = 0; i < values.length; i++) {
-      final s = e.update(
+      final s = e.updateWithWorldFixture(
         pose(kAssistedShoulderFlexion, values[i]),
         1000,
         1000,
@@ -435,7 +463,7 @@ void main() {
     final e = ExerciseRulesAssessment(kAssistedShoulderFlexion);
     var t = 0.0;
     for (var i = 0; i < 8; i++, t += .08) {
-      e.update(pose(kAssistedShoulderFlexion, 20), 1000, 1000, t);
+      e.updateWithWorldFixture(pose(kAssistedShoulderFlexion, 20), 1000, 1000, t);
     }
     for (var i = 1; i <= 16; i++, t += .08) {
       final p = pose(kAssistedShoulderFlexion, 20 + 140 * i / 16);
@@ -444,7 +472,7 @@ void main() {
           p[j]['x'] = (p[j]['x'] as double) + .08;
         }
       }
-      final s = e.update(p, 1000, 1000, t);
+      final s = e.updateWithWorldFixture(p, 1000, 1000, t);
       if (i == 16) {
         expect(s['form'], 'incorrect');
         expect(s['feedback'], 'Keep your torso steady.');
@@ -469,7 +497,7 @@ void main() {
           p[j]['x'] = (p[j]['x'] as double) + .08;
         }
       }
-      final s = e.update(p, 1000, 1000, i * .08);
+      final s = e.updateWithWorldFixture(p, 1000, 1000, i * .08);
       if (s['completed_rep'] is Map) {
         rep = Map<String, dynamic>.from(s['completed_rep']);
       }
@@ -491,7 +519,7 @@ void main() {
       ];
       Map<String, dynamic>? state;
       for (var i = 0; i < values.length; i++) {
-        state = e.update(
+        state = e.updateWithWorldFixture(
           pose(kAssistedShoulderFlexion, values[i]),
           1000,
           1000,
@@ -514,7 +542,7 @@ void main() {
     ];
     Map<String, dynamic>? state;
     for (var i = 0; i < values.length; i++) {
-      state = e.update(pose(kShoulderRotation, values[i]), 1000, 1000, i * .08);
+      state = e.updateWithWorldFixture(pose(kShoulderRotation, values[i]), 1000, 1000, i * .08);
     }
     expect(e.repCount, 0);
     expect(state!['error_type'], 'INCOMPLETE_RETURN');
@@ -542,7 +570,7 @@ void main() {
       for (final joint in p) {
         joint['x'] = 1 - (joint['x'] as double);
       }
-      final state = e.update(p, 1000, 1000, i * .08);
+      final state = e.updateWithWorldFixture(p, 1000, 1000, i * .08);
       if (state['completed_rep'] is Map) {
         rep = Map<String, dynamic>.from(state['completed_rep']);
       }

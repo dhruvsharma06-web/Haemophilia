@@ -12,7 +12,7 @@ class MainActivity : FlutterActivity() {
     private var localPose: LocalPoseBridge? = null
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        localPose = LocalPoseBridge(flutterEngine.dartExecutor.binaryMessenger)
+        localPose = LocalPoseBridge(flutterEngine.dartExecutor.binaryMessenger, applicationContext)
         val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel("haemophilia_notifications", "Messages and sessions", NotificationManager.IMPORTANCE_HIGH)

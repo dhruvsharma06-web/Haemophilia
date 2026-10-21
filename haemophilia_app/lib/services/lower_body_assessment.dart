@@ -83,8 +83,14 @@ class LowerBodyAssessment extends ExerciseRulesAssessment {
     List<Map<String, dynamic>> landmarks,
     double width,
     double height,
-    double time,
-  ) {
+    double time, {
+    // Accepted for signature compatibility with the base dispatcher. Lower-body
+    // profiles measure from the ML Kit joint estimates in `landmarks`; the
+    // bridge does not request MediaPipe world landmarks for these exercises, so
+    // there is nothing to consume here.
+    List<Map<String, dynamic>>? worldLandmarks,
+    String? angleSource,
+  }) {
     if (!time.isFinite ||
         !width.isFinite ||
         !height.isFinite ||
