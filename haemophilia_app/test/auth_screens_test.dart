@@ -157,8 +157,8 @@ void main() {
         await tester.enterText(find.byType(TextField).at(1), 'doctor@somaiya.edu');
         await tester.enterText(find.byType(TextField).at(2), '9876543210');
         await tester.enterText(find.byType(TextField).at(3), 'Mumbai');
-        await tester.enterText(find.byType(TextField).at(6), 'Password123');
-        await tester.enterText(find.byType(TextField).at(7), 'Password123');
+        await tester.enterText(find.byType(TextField).at(6), 'Mango#47Rq');
+        await tester.enterText(find.byType(TextField).at(7), 'Mango#47Rq');
 
         await tester.ensureVisible(find.text('Next'));
         await tester.tap(find.text('Next'));
