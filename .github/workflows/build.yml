@@ -114,6 +114,10 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
+          # The 8 GB heap in gradle.properties gets the build killed on 16 GB
+          # runners (exit 143); use a smaller heap here only.
+          sed -i 's/-Xmx8G/-Xmx4G/; s/MaxMetaspaceSize=4G/MaxMetaspaceSize=1G/' android/gradle.properties
+          echo 'kotlin.daemon.jvmargs=-Xmx2G' >> android/gradle.properties
           flutter build apk --release 2>&1 | tee build_apk.txt || {
             python3 - <<'PY'
           lines = open('build_apk.txt', encoding='utf-8', errors='replace').read().splitlines()
