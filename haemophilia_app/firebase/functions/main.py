@@ -14,7 +14,7 @@ from retrying_trigger import retrying_firestore_trigger
 from firebase_admin import initialize_app, firestore, messaging, auth
 from firebase_functions import firestore_fn, scheduler_fn, https_fn
 from google.cloud.firestore_v1.base_query import FieldFilter
-from workflow import activation_decision, notification_copy, build_session_report, notification_is_current, session_expiry, assignment_key
+from workflow import activation_decision, notification_copy, build_session_report, notification_is_current, session_expiry, assignment_key, password_problem, reminder_due, reminder_is_current, REMINDER_LEAD
 
 try:
     # The VM worker initializes the same SDK first with its attached identity.
@@ -35,6 +35,9 @@ def create_doctor_account(request: https_fn.CallableRequest) -> dict:
     administrator = _db().collection('users').document(actor).get().to_dict() or {}
     if administrator.get('role') != 'admin' or administrator.get('accountActive') is False:
         raise https_fn.HttpsError(https_fn.FunctionsErrorCode.PERMISSION_DENIED, 'Administrator access required.')
+    # Same single-active-device rule as firestore.rules.
+    if int(request.auth.token.get('auth_time', 0)) < int(administrator.get('sessionValidAfter', 0) or 0):
+        raise https_fn.HttpsError(https_fn.FunctionsErrorCode.UNAUTHENTICATED, 'Your account signed in on another device. Please sign in again.')
     data = request.data if isinstance(request.data, dict) else {}
     fields = ('name', 'email', 'phoneNumber', 'registrationNumber', 'qualification', 'specialization', 'hospital')
     if any(not isinstance(data.get(key), str) or not data[key].strip() or len(data[key]) > 200 for key in fields):
@@ -44,8 +47,11 @@ def create_doctor_account(request: https_fn.CallableRequest) -> dict:
     request_id = data.get('requestId', '')
     phone = re.sub(r'[\s()-]', '', data['phoneNumber'])
     valid_phone = bool(re.fullmatch(r'\+91[6-9][0-9]{9}', phone)) if phone.startswith('+91') else bool(re.fullmatch(r'[6-9][0-9]{9}|\+[1-9][0-9]{7,14}', phone))
-    if not valid_phone or not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', email) or not isinstance(password, str) or len(password) < 8 or not re.search(r'[A-Za-z]', password) or not re.search(r'[0-9]', password) or not isinstance(request_id, str) or not re.fullmatch(r'[A-Za-z0-9]{16,64}', request_id):
-        raise https_fn.HttpsError(https_fn.FunctionsErrorCode.INVALID_ARGUMENT, 'Enter a valid email and an initial password of at least 8 characters.')
+    if not valid_phone or not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', email) or not isinstance(request_id, str) or not re.fullmatch(r'[A-Za-z0-9]{16,64}', request_id):
+        raise https_fn.HttpsError(https_fn.FunctionsErrorCode.INVALID_ARGUMENT, 'Enter a valid email and mobile number.')
+    problem = password_problem(password, email=email, name=data['name'])
+    if problem:
+        raise https_fn.HttpsError(https_fn.FunctionsErrorCode.INVALID_ARGUMENT, problem)
     # Deterministic UID makes retries after a lost response safe; passwords are
     # passed only to Firebase Auth and are never stored in Firestore or logged.
     uid = 'D' + hashlib.sha256((actor + ':' + request_id).encode()).hexdigest()[:31]
@@ -83,6 +89,45 @@ def activate_scheduled_sessions(event: scheduler_fn.ScheduledEvent) -> None:
     due = _db().collection('exerciseSchedules').where(filter=FieldFilter('status', '==', 'scheduled')).where(filter=FieldFilter('scheduledAt', '<=', now)).order_by('scheduledAt').stream()
     for snapshot in due:
         _activate(_db().transaction(), snapshot.reference, now)
+
+
+@scheduler_fn.on_schedule(schedule='every 5 minutes', retry_count=3)
+def send_session_reminders(event: scheduler_fn.ScheduledEvent) -> None:
+    """Remind patients shortly before a scheduled session opens."""
+    now = datetime.now(timezone.utc)
+    upcoming = _db().collection('exerciseSchedules').where(filter=FieldFilter('status', '==', 'scheduled')) \
+        .where(filter=FieldFilter('scheduledAt', '>', now)).where(filter=FieldFilter('scheduledAt', '<=', now + REMINDER_LEAD)) \
+        .order_by('scheduledAt').stream()
+    for snapshot in upcoming:
+        _remind(_db().transaction(), snapshot.reference, now)
+
+
+@firestore.transactional
+def _remind(transaction, ref, now):
+    schedule = ref.get(transaction=transaction).to_dict()
+    if not schedule:
+        return
+    patient_ref = _db().collection('users').document(schedule.get('patientId', '-'))
+    patient = patient_ref.get(transaction=transaction).to_dict()
+    doctor_id = schedule.get('doctorId')
+    doctor = _db().collection('users').document(doctor_id).get(transaction=transaction).to_dict() if doctor_id else None
+    if schedule.get('managedSeries'):
+        series = _db().collection('exerciseScheduleSeries').document(schedule.get('seriesId', '-')).get(transaction=transaction).to_dict()
+        if not series or series.get('status') != 'ready':
+            return
+    if not reminder_due(schedule, patient, doctor, now):
+        return
+    notification_ref = patient_ref.collection('notifications').document('reminder_' + ref.id)
+    already_sent = notification_ref.get(transaction=transaction).exists
+    title, body = notification_copy('session_reminder', patient.get('language', 'en'))
+    if not already_sent:
+        transaction.set(notification_ref, {
+            'title': title, 'body': body, 'read': False, 'senderId': doctor_id,
+            'createdAt': firestore.SERVER_TIMESTAMP,
+            'data': {'type': 'session_reminder', 'patientId': schedule['patientId'],
+                     'doctorId': doctor_id, 'scheduleId': ref.id},
+        })
+    transaction.update(ref, {'reminderSentAt': firestore.SERVER_TIMESTAMP})
 
 
 @firestore.transactional
@@ -199,8 +244,19 @@ def dispatch_notification(event: firestore_fn.Event[firestore_fn.DocumentSnapsho
             if not notification_is_current(data, uid, patient, doctor, assignment, now):
                 notification_ref.update({'pushStatus': 'obsolete', 'read': True})
                 return
+        if data.get('type') == 'session_reminder':
+            schedule_id = data.get('scheduleId')
+            schedule = _db().collection('exerciseSchedules').document(schedule_id).get().to_dict() if schedule_id else None
+            patient = _db().collection('users').document(uid).get().to_dict()
+            doctor_id = data.get('doctorId')
+            doctor = _db().collection('users').document(doctor_id).get().to_dict() if doctor_id else None
+            if not reminder_is_current(data, uid, patient, doctor, schedule, now):
+                notification_ref.update({'pushStatus': 'obsolete', 'read': True})
+                return
         title, body = notification_copy(data.get('type'), user.get('language', 'en'))
         ttl = timedelta(days=1)
+        if data.get('type') == 'session_reminder':
+            ttl = max(timedelta(seconds=1), schedule['scheduledAt'] - now)
         if data.get('type') == 'session_assigned':
             ttl = max(timedelta(seconds=1), session_expiry(assignment) - now)
         failures = False

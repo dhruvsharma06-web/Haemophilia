@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../services/auth_service.dart';
+import '../../utils/firebase_errors.dart';
 import '../../utils/app_localizations.dart';
 import 'doctor_login_screen.dart';
 import 'register_screen.dart';
@@ -48,6 +49,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       await _authService.login(email: email, password: password);
+      AuthService.signedOutReason.value = null;
 
       if (!mounted) return;
 
@@ -159,7 +161,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   behavior: SnackBarBehavior.floating,
                                   content: Text(
                                     tr(
-                                      'Password reset link sent to your email.',
+                                      'If an account exists for this email, a password reset link has been sent.',
                                     ),
                                   ),
                                 ),
@@ -170,9 +172,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: AppText(
-                                    '${tr('Could not send reset email:')} $e',
-                                  ),
+                                  content: Text(authErrorMessage(e)),
                                 ),
                               );
                             }
@@ -197,28 +197,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  String _firebaseAuthError(FirebaseAuthException e) {
-    switch (e.code) {
-      case 'wrong-login-portal':
-      case 'profile-not-found':
-      case 'account-inactive':
-        return tr(e.message ?? 'Login failed. Please try again.');
-      case 'invalid-credential':
-        return tr('Invalid email or password.');
-      case 'user-not-found':
-        return tr('No account exists with this email.');
-      case 'wrong-password':
-        return tr('Incorrect password.');
-      case 'invalid-email':
-        return tr('Please enter a valid email address.');
-      case 'user-disabled':
-        return tr('This account has been disabled.');
-      case 'too-many-requests':
-        return tr('Too many attempts. Please try again later.');
-      default:
-        return e.message ?? tr('Login failed. Please try again.');
-    }
-  }
+  String _firebaseAuthError(FirebaseAuthException e) => authErrorMessage(e);
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -271,6 +250,30 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 4),
+                  ValueListenableBuilder<String?>(
+                    valueListenable: AuthService.signedOutReason,
+                    builder: (context, reason, _) => reason == null
+                        ? const SizedBox.shrink()
+                        : Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Card(
+                              color: const Color(0xFFFFF4E5),
+                              child: ListTile(
+                                leading: const Icon(
+                                  Icons.devices_other_outlined,
+                                ),
+                                title: Text(tr('Signed out on this device')),
+                                subtitle: Text(tr(reason)),
+                                trailing: IconButton(
+                                  tooltip: tr('OK'),
+                                  icon: const Icon(Icons.close),
+                                  onPressed: () =>
+                                      AuthService.signedOutReason.value = null,
+                                ),
+                              ),
+                            ),
+                          ),
+                  ),
                   Card(
                     elevation: 0,
                     shape: RoundedRectangleBorder(

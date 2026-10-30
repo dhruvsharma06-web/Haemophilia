@@ -12,6 +12,7 @@ import '../support/help_screen.dart';
 import '../../services/clinical_data_service.dart';
 import '../../utils/app_localizations.dart';
 import 'add_doctor_screen.dart';
+import 'exercise_tutorials_admin_screen.dart';
 import '../../widgets/notification_bell.dart';
 
 class AdminDashboard extends StatefulWidget {
@@ -40,6 +41,26 @@ class _AdminDashboardState extends State<AdminDashboard> {
     if (!mounted) return;
 
     Navigator.of(context).popUntil((route) => route.isFirst);
+  }
+
+  /// Labelled buttons on wide screens; icon buttons with tooltips otherwise.
+  Widget _action(
+    BuildContext context,
+    String label,
+    Widget icon,
+    VoidCallback? onPressed,
+  ) {
+    if (MediaQuery.sizeOf(context).width >= 760) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: TextButton.icon(
+          onPressed: onPressed,
+          icon: icon,
+          label: Text(tr(label)),
+        ),
+      );
+    }
+    return IconButton(tooltip: tr(label), icon: icon, onPressed: onPressed);
   }
 
   @override
@@ -74,24 +95,37 @@ class _AdminDashboardState extends State<AdminDashboard> {
         actions: [
           const NotificationBell(),
           const LanguageToggleButton(),
-          IconButton(
-            tooltip: tr('Add doctor'),
-            icon: const Icon(Icons.person_add_alt_1),
-            onPressed: () => Navigator.push(
+          _action(
+            context,
+            'Add doctor',
+            const Icon(Icons.medical_services_outlined),
+            () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const AddDoctorScreen()),
             ),
           ),
-          IconButton(
-            tooltip: tr('Log out'),
-            onPressed: _isLoggingOut ? null : _logout,
-            icon: _isLoggingOut
+          _action(
+            context,
+            'Exercise tutorials',
+            const Icon(Icons.ondemand_video_outlined),
+            () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const ExerciseTutorialsAdminScreen(),
+              ),
+            ),
+          ),
+          _action(
+            context,
+            'Log out',
+            _isLoggingOut
                 ? const SizedBox(
                     width: 20,
                     height: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.logout_rounded),
+            _isLoggingOut ? null : _logout,
           ),
           const SizedBox(width: 8),
         ],

@@ -67,6 +67,12 @@ class LocalPoseService {
 
   Future<Uint8List?> reviewImage() =>
       _channel.invokeMethod<Uint8List>('reviewImage');
+
+  /// Clean, downscaled JPEG of the latest analysed frame. Encoding runs on a
+  /// low-priority native thread, so this never delays pose detection.
+  Future<Uint8List?> snapshot({int maxSide = 640}) => _disposed
+      ? Future<Uint8List?>.value()
+      : _channel.invokeMethod<Uint8List>('snapshot', {'maxSide': maxSide});
   Future<void> reset() => _channel.invokeMethod<void>('reset');
   void dispose() {
     _disposed = true;

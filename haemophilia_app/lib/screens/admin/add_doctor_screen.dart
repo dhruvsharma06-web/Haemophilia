@@ -124,14 +124,22 @@ class _AddDoctorScreenState extends State<AddDoctorScreen> {
                           : TextInputType.text,
                       decoration: InputDecoration(
                         labelText: tr(labels[field.key]!),
+                        helperText: field.key == 'password'
+                            ? tr(passwordRequirementsHint)
+                            : null,
+                        helperMaxLines: 2,
                       ),
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
                           return tr('Required');
                         }
-                        if (field.key == 'password' &&
-                            passwordValidation(value) != null) {
-                          return tr(passwordValidation(value)!);
+                        if (field.key == 'password') {
+                          final problem = passwordValidation(
+                            value,
+                            email: _fields['email']?.text,
+                            name: _fields['name']?.text,
+                          );
+                          if (problem != null) return tr(problem);
                         }
                         if (field.key == 'phoneNumber' &&
                             mobileValidation(value) != null) {

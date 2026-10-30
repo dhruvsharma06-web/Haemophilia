@@ -69,9 +69,45 @@ void main() {
       expect(passwordValidation('abcdefgh'), isNotNull);
       expect(passwordValidation('12345678'), isNotNull);
       expect(passwordValidation('abc123'), isNotNull);
-      expect(passwordValidation('Abcdef12!'), isNull);
+      expect(passwordValidation('Mango#47Rq'), isNull);
     },
   );
+  group('password policy', () {
+    test('accepts passwords without patterns', () {
+      for (final value in ['Mango#47Rq', 'tulip9Vexed', 'B7k!rWq2zp']) {
+        expect(passwordValidation(value), isNull, reason: value);
+      }
+    });
+    test('six characters fail with the same 8-character message shown in the hint', () {
+      expect(passwordValidation('Ab9#kq'), passwordTooShortMessage);
+      expect(passwordRequirementsHint, contains('$passwordMinLength'));
+    });
+    test('blocks consecutive sequences, keyboard runs and repeats', () {
+      for (final value in [
+        'Abcdef12!',
+        'Rohit@1234',
+        'Zebra9cba!',
+        'Wq7xyzPlum',
+        'Plum4qwerT',
+      ]) {
+        expect(passwordValidation(value), passwordSequenceMessage, reason: value);
+      }
+      expect(passwordValidation('Tiger7aaaQ'), passwordRepeatMessage);
+      expect(passwordValidation('Lamp222Zeb'), passwordRepeatMessage);
+    });
+    test('blocks common words and personal details', () {
+      expect(passwordValidation('P@ssw0rd97'), passwordCommonMessage);
+      expect(passwordValidation('Somaiya#97'), passwordCommonMessage);
+      expect(
+        passwordValidation('Kavya#97Lm', email: 'kavya.r@example.com'),
+        passwordPersonalMessage,
+      );
+      expect(
+        passwordValidation('Mehra#97Lm', name: 'Ravi Mehra'),
+        passwordPersonalMessage,
+      );
+    });
+  });
   test('feedback distinguishes missing observations, unfinished targets and completed targets', () {
     SessionFeedback report(
       int total,

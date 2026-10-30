@@ -5,6 +5,7 @@ import '../../utils/exercise_utils.dart';
 import 'exercise_demo.dart';
 import 'exercise_demo_model.dart';
 import '../exercise_thresholds.dart';
+import '../exercise_tutorial_button.dart';
 
 /// Shows an interactive, full-featured demonstration dialog explaining how to
 /// perform the specified exercise with animated movement, phases, and clinical tips.
@@ -117,6 +118,7 @@ Future<void> showExerciseDemoDialog(
                         dark: isDark,
                         compact: true,
                       ),
+                      ExerciseTutorialButton(exercise: exerciseName),
                       const SizedBox(height: 18),
 
                       // Key Clinical Tips Card

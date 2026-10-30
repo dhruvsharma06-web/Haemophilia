@@ -22,3 +22,37 @@ String firebaseErrorMessage(Object? error, {String fallback = 'Could not save. P
   }
   return tr(fallback);
 }
+
+/// Sign-in errors are deliberately uniform: the message never reveals whether
+/// an email is registered, or which kind of account it belongs to.
+String authErrorMessage(Object error) {
+  if (error is FirebaseException) {
+    switch (error.code) {
+      case 'invalid-credential':
+      case 'user-not-found':
+      case 'wrong-password':
+      case 'invalid-login-credentials':
+        return tr('Invalid email or password.');
+      case 'wrong-login-portal':
+        return tr(
+          'Invalid email or password for this sign-in page. Patients and physiotherapists sign in on separate pages.',
+        );
+      case 'admin-web-only':
+        return tr('Administrator accounts sign in on the web admin portal.');
+      case 'not-admin':
+        return tr('This account does not have administrator access.');
+      case 'profile-not-found':
+      case 'account-inactive':
+        return tr('Account inactive. Please contact the administrator.');
+      case 'invalid-email':
+        return tr('Please enter a valid email address.');
+      case 'user-disabled':
+        return tr('This account has been disabled.');
+      case 'too-many-requests':
+        return tr('Too many attempts. Please try again later.');
+      case 'network-request-failed':
+        return tr('Check your internet connection and try again.');
+    }
+  }
+  return tr('Login failed. Please try again.');
+}

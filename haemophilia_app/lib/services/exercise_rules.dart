@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import '../utils/exercise_utils.dart';
 import 'elbow_world_assessment.dart';
+import 'patient_calibration.dart';
 import 'shoulder_rotation_assessment.dart';
 
 /// Camera measurements and provisional assessment presets, not clinical prescriptions.
@@ -31,6 +32,23 @@ class ExerciseRule {
     this.returnStage = 'RETURNING',
     this.cameraView = 'Side view',
   });
+
+  /// The same rule with a patient-specific target (see PatientCalibration).
+  ExerciseRule withTarget(double newTarget, double newMinimumRom) =>
+      ExerciseRule(
+        id,
+        joint,
+        start,
+        enter,
+        newTarget,
+        increasing: increasing,
+        relative: relative,
+        minimumRom: newMinimumRom,
+        returnBand: returnBand,
+        outwardStage: outwardStage,
+        returnStage: returnStage,
+        cameraView: cameraView,
+      );
 
   String get thresholdSummary {
     if (id == kElbowFlexionExtension) {
@@ -256,8 +274,22 @@ class ExerciseRulesAssessment {
   double? _frameWidth, _frameHeight;
   Map<String, dynamic> _lastResult = {};
 
-  ExerciseRulesAssessment(String exercise, {this.hand = 'Left'})
-    : rule = ExerciseRule.forExercise(exercise);
+  /// Patient-specific target in use, or null for the standard rule.
+  final CalibrationResult? calibration;
+
+  ExerciseRulesAssessment(String exercise, {this.hand = 'Left', this.calibration})
+    : rule = _calibrated(ExerciseRule.forExercise(exercise), calibration);
+
+  static ExerciseRule _calibrated(
+    ExerciseRule base,
+    CalibrationResult? calibration,
+  ) =>
+      calibration == null ||
+          !calibration.personalised ||
+          calibration.exercise != base.id ||
+          !PatientCalibration.supports(base.id)
+      ? base
+      : base.withTarget(calibration.target, calibration.minimumRom);
 
   void resetTracking() {
     if (rule.id == kElbowFlexionExtension) _elbowWorld.resetTracking();

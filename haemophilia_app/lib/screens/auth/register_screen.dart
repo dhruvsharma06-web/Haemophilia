@@ -68,8 +68,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _showError(tr('Please enter a valid email address.'));
       return;
     }
-    if (passwordValidation(password) != null) {
-      _showError(tr(passwordValidation(password)!));
+    final passwordProblem = passwordValidation(
+      password,
+      email: email,
+      name: '$firstName $middleName $lastName',
+    );
+    if (passwordProblem != null) {
+      _showError(tr(passwordProblem));
       return;
     }
     if (mobileValidation(phone) != null) {
@@ -360,7 +365,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         obscureText: _obscurePassword,
                         decoration: InputDecoration(
                           labelText: tr('Password'),
-                          helperText: tr('At least 6 characters'),
+                          helperText: tr(passwordRequirementsHint),
+                          helperMaxLines: 2,
                           prefixIcon: const Icon(Icons.lock_outline),
                           suffixIcon: IconButton(
                             onPressed: () {

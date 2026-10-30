@@ -1,5 +1,14 @@
 {
   "projects": {
     "default": "haemophilia-physiotherapy-ai"
+  },
+  "targets": {
+    "haemophilia-physiotherapy-ai": {
+      "hosting": {
+        "admin": [
+          "haemophilia-physiotherapy-ai-admin"
+        ]
+      }
+    }
   }
 }

@@ -15,6 +15,8 @@ import '../../utils/app_localizations.dart';
 import '../../utils/exercise_utils.dart';
 import '../../widgets/session_analytics_chart.dart';
 import '../../widgets/patient_screening_card.dart';
+import '../../widgets/patient_calibration_card.dart';
+import '../../widgets/exercise_snapshot_gallery.dart';
 import '../../utils/firebase_errors.dart';
 import '../../utils/schedule_utils.dart';
 
@@ -350,6 +352,13 @@ class DoctorPatientDetail extends StatelessWidget {
                     ),
                   ),
                 ),
+              const SizedBox(height: 26),
+              PatientCalibrationCard(
+                patientId: patientId,
+                history: [for (final doc in docs) doc.data()],
+              ),
+              const SizedBox(height: 12),
+              ExerciseSnapshotGallery(patientId: patientId),
             ],
           );
         },

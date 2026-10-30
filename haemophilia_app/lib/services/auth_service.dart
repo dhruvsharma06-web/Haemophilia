@@ -12,10 +12,23 @@ import 'onboarding_service.dart';
 import 'local_test_config.dart';
 import '../widgets/consent_form.dart';
 
-enum LoginPortal { patient, clinician }
+enum LoginPortal { patient, clinician, admin }
+
+/// Roles each sign-in page accepts. Administrators use only the web portal.
+const Map<LoginPortal, Set<String>> portalRoles = {
+  LoginPortal.patient: {'patient'},
+  LoginPortal.clinician: {'doctor', 'pending_doctor'},
+  LoginPortal.admin: {'admin'},
+};
 
 class AuthService {
   static final googleValidation = ValueNotifier<bool>(false);
+
+  /// Set when this device is signed out because the account signed in on
+  /// another device. The login screen shows it once, then clears it.
+  static final signedOutReason = ValueNotifier<String?>(null);
+  static const displacedMessage =
+      'Your account was signed in on another device, so this device was signed out. Sign in again to continue here.';
   FirebaseAuth get _auth => LocalTestConfig.auth;
   FirebaseFirestore get _firestore => LocalTestConfig.database;
   final GoogleSignIn _googleSignIn = GoogleSignIn();
@@ -69,9 +82,12 @@ class AuthService {
     if (!validEmail(cleanEmail)) {
       throw StateError('Please enter a valid email address.');
     }
-    if (passwordValidation(password) != null) {
-      throw StateError(passwordValidation(password)!);
-    }
+    final passwordProblem = passwordValidation(
+      password,
+      email: cleanEmail,
+      name: '$firstName ${middleName ?? ''} $lastName',
+    );
+    if (passwordProblem != null) throw StateError(passwordProblem);
     if (phoneNumber != null && mobileValidation(phoneNumber) != null) {
       throw StateError(mobileValidation(phoneNumber)!);
     }
@@ -120,6 +136,7 @@ class AuthService {
       'accountActive': true,
     });
 
+    await claimDeviceSession(user);
     await NotificationService().syncUserToken();
     return userModel;
   }
@@ -155,9 +172,12 @@ class AuthService {
     if (!validEmail(cleanEmail)) {
       throw StateError('Please enter a valid email address.');
     }
-    if (passwordValidation(password) != null) {
-      throw StateError(passwordValidation(password)!);
-    }
+    final passwordProblem = passwordValidation(
+      password,
+      email: cleanEmail,
+      name: fullName,
+    );
+    if (passwordProblem != null) throw StateError(passwordProblem);
     if (mobileValidation(mobileNumber) != null) {
       throw StateError(mobileValidation(mobileNumber)!);
     }
@@ -213,6 +233,7 @@ class AuthService {
       // Best effort mirror document
     }
 
+    await claimDeviceSession(user);
     return userModel;
   }
 
@@ -278,6 +299,7 @@ class AuthService {
       );
     }
 
+    await claimDeviceSession(user);
     await NotificationService().syncUserToken();
     return UserModel.fromMap(user.uid, doc.data()!);
   }
@@ -286,8 +308,53 @@ class AuthService {
   // FORGOT PASSWORD
   // ==========================================================
 
+  /// Completes normally for unknown emails so the response never reveals
+  /// whether an account exists.
   Future<void> sendPasswordResetEmail(String email) async {
-    await _auth.sendPasswordResetEmail(email: email.trim());
+    try {
+      await _auth.sendPasswordResetEmail(email: email.trim());
+    } on FirebaseAuthException catch (error) {
+      if (error.code != 'user-not-found') rethrow;
+    }
+  }
+
+  // ==========================================================
+  // SINGLE ACTIVE DEVICE
+  // ==========================================================
+
+  /// Seconds-since-epoch of this sign-in, as recorded in the ID token.
+  static Future<int?> authTimeOf(User user) async {
+    try {
+      final token = await user.getIdTokenResult();
+      final claim = token.claims?['auth_time'];
+      if (claim is num) return claim.toInt();
+      final time = token.authTime;
+      return time == null ? null : time.millisecondsSinceEpoch ~/ 1000;
+    } catch (error) {
+      debugPrint('Could not read sign-in time: $error');
+      return null;
+    }
+  }
+
+  /// Makes this sign-in the account's only valid session.
+  ///
+  /// Firestore and Storage rules refuse requests whose token `auth_time` is
+  /// older than `sessionValidAfter`, and the root gate signs older devices out
+  /// as soon as the profile changes. A failure here never blocks sign-in.
+  Future<void> claimDeviceSession(User user) async {
+    final authTime = await authTimeOf(user);
+    if (authTime == null) return;
+    try {
+      await _firestore.collection('users').doc(user.uid).update({
+        'sessionValidAfter': authTime,
+        'activeDevice': {
+          'platform': kIsWeb ? 'web' : defaultTargetPlatform.name,
+          'signedInAt': FieldValue.serverTimestamp(),
+        },
+      });
+    } catch (error) {
+      debugPrint('Could not register the active device: $error');
+    }
   }
   // LOGIN
   // ==========================================================
@@ -315,15 +382,14 @@ class AuthService {
         );
       }
       final role = data['role']?.toString().trim().toLowerCase();
-      final permitted = portal == LoginPortal.patient
-          ? {'patient', 'admin'}
-          : {'doctor', 'pending_doctor', 'admin'};
-      if (!permitted.contains(role)) {
+      if (!portalRoles[portal]!.contains(role)) {
+        // Uniform messages: never say which kind of account this is.
         throw FirebaseAuthException(
-          code: 'wrong-login-portal',
-          message: portal == LoginPortal.patient
-              ? 'This is a doctor account. Please use Doctor Login.'
-              : 'This is a patient account. Please use Patient Login.',
+          code: portal == LoginPortal.admin
+              ? 'not-admin'
+              : role == 'admin'
+              ? 'admin-web-only'
+              : 'wrong-login-portal',
         );
       }
       if (data['accountActive'] == false) {
@@ -332,7 +398,10 @@ class AuthService {
           message: 'Account inactive. Please contact the administrator.',
         );
       }
-      await NotificationService().syncUserToken();
+      await claimDeviceSession(user);
+      if (portal != LoginPortal.admin) {
+        await NotificationService().syncUserToken();
+      }
       return UserModel.fromMap(user.uid, data);
     } catch (_) {
       await _auth.signOut();

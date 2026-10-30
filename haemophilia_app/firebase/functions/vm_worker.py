@@ -191,6 +191,10 @@ def run():
                 inspect.unwrap(handlers.activate_scheduled_sessions)(None)
             except Exception as error:
                 logging.warning('Schedule activation failed (%s); will retry', type(error).__name__)
+            try:
+                inspect.unwrap(handlers.send_session_reminders)(None)
+            except Exception as error:
+                logging.warning('Session reminders failed (%s); will retry', type(error).__name__)
             STOP.wait(30)
     finally:
         for watch in watches:

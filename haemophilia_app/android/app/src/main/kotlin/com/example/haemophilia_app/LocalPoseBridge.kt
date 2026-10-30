@@ -21,12 +21,20 @@ import io.flutter.plugin.common.MethodChannel
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.util.concurrent.Executors
+import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.atomic.AtomicBoolean
 
 /** One frame in flight. YUV packing and error-photo rendering never run on the UI thread. */
 class LocalPoseBridge(messenger: BinaryMessenger, private val appContext: Context) {
     private val channel = MethodChannel(messenger, "hemo/local_pose")
     private val executor = Executors.newSingleThreadExecutor()
+    /** JPEG encoding for review photos and snapshots, so it never delays pose detection. */
+    private val encoder = Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "hemo-photo-encoder").apply {
+            priority = Thread.MIN_PRIORITY
+            isDaemon = true
+        }
+    }
     private val main = Handler(Looper.getMainLooper())
     private val busy = AtomicBoolean(false)
     private var detector: PoseDetector? = null
@@ -103,13 +111,16 @@ class LocalPoseBridge(messenger: BinaryMessenger, private val appContext: Contex
                         }
                     }
                 }
+                // Both photo requests copy the latest frame reference on the
+                // detection thread (cheap) and encode on the low-priority encoder.
                 "reviewImage" -> executor.execute {
-                    try {
-                        val bytes = reviewImage()
-                        main.post { if (!closed) result.success(bytes) }
-                    } catch (e: Exception) {
-                        main.post { if (!closed) result.error("PHOTO_FAILED", e.message, null) }
-                    }
+                    val frame = latestFrame()
+                    encodeLater(result) { frame?.let { reviewImage(it) } }
+                }
+                "snapshot" -> executor.execute {
+                    val frame = latestFrame()
+                    val maxSide = (call.argument<Number>("maxSide") ?: 640).toInt().coerceIn(160, 1280)
+                    encodeLater(result) { frame?.let { snapshotImage(it, maxSide) } }
                 }
                 else -> result.notImplemented()
             }
@@ -339,30 +350,82 @@ class LocalPoseBridge(messenger: BinaryMessenger, private val appContext: Contex
         return out
     }
 
-    private fun reviewImage(): ByteArray? {
+    /** Immutable view of the latest analysed frame. lastImage is replaced, never mutated. */
+    private class FrameCopy(
+        val nv21: ByteArray, val width: Int, val height: Int, val rotation: Int,
+        val landmarks: List<Map<String, Double>>,
+    )
+
+    private fun latestFrame(): FrameCopy? {
         val nv21 = lastImage ?: return null
+        return FrameCopy(nv21, lastWidth, lastHeight, lastRotation, lastLandmarks)
+    }
+
+    private fun encodeLater(result: MethodChannel.Result, work: () -> ByteArray?) {
+        if (closed || encoder.isShutdown) {
+            main.post { if (!closed) result.success(null) }
+            return
+        }
+        try {
+            encoder.execute {
+                try {
+                    val bytes = work()
+                    main.post { if (!closed) result.success(bytes) }
+                } catch (e: Exception) {
+                    main.post { if (!closed) result.error("PHOTO_FAILED", e.message, null) }
+                }
+            }
+        } catch (e: RejectedExecutionException) {
+            main.post { if (!closed) result.success(null) }
+        }
+    }
+
+    private fun uprightBitmap(frame: FrameCopy): Bitmap {
         val jpeg = ByteArrayOutputStream()
-        YuvImage(nv21, ImageFormat.NV21, lastWidth, lastHeight, null)
-            .compressToJpeg(Rect(0, 0, lastWidth, lastHeight), 75, jpeg)
+        YuvImage(frame.nv21, ImageFormat.NV21, frame.width, frame.height, null)
+            .compressToJpeg(Rect(0, 0, frame.width, frame.height), 85, jpeg)
         val source = BitmapFactory.decodeByteArray(jpeg.toByteArray(), 0, jpeg.size())
-        val matrix = Matrix().apply { postRotate(lastRotation.toFloat()) }
+        if (frame.rotation % 360 == 0) return source
+        val matrix = Matrix().apply { postRotate(frame.rotation.toFloat()) }
         val rotated = Bitmap.createBitmap(source, 0, 0, source.width, source.height, matrix, true)
+        if (rotated != source) source.recycle()
+        return rotated
+    }
+
+    /** Clean (unannotated), downscaled JPEG for clinician review and research. */
+    private fun snapshotImage(frame: FrameCopy, maxSide: Int): ByteArray {
+        val upright = uprightBitmap(frame)
+        val scale = minOf(1f, maxSide.toFloat() / maxOf(upright.width, upright.height))
+        val output = if (scale < 1f) Bitmap.createScaledBitmap(
+            upright, (upright.width * scale).toInt().coerceAtLeast(1),
+            (upright.height * scale).toInt().coerceAtLeast(1), true) else upright
+        val jpeg = ByteArrayOutputStream()
+        output.compress(Bitmap.CompressFormat.JPEG, 80, jpeg)
+        if (output != upright) output.recycle()
+        upright.recycle()
+        return jpeg.toByteArray()
+    }
+
+    private fun reviewImage(frame: FrameCopy): ByteArray? {
+        val marks = frame.landmarks
+        if (marks.size < 33) return null
+        val rotated = uprightBitmap(frame)
         val annotated = rotated.copy(Bitmap.Config.ARGB_8888, true)
         val canvas = Canvas(annotated)
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(230, 65, 70); strokeWidth = 3f }
         val edges = arrayOf(11 to 12,11 to 13,13 to 15,12 to 14,14 to 16,
             11 to 23,12 to 24,23 to 24,23 to 25,25 to 27,24 to 26,26 to 28,27 to 29,28 to 30)
         for ((a,b) in edges) {
-            val p = lastLandmarks[a]; val q = lastLandmarks[b]
+            val p = marks[a]; val q = marks[b]
             if (p.getValue("visibility") >= .5 && q.getValue("visibility") >= .5)
                 canvas.drawLine((p.getValue("x")*annotated.width).toFloat(), (p.getValue("y")*annotated.height).toFloat(),
                     (q.getValue("x")*annotated.width).toFloat(), (q.getValue("y")*annotated.height).toFloat(), paint)
         }
-        for (p in lastLandmarks) if (p.getValue("visibility") >= .5)
+        for (p in marks) if (p.getValue("visibility") >= .5)
             canvas.drawCircle((p.getValue("x")*annotated.width).toFloat(), (p.getValue("y")*annotated.height).toFloat(), 4f, paint)
         val output = ByteArrayOutputStream()
         annotated.compress(Bitmap.CompressFormat.JPEG, 75, output)
-        source.recycle(); if (rotated != source) rotated.recycle(); annotated.recycle()
+        rotated.recycle(); annotated.recycle()
         return output.toByteArray()
     }
 
@@ -382,5 +445,6 @@ class LocalPoseBridge(messenger: BinaryMessenger, private val appContext: Contex
         worldRotatedLandmarkers.values.forEach { it.close() }
         worldRotatedLandmarkers.clear()
         executor.shutdown()
+        encoder.shutdown()
     }
 }

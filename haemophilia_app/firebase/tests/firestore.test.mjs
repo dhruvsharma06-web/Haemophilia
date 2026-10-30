@@ -131,14 +131,64 @@ test('assigned pair can chat atomically; unrelated doctor cannot spoof or send',
 });
 test('support can create ticket and initial message together; only owner/admin can read/reply',async()=>{
  const store=db('patient');const batch=writeBatch(store);
- batch.set(doc(store,'supportTickets','help'),{userId:'patient',status:'open',category:'Doctor not responding'});
+ batch.set(doc(store,'supportTickets','help'),{userId:'patient',status:'open',category:'Doctor not responding',submittedByRole:'patient'});
  batch.set(doc(store,'supportTickets','help','messages','first'),{senderId:'patient',text:'Please help',createdAt:serverTimestamp()});
  await assertSucceeds(batch.commit());
  await assertSucceeds(getDocs(collection(store,'supportTickets','help','messages')));
  await assertFails(getDoc(doc(db('otherPatient'),'supportTickets','help')));
  await assertSucceeds(setDoc(doc(db('admin'),'supportTickets','help','messages','reply'),{senderId:'admin',text:'We will help'}));
  await assertFails(updateDoc(doc(store,'supportTickets','help'),{status:'closed'}));
- await assertSucceeds(updateDoc(doc(db('admin'),'supportTickets','help'),{status:'closed',closedAt:serverTimestamp()}));
+ await assertSucceeds(updateDoc(doc(db('admin'),'supportTickets','help'),{status:'resolved',resolvedAt:serverTimestamp(),resolvedBy:'admin',updatedAt:serverTimestamp()}));
+});
+test('grievances: owner and admin resolve/reopen; spoofed role and resolver are refused',async()=>{
+ const store=db('patient');
+ await assertFails(setDoc(doc(store,'supportTickets','spoof'),{userId:'patient',status:'open',category:'Other',submittedByRole:'admin'}));
+ await assertFails(setDoc(doc(store,'supportTickets','extra'),{userId:'patient',status:'open',category:'Other',submittedByRole:'patient',priority:'urgent'}));
+ await assertSucceeds(setDoc(doc(store,'supportTickets','t1'),{userId:'patient',status:'open',category:'Other',submittedByRole:'patient',createdAt:serverTimestamp(),updatedAt:serverTimestamp()}));
+ await assertFails(updateDoc(doc(store,'supportTickets','t1'),{status:'resolved',resolvedBy:'admin'}));
+ await assertSucceeds(updateDoc(doc(store,'supportTickets','t1'),{status:'resolved',resolvedBy:'patient',resolvedAt:serverTimestamp(),updatedAt:serverTimestamp()}));
+ await assertSucceeds(updateDoc(doc(store,'supportTickets','t1'),{status:'open',reopenedAt:serverTimestamp(),updatedAt:serverTimestamp()}));
+ await assertFails(updateDoc(doc(db('otherPatient'),'supportTickets','t1'),{status:'resolved'}));
+ await assertFails(updateDoc(doc(db('admin'),'supportTickets','t1'),{category:'Changed'}));
+});
+test('single active device: an older sign-in loses access once a newer one claims the session',async()=>{
+ const now=Math.floor(Date.now()/1000);
+ const at=(uid,authTime)=>env.authenticatedContext(uid,{email:`${uid}@example.com`,auth_time:authTime}).firestore();
+ const oldDevice=at('patient',now-600), newDevice=at('patient',now);
+ await assertSucceeds(getDoc(doc(oldDevice,'assessmentSessions','patient_existing')));
+ // A device may only record its own sign-in time, and never move it backwards.
+ await assertFails(updateDoc(doc(newDevice,'users','patient'),{sessionValidAfter:now+100}));
+ await assertSucceeds(updateDoc(doc(newDevice,'users','patient'),{sessionValidAfter:now}));
+ await assertFails(updateDoc(doc(oldDevice,'users','patient'),{sessionValidAfter:now-600}));
+ // The displaced device can still read its own profile (to sign out) but nothing else.
+ await assertSucceeds(getDoc(doc(oldDevice,'users','patient')));
+ await assertFails(getDoc(doc(oldDevice,'assessmentSessions','patient_existing')));
+ await assertFails(getDocs(collection(oldDevice,'users','patient','notifications')));
+ await assertSucceeds(getDoc(doc(newDevice,'assessmentSessions','patient_existing')));
+});
+test('exercise tutorials: admin writes validated YouTube links; everyone signed in reads',async()=>{
+ const good={videoId:'dQw4w9WgXcQ',url:'https://www.youtube.com/watch?v=dQw4w9WgXcQ',title:'Heel slide',updatedBy:'admin',updatedAt:serverTimestamp()};
+ await assertSucceeds(setDoc(doc(db('admin'),'exerciseTutorials','heel_slide'),good));
+ await assertFails(setDoc(doc(db('admin'),'exerciseTutorials','squat'),{...good,url:'https://evil.example/x'}));
+ await assertFails(setDoc(doc(db('doctor'),'exerciseTutorials','squat'),{...good,updatedBy:'doctor'}));
+ await assertSucceeds(getDoc(doc(db('patient'),'exerciseTutorials','heel_slide')));
+});
+test('calibration is set by the assigned doctor only; patients read it',async()=>{
+ const data={mode:'manual',manualTarget:120,updatedBy:'doctor',updatedAt:serverTimestamp()};
+ await assertSucceeds(setDoc(doc(db('doctor'),'users','patient','calibrations','assisted_shoulder_flexion'),data));
+ await assertFails(setDoc(doc(db('otherDoctor'),'users','patient','calibrations','assisted_shoulder_flexion'),{...data,updatedBy:'otherDoctor'}));
+ await assertFails(setDoc(doc(db('patient'),'users','patient','calibrations','assisted_shoulder_flexion'),{...data,updatedBy:'patient'}));
+ await assertFails(setDoc(doc(db('doctor'),'users','patient','calibrations','heel_slide'),{mode:'manual',updatedBy:'doctor',updatedAt:serverTimestamp()}));
+ await assertSucceeds(getDoc(doc(db('patient'),'users','patient','calibrations','assisted_shoulder_flexion')));
+});
+test('exercise snapshots: patient stores at most two per day; assigned doctor reviews',async()=>{
+ const data={patientId:'patient',doctorId:'doctor',exercise:'heel_slide',day:'2026-10-30',sessionId:'s',images:[{path:'p'}],trainingEligible:false,updatedAt:serverTimestamp()};
+ await assertSucceeds(setDoc(doc(db('patient'),'users','patient','exerciseSnapshots','2026-10-30_heel_slide'),data));
+ await assertFails(setDoc(doc(db('patient'),'users','patient','exerciseSnapshots','2026-10-30_squat'),data));
+ await assertFails(setDoc(doc(db('patient'),'users','patient','exerciseSnapshots','2026-10-30_heel_slide'),{...data,images:[{},{},{}]}));
+ await assertFails(setDoc(doc(db('patient'),'users','patient','exerciseSnapshots','2026-10-30_heel_slide'),{...data,trainingEligible:true}));
+ await assertSucceeds(getDoc(doc(db('doctor'),'users','patient','exerciseSnapshots','2026-10-30_heel_slide')));
+ await assertFails(getDoc(doc(db('otherDoctor'),'users','patient','exerciseSnapshots','2026-10-30_heel_slide')));
 });
 test('notifications can only reach assigned recipients and cannot fake successful delivery',async()=>{
  const data={senderId:'patient',title:'New message',body:'Open app',read:false,data:{type:'new_message'}};

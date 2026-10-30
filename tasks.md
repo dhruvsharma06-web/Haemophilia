@@ -6,6 +6,10 @@
 - Initial architecture and existing-test review completed on 2026-10-20.
 - Baseline checks passed: 44 backend tests, 15 Python workflow tests, and 133 Flutter tests.
 
+## Review feedback (2026-10-30)
+- Implemented all eight review points and the tester notes; see `docs/REVIEW_FEEDBACK_2026-10-30.md`.
+- Workflow tests: 25 pass (`firebase/functions/test_workflow.py`). Flutter analyze/test, rules emulator tests and device checks still need to run on a machine with Flutter (they were unavailable in the authoring environment).
+
 ## In Progress
 - On-device angle-threshold assessment replacing the LSTM models. The user confirmed the direction on 2026-10-21: processing runs on the phone, and each exercise gets measured angle thresholds from supplied files rather than a trained classifier.
 - Scope: all upper-body exercises **except** assisted shoulder flexion with the wand. Assisted shoulder flexion keeps its existing path.
@@ -71,7 +75,7 @@
 - Codex performed direct source inspection, checked the review follow-ups against the code, and ran the baseline suites.
 
 ## Current Agent
-- Claude Code — implementing on-device angle thresholds per exercise.
+- Claude — review feedback implementation (2026-10-30).
 
 ## Handoff Notes
 - Read AGENTS.md and inspect the project.

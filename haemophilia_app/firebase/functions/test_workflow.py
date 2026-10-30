@@ -1,6 +1,6 @@
 import unittest
 from datetime import datetime, timedelta, timezone
-from workflow import activation_decision, build_session_report, notification_copy, notification_is_current
+from workflow import activation_decision, build_session_report, notification_copy, notification_is_current, password_problem, reminder_due, reminder_is_current
 
 
 class WorkflowTests(unittest.TestCase):
@@ -88,6 +88,64 @@ class WorkflowTests(unittest.TestCase):
         data={**message,'type':'session_assigned','scheduleId':'old'}
         assignment={'scheduleId':'new','status':'assigned','expiresAt':self.now+timedelta(hours=1)}
         self.assertFalse(notification_is_current(data,'patient',self.patient,self.doctor,assignment,self.now))
+
+
+
+class PasswordPolicyTests(unittest.TestCase):
+    def test_accepts_a_password_without_patterns(self):
+        for value in ('Mango#47Rq', 'tulip9Vexed', 'B7k!rWq2zp'):
+            self.assertIsNone(password_problem(value), value)
+
+    def test_rejects_short_or_single_class_passwords(self):
+        for value in ('', 'Ab1', 'abcdefgh', '13579135'):
+            self.assertIsNotNone(password_problem(value), value)
+
+    def test_rejects_consecutive_sequences_and_repeats(self):
+        for value in ('Rohit@1234', 'Zebra9cba!', 'Wq7xyzPlum', 'Plum4qwerT', 'Tiger7aaaQ', 'Lamp222Zeb'):
+            self.assertIsNotNone(password_problem(value), value)
+
+    def test_rejects_common_words_and_personal_details(self):
+        self.assertIsNotNone(password_problem('P@ssw0rd97'))
+        self.assertIsNotNone(password_problem('Somaiya#97'))
+        self.assertIsNotNone(password_problem('Kavya#97Lm', email='kavya.r@example.com'))
+        self.assertIsNotNone(password_problem('Mehra#97Lm', name='Ravi Mehra'))
+
+    def test_matches_the_app_rule_examples(self):
+        # Kept identical to test/feedback_validation_test.dart.
+        self.assertIsNotNone(password_problem('Abcdef12!'))
+        self.assertIsNotNone(password_problem('abc123'))
+
+
+class ReminderTests(unittest.TestCase):
+    def setUp(self):
+        self.now = datetime(2026, 10, 30, 9, tzinfo=timezone.utc)
+        self.patient = {'doctorId': 'doctor', 'accountActive': True}
+        self.doctor = {'role': 'doctor', 'isApproved': True, 'accountActive': True}
+        self.schedule = {'status': 'scheduled', 'patientId': 'patient', 'doctorId': 'doctor',
+                         'scheduledAt': self.now + timedelta(minutes=10)}
+
+    def test_upcoming_session_inside_the_lead_is_due(self):
+        self.assertTrue(reminder_due(self.schedule, self.patient, self.doctor, self.now))
+
+    def test_sessions_outside_the_window_or_already_reminded_are_skipped(self):
+        for change in ({'scheduledAt': self.now + timedelta(minutes=16)}, {'scheduledAt': self.now},
+                       {'scheduledAt': self.now - timedelta(minutes=1)}, {'reminderSentAt': self.now},
+                       {'status': 'cancelled'}, {'doctorId': 'other'}):
+            self.assertFalse(reminder_due({**self.schedule, **change}, self.patient, self.doctor, self.now), change)
+
+    def test_inactive_participants_get_no_reminder(self):
+        self.assertFalse(reminder_due(self.schedule, {**self.patient, 'accountActive': False}, self.doctor, self.now))
+        self.assertFalse(reminder_due(self.schedule, self.patient, {**self.doctor, 'isApproved': False}, self.now))
+
+    def test_queued_reminder_is_dropped_once_the_session_opened(self):
+        data = {'type': 'session_reminder', 'patientId': 'patient', 'doctorId': 'doctor', 'scheduleId': 's'}
+        self.assertTrue(reminder_is_current(data, 'patient', self.patient, self.doctor, self.schedule, self.now))
+        self.assertFalse(reminder_is_current(data, 'patient', self.patient, self.doctor, {**self.schedule, 'status': 'activated'}, self.now))
+        self.assertFalse(reminder_is_current(data, 'doctor', self.patient, self.doctor, self.schedule, self.now))
+
+    def test_reminder_copy_exists_in_both_languages(self):
+        self.assertIn('15', notification_copy('session_reminder', 'en')[1])
+        self.assertIn('15', notification_copy('session_reminder', 'hi')[1])
 
 
 if __name__ == '__main__':

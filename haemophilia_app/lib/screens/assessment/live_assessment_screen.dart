@@ -18,6 +18,8 @@ import '../../services/assessment_history_service.dart';
 import '../../services/local_pose_service.dart';
 import '../../services/exercise_rules.dart';
 import '../../services/lower_body_assessment.dart';
+import '../../services/patient_calibration.dart';
+import '../../services/session_snapshot_service.dart';
 import '../../widgets/exercise_thresholds.dart';
 import '../../services/session_lifecycle_service.dart';
 import '../../utils/schedule_utils.dart';
@@ -99,6 +101,12 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
 
   final LocalPoseService _poseService = LocalPoseService();
   ExerciseRulesAssessment? _rules;
+
+  /// Patient-specific targets, loaded once per exercise before tracking starts.
+  final Map<String, CalibrationResult> _calibrations = {};
+
+  /// Representative frames for doctor review, chosen after each exercise.
+  final SessionSnapshotCollector _snapshots = SessionSnapshotCollector();
   final Stopwatch _assessmentClock = Stopwatch()..start();
   int _poseGeneration = 0;
   double _processingIntervalMs = 66;
@@ -709,9 +717,33 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
   ExerciseRulesAssessment _createLocalRules(String exercise,
       {String hand = 'Left'}) {
     final rule = ExerciseRule.forExercise(exercise);
+    final calibration = _calibrations[normalizeExerciseId(exercise)];
     return rule.isUpperBody
-        ? ExerciseRulesAssessment(exercise, hand: hand)
-        : LowerBodyAssessment(exercise);
+        ? ExerciseRulesAssessment(exercise, hand: hand, calibration: calibration)
+        : LowerBodyAssessment(exercise, calibration: calibration);
+  }
+
+  /// Practice sessions always use standard targets. Never blocks for long:
+  /// PatientCalibration.load times out and falls back to the standard rule.
+  Future<void> _ensureCalibration(String exercise) async {
+    final id = normalizeExerciseId(exercise);
+    if (!_assignedMode || _calibrations.containsKey(id)) return;
+    _calibrations[id] = await PatientCalibration.load(id);
+  }
+
+  /// Uploads the chosen frames for the exercise that just ended, in the
+  /// background, after tracking for it has stopped.
+  void _storeSnapshots() {
+    final exercise = _snapshots.exercise;
+    final taken = _snapshots.take();
+    if (!_assignedMode || exercise == null || taken.isEmpty) return;
+    unawaited(
+      SessionSnapshotService.store(
+        exercise: exercise,
+        sessionId: _sessionId,
+        fresh: taken,
+      ),
+    );
   }
 
   Future<void> _initializeLocalAssessment() async {
@@ -725,6 +757,7 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
     }
     try {
       await _poseService.initialize(_currentAssignedExercise());
+      await _ensureCalibration(_currentAssignedExercise());
       if (!mounted || _terminalSession) return;
       _rules = _createLocalRules(
         _currentAssignedExercise(),
@@ -866,6 +899,7 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
         }
 
         final rep = Map<String, dynamic>.from(completedRep);
+        rep['patient_calibration'] = _rules?.calibration?.toMap();
         _sessionRepSequence++;
         final normalizedRepNumber = _sessionRepSequence;
         rep['rep_number'] = normalizedRepNumber;
@@ -996,6 +1030,8 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
       // Lying exercises need native sideways pose search. Reset alone keeps
       // the old exercise's sideways setting, so configure each new exercise.
       await _poseService.initialize(nextExercise);
+      _storeSnapshots();
+      await _ensureCalibration(nextExercise);
       _rules = _createLocalRules(nextExercise);
       _repReviewFrame = null;
     } catch (e) {
@@ -1063,6 +1099,7 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
 
     // 2. Stop local measurement before finalizing
     await _stopLocalAssessment();
+    _storeSnapshots();
     await Future.wait(_pendingRepWrites);
     await _progressWrites;
 
@@ -1446,6 +1483,15 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
         _repReviewFrame = null;
         _latestErrorFrame = null;
       }
+      if (_assignedMode) {
+        _snapshots.observe(
+          exercise: _currentAssignedExercise(),
+          sessionId: _sessionId,
+          state: state,
+          landmarks: landmarks,
+          capture: _poseService.snapshot,
+        );
+      }
       final rep = state['completed_rep'];
       if (_repReviewFrame == null &&
           (state['form'] == 'incorrect' ||
@@ -1698,6 +1744,7 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
     _streaming = false;
 
     await _stopLocalAssessment();
+    _storeSnapshots();
     await Future.wait(_pendingRepWrites);
     await _progressWrites;
 

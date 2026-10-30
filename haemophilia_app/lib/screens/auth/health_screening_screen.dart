@@ -8,7 +8,16 @@ import '../../utils/app_localizations.dart';
 /// Results are informational and are saved only after the patient continues.
 class HealthScreeningScreen extends StatefulWidget {
   final Future<void> Function(Map<String, dynamic>, Map<String, dynamic>)? onComplete;
-  const HealthScreeningScreen({super.key, this.onComplete});
+
+  /// Age and gender from registration, so the patient is not asked twice.
+  final int? initialAge;
+  final String? initialGender;
+  const HealthScreeningScreen({
+    super.key,
+    this.onComplete,
+    this.initialAge,
+    this.initialGender,
+  });
 
   @override
   State<HealthScreeningScreen> createState() => _HealthScreeningScreenState();
@@ -157,6 +166,15 @@ class _HealthScreeningScreenState extends State<HealthScreeningScreen> {
   @override
   void initState() {
     super.initState();
+    final age = widget.initialAge;
+    if (age != null && age >= 1 && age <= 120) _answers['age'] = age;
+    // Preselect only when registration recorded male or female; the patient
+    // can still change it, and other answers are asked here.
+    final gender = widget.initialGender?.trim().toLowerCase();
+    if (gender == 'male' || gender == 'female') {
+      _answers['sex'] = gender;
+      _answered.add('sex');
+    }
     _ageController.text = _answers['age'].toString();
   }
 

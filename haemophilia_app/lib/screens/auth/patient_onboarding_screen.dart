@@ -6,7 +6,13 @@ import 'health_screening_screen.dart';
 import '../../services/auth_service.dart';
 
 class PatientOnboardingScreen extends StatefulWidget {
-  const PatientOnboardingScreen({super.key});
+  final int? registeredAge;
+  final String? registeredGender;
+  const PatientOnboardingScreen({
+    super.key,
+    this.registeredAge,
+    this.registeredGender,
+  });
   @override
   State<PatientOnboardingScreen> createState() =>
       _PatientOnboardingScreenState();
@@ -21,6 +27,8 @@ class _PatientOnboardingScreenState extends State<PatientOnboardingScreen> {
     AppLocaleScope.of(context);
     if (_diagnosis == 'no' || _diagnosis == 'unsure') {
       return HealthScreeningScreen(
+        initialAge: widget.registeredAge,
+        initialGender: widget.registeredGender,
         onComplete: (answers, result) => OnboardingService().complete(
           diagnosisStatus: _diagnosis!,
           answers: answers,

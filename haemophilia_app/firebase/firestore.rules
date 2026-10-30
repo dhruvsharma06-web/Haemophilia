@@ -3,7 +3,10 @@ service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
     function profile(uid) { return get(/databases/$(database)/documents/users/$(uid)).data; }
-    function active() { return signedIn() && profile(request.auth.uid).get('accountActive', true); }
+    // One active device per account: a sign-in older than the account's latest
+    // claimed sign-in (users/{uid}.sessionValidAfter, epoch seconds) is refused.
+    function sessionCurrent() { return request.auth.token.get('auth_time', 0) >= profile(request.auth.uid).get('sessionValidAfter', 0); }
+    function active() { return signedIn() && profile(request.auth.uid).get('accountActive', true) && sessionCurrent(); }
     function isSelf(uid) { return active() && request.auth.uid == uid; }
     function isAdmin() { return active() && profile(request.auth.uid).role == 'admin'; }
     function isDoctor() { return active() && profile(request.auth.uid).role == 'doctor' && profile(request.auth.uid).get('isApproved', true); }
@@ -67,8 +70,13 @@ service cloud.firestore {
       allow list: if isAdmin() || (isDoctor() && resource.data.role == 'patient' && resource.data.doctorId == request.auth.uid)
         || (active() && profile(request.auth.uid).role == 'patient' && profile(request.auth.uid).get('doctorId', '') == uid);
       allow update: if isAdmin() || (isSelf(uid) && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-        'role', 'doctorId', 'uid', 'email', 'isApproved', 'accountActive', 'status', 'approvedBy', 'approvalUpdatedAt', 'rejectionReason', 'removedAt'
-      ]) && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['patientId']) || request.resource.data.patientId == 'SHP-' + uid.upper()));
+        'role', 'doctorId', 'uid', 'email', 'isApproved', 'accountActive', 'status', 'approvedBy', 'approvalUpdatedAt', 'rejectionReason', 'removedAt',
+        'registrationNumber', 'regulatoryCouncil', 'createdBy'
+      ]) && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['patientId']) || request.resource.data.patientId == 'SHP-' + uid.upper())
+        // A device can only claim the session for its own, newer sign-in.
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['sessionValidAfter'])
+          || (request.resource.data.sessionValidAfter == request.auth.token.auth_time
+            && request.resource.data.sessionValidAfter >= resource.data.get('sessionValidAfter', 0))));
       allow delete: if isAdmin();
       match /assessments/{id} {
         allow create: if isSelf(uid) && readyPatient();
@@ -81,8 +89,36 @@ service cloud.firestore {
         allow create: if patientAccess(uid) && request.resource.data.senderId == request.auth.uid;
         allow update, delete: if isAdmin();
       }
+      // Doctor-chosen calibration mode per exercise; the device computes the
+      // adaptive target from history and never writes here.
+      match /calibrations/{exerciseId} {
+        allow read: if patientAccess(uid);
+        allow write: if (isAdmin() || isAssignedDoctor(uid))
+          && request.resource.data.keys().hasOnly(['mode', 'manualTarget', 'updatedBy', 'updatedAt'])
+          && request.resource.data.mode in ['standard', 'adaptive', 'manual']
+          && (request.resource.data.mode != 'manual'
+            || (request.resource.data.manualTarget is number
+              && request.resource.data.manualTarget >= 0 && request.resource.data.manualTarget <= 180))
+          && request.resource.data.updatedBy == request.auth.uid
+          && request.resource.data.updatedAt == request.time;
+        allow delete: if isAdmin() || isAssignedDoctor(uid);
+      }
+      // One document per day and exercise holding at most two representative
+      // images chosen on the device after a session.
+      match /exerciseSnapshots/{id} {
+        allow read: if patientAccess(uid);
+        allow create, update: if isSelf(uid) && readyPatient()
+          && id == request.resource.data.day + '_' + request.resource.data.exercise
+          && request.resource.data.keys().hasOnly(['patientId', 'doctorId', 'exercise', 'day', 'sessionId', 'images', 'trainingEligible', 'updatedAt'])
+          && request.resource.data.patientId == uid
+          && request.resource.data.day.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+          && request.resource.data.images is list && request.resource.data.images.size() <= 2
+          && request.resource.data.trainingEligible == profile(uid).get('researchConsent', false)
+          && request.resource.data.updatedAt == request.time;
+        allow delete: if isAdmin();
+      }
       match /notifications/{id} {
-        allow read, delete: if (signedIn() && request.auth.uid == uid) || isAdmin();
+        allow read, delete: if isSelf(uid) || isAdmin();
         allow update: if isSelf(uid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
         allow create: if active() && request.resource.data.senderId == request.auth.uid && (isAdmin() || isAssignedDoctor(uid)
           || (isSelf(uid) && request.resource.data.data.type == 'session_assigned'
@@ -225,10 +261,32 @@ service cloud.firestore {
         allow delete: if isAdmin();
       }
     }
+    // Clinician-reviewed tutorial links, curated in the web admin portal.
+    match /exerciseTutorials/{exerciseId} {
+      allow read: if active();
+      allow write: if isAdmin()
+        && request.resource.data.keys().hasOnly(['videoId', 'url', 'title', 'updatedBy', 'updatedAt'])
+        && request.resource.data.videoId is string && request.resource.data.videoId.matches('^[A-Za-z0-9_-]{11}$')
+        && request.resource.data.url == 'https://www.youtube.com/watch?v=' + request.resource.data.videoId
+        && request.resource.data.title is string && request.resource.data.title.size() <= 120
+        && request.resource.data.updatedBy == request.auth.uid && request.resource.data.updatedAt == request.time;
+      allow delete: if isAdmin();
+    }
     match /supportTickets/{id} {
+      function ticketChange() { return request.resource.data.diff(resource.data).affectedKeys(); }
+      function validStatusChange() {
+        return request.resource.data.status in ['open', 'resolved']
+          && (!ticketChange().hasAny(['resolvedBy']) || request.resource.data.resolvedBy == request.auth.uid);
+      }
       allow read: if isAdmin() || isSelf(resource.data.userId);
-      allow create: if active() && request.resource.data.userId == request.auth.uid && request.resource.data.status == 'open';
-      allow update: if isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'closedAt']);
+      allow create: if active() && request.resource.data.userId == request.auth.uid && request.resource.data.status == 'open'
+        && request.resource.data.keys().hasOnly(['userId', 'submittedByName', 'submittedByEmail', 'submittedByRole', 'category', 'status', 'createdAt', 'updatedAt'])
+        && request.resource.data.submittedByRole == profile(request.auth.uid).role
+        && request.resource.data.category is string && request.resource.data.category.size() <= 100;
+      // Administrators resolve or reopen any request; the person who raised it
+      // can mark it resolved or reopen it by replying.
+      allow update: if (isAdmin() || isSelf(resource.data.userId)) && validStatusChange()
+        && ticketChange().hasOnly(['status', 'closedAt', 'resolvedAt', 'resolvedBy', 'reopenedAt', 'updatedAt']);
       allow delete: if isAdmin();
       match /messages/{messageId} {
         function ticketOwner() { return getAfter(/databases/$(database)/documents/supportTickets/$(id)).data.userId; }

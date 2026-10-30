@@ -127,8 +127,13 @@ class _DoctorRegisterScreenState extends State<DoctorRegisterScreen> {
         _showError(tr('Please enter your city.'));
         return false;
       }
-      if (passwordValidation(_passwordController.text) != null) {
-        _showError(tr(passwordValidation(_passwordController.text)!));
+      final passwordProblem = passwordValidation(
+        _passwordController.text,
+        email: email,
+        name: _fullNameController.text,
+      );
+      if (passwordProblem != null) {
+        _showError(tr(passwordProblem));
         return false;
       }
       if (_passwordController.text != _confirmPasswordController.text) {
@@ -635,7 +640,8 @@ class _DoctorRegisterScreenState extends State<DoctorRegisterScreen> {
           obscureText: _obscurePassword,
           decoration: InputDecoration(
             labelText: tr('Password'),
-            helperText: tr('At least 6 characters'),
+            helperText: tr(passwordRequirementsHint),
+            helperMaxLines: 2,
             prefixIcon: const Icon(Icons.lock_outline),
             suffixIcon: IconButton(
               onPressed: () =>

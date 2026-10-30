@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../services/auth_service.dart';
+import '../../utils/firebase_errors.dart';
 import '../../utils/app_localizations.dart';
 import 'doctor_register_screen.dart';
 
@@ -50,6 +51,7 @@ class _DoctorLoginScreenState extends State<DoctorLoginScreen> {
         email: identifier,
         password: password,
       );
+      AuthService.signedOutReason.value = null;
 
       if (!mounted) return;
 
@@ -133,7 +135,7 @@ class _DoctorLoginScreenState extends State<DoctorLoginScreen> {
                                   behavior: SnackBarBehavior.floating,
                                   content: Text(
                                     tr(
-                                      'Password reset link sent to your email.',
+                                      'If an account exists for this email, a password reset link has been sent.',
                                     ),
                                   ),
                                 ),
@@ -144,9 +146,7 @@ class _DoctorLoginScreenState extends State<DoctorLoginScreen> {
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: AppText(
-                                    '${tr('Could not send reset email:')} $e',
-                                  ),
+                                  content: Text(authErrorMessage(e)),
                                 ),
                               );
                             }
@@ -171,28 +171,7 @@ class _DoctorLoginScreenState extends State<DoctorLoginScreen> {
     );
   }
 
-  String _firebaseAuthError(FirebaseAuthException e) {
-    switch (e.code) {
-      case 'wrong-login-portal':
-      case 'profile-not-found':
-      case 'account-inactive':
-        return tr(e.message ?? 'Login failed. Please try again.');
-      case 'invalid-credential':
-        return tr('Invalid credentials or password.');
-      case 'user-not-found':
-        return tr('No clinician account found with this ID.');
-      case 'wrong-password':
-        return tr('Incorrect password.');
-      case 'invalid-email':
-        return tr('Please enter a valid email address.');
-      case 'user-disabled':
-        return tr('This account has been disabled.');
-      case 'too-many-requests':
-        return tr('Too many attempts. Please try again later.');
-      default:
-        return e.message ?? tr('Login failed. Please try again.');
-    }
-  }
+  String _firebaseAuthError(FirebaseAuthException e) => authErrorMessage(e);
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(

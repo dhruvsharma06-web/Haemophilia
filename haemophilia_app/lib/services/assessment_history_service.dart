@@ -155,6 +155,7 @@ class AssessmentHistoryService {
       'bilateralMetrics': rep['bilateral_metrics'],
       'angleSource': rep['angle_source'],
       'calibrationStatus': rep['calibration_status'],
+      'patientCalibration': rep['patient_calibration'],
       'calibrationSourceSessionId': rep['calibration_source_session_id'],
       'requiredLeftTarget': rep['required_left_target'],
       'requiredRightTarget': rep['required_right_target'],

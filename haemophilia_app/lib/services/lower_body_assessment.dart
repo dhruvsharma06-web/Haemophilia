@@ -11,7 +11,14 @@ import 'exercise_rules.dart';
 /// rules only. Its input is ML Kit pose data rather than MediaPipe data, so
 /// measured 3D angles and view detection require device validation.
 class LowerBodyAssessment extends ExerciseRulesAssessment {
-  LowerBodyAssessment(super.exercise) : _profile = _Profile.forId(exercise);
+  LowerBodyAssessment(super.exercise, {super.calibration})
+    : _profile = _Profile.forId(exercise).withTarget(
+        calibration != null &&
+                calibration.personalised &&
+                calibration.exercise == normalizeExerciseId(exercise)
+            ? calibration.target
+            : null,
+      );
 
   final _Profile _profile;
   String _leg = 'Left';
@@ -737,6 +744,18 @@ class _Profile {
   final double enterAngle, exitAngle, target;
   final bool increasing, driver3d, isSquat;
   final String depthAlert;
+
+  _Profile withTarget(double? value) => value == null
+      ? this
+      : _Profile(
+          enterAngle,
+          exitAngle,
+          value,
+          increasing: increasing,
+          driver3d: driver3d,
+          isSquat: isSquat,
+          depthAlert: depthAlert,
+        );
 
   static _Profile forId(String id) => switch (normalizeExerciseId(id)) {
     kHeelSlide => const _Profile(

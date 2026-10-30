@@ -1,4 +1,5 @@
 import '../services/local_test_config.dart';
+import 'feedback_translations.dart';
 import 'lower_body_translations.dart';
 import 'on_device_translations.dart';
 
@@ -88,6 +89,7 @@ String tr(String key, [BuildContext? context]) {
   if (!AppLocaleService.isHindi) return key;
   if (onDeviceHindi.containsKey(key.trim())) return onDeviceHindi[key.trim()]!;
   if (lowerBodyHindi.containsKey(key.trim())) return lowerBodyHindi[key.trim()]!;
+  if (feedbackHindi.containsKey(key.trim())) return feedbackHindi[key.trim()]!;
   if (_hindiTranslations.containsKey(key)) {
     return _hindiTranslations[key]!;
   }

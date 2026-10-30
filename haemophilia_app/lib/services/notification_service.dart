@@ -13,7 +13,6 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 
 import '../models/user_model.dart';
-import '../screens/admin/admin_dashboard.dart';
 import '../screens/doctor/doctor_messages.dart';
 import '../screens/patient/assigned_assessment_screen.dart';
 import '../screens/patient/patient_doctor_chat_screen.dart';
@@ -306,17 +305,13 @@ class NotificationService {
     }
     switch (type) {
       case 'new_patient':
-        if (account['role'] != 'admin') return;
-        Navigator.push(
-          navContext,
-          MaterialPageRoute(
-            builder: (_) => AdminDashboard(
-              user: UserModel.fromMap(currentUser.uid, account!),
-            ),
-          ),
-        );
-        break;
+        // Administrators work in the web portal; nothing to open on mobile.
+        return;
+      case 'session_reminder':
+        // The dashboard already shows the upcoming session.
+        return;
       case 'support':
+      case 'support_resolved':
         final ticketId = data['ticketId']?.toString();
         if (ticketId == null) return;
         _firestore.collection('users').doc(_auth.currentUser!.uid).get().then((
