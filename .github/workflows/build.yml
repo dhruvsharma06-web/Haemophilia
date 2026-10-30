@@ -73,7 +73,23 @@ jobs:
           exit $code
       - name: Unit and widget tests
         if: always()
-        run: flutter test --concurrency=1 --reporter github
+        shell: bash
+        run: |
+          set +e
+          flutter test --concurrency=1 --reporter expanded > test.txt 2>&1
+          code=$?
+          cat test.txt
+          # One annotation per failing test, with the first lines of its error.
+          python3 - <<'PY'
+          import re
+          lines = open('test.txt', encoding='utf-8', errors='replace').read().splitlines()
+          for i, line in enumerate(lines):
+              if line.rstrip().endswith('[E]'):
+                  name = re.sub(r'^\S+ \+\d+( ~\d+)?( -\d+)?: ', '', line).replace(' [E]', '')
+                  detail = ' | '.join(l.strip() for l in lines[i + 1:i + 12] if l.strip())[:900]
+                  print(f'::error::FAILED {name} :: {detail}')
+          PY
+          exit $code
 
   build:
     # Independent of the checks so an APK is always produced for device testing;

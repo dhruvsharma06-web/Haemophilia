@@ -143,7 +143,7 @@ class _AdminPortalGateState extends State<AdminPortalGate> {
                 behavior: HitTestBehavior.translucent,
                 onPointerDown: (_) => _resetIdle(),
                 onPointerSignal: (_) => _resetIdle(),
-                child: AdminDashboard(user: UserModel.fromMap(user.uid, data!)),
+                child: AdminDashboard(user: UserModel.fromMap(user.uid, data)),
               );
             },
           );

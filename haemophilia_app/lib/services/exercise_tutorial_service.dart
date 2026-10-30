@@ -85,8 +85,7 @@ class ExerciseTutorialService {
       _collection.snapshots().map(
         (query) => {
           for (final doc in query.docs)
-            if (ExerciseTutorial.fromMap(doc.id, doc.data()) case final t?)
-              doc.id: t,
+            doc.id: ?ExerciseTutorial.fromMap(doc.id, doc.data()),
         },
       );
 
