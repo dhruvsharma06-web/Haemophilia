@@ -115,7 +115,18 @@ jobs:
         run: |
           set -o pipefail
           flutter build apk --release 2>&1 | tee build_apk.txt || {
-            grep -E 'error|Error|FAILURE|e: ' build_apk.txt | head -40 | sed 's/^/::error::/'
+            python3 - <<'PY'
+          lines = open('build_apk.txt', encoding='utf-8', errors='replace').read().splitlines()
+          keep = []
+          for i, line in enumerate(lines):
+              if 'What went wrong' in line:
+                  keep += lines[i:i + 30]
+              elif line.startswith('e: ') or ': error:' in line or 'ERROR:' in line or 'Missing class' in line:
+                  keep.append(line)
+          for line in keep[:60]:
+              if line.strip():
+                  print('::error::' + line.strip()[:900])
+          PY
             exit 1
           }
       - name: Build web admin portal
