@@ -1,0 +1,63 @@
+{
+  "schema_version": "1.0.0",
+  "exercise": "shoulder_rotation",
+  "display_name": "Shoulder rotation",
+  "status": "proposed_engineering_settings",
+  "source_report": {
+    "title": "Shoulder Rotation Measurement and Threshold Report",
+    "date": "2026-10-15",
+    "subtitle": "MediaPipe + deterministic rules | Draft engineering specification"
+  },
+  "angle_source": "pose_world_landmarks",
+  "coordinate_units": "MediaPipe estimated metres for 3D angles; aspect-corrected image pixels for 2D frontal checks",
+  "rotation_signal": "Signed forearm azimuth in a torso-relative horizontal plane, unwrapped, sign-aligned between hands. A forearm-orientation proxy, not direct anatomical shoulder rotation.",
+  "body_frame": "up = shoulder midpoint - hip midpoint; lateral = shoulder vector projected perpendicular to up; forward = up x lateral with a fixed sign.",
+  "provenance_notes": "Only the elbow bend range (60-120 degrees) and sideways torso lean (12 degrees) are retained from the previous implementation. Every other value is a proposed engineering starting setting, not a learned LSTM threshold and not a clinically validated limit. The previous counting values 8, 10, 3, 15 and 20 were normalized displacement units, not degrees, and were deliberately not converted. A 15-degree minimum excursion and a 25-degree left/right ROM difference exist in the repository but are not active assessment checks and are not adopted here.",
+  "thresholds": {
+    "elbow_bend": {
+      "target_deg": 90.0,
+      "accept_min_deg": 60.0,
+      "accept_max_deg": 120.0,
+      "status": "existing"
+    },
+    "upper_arm": {
+      "accept_max_deg": 20.0,
+      "status": "proposed"
+    },
+    "torso_sideways_lean": {
+      "accept_max_deg": 12.0,
+      "status": "existing"
+    },
+    "torso_forward_lean_change": {
+      "accept_max_deg": 10.0,
+      "status": "proposed"
+    },
+    "torso_twist": {
+      "accept_max_deg": 10.0,
+      "status": "proposed"
+    },
+    "wand_level": {
+      "accept_max_deg": 10.0,
+      "status": "proposed"
+    },
+    "failure_persistence_fraction": 0.2,
+    "rotation": {
+      "neutral_hold_s": 0.5,
+      "centre_band_deg": 5.0,
+      "extreme_deg": 20.0,
+      "extreme_hold_s": 0.15,
+      "bilateral_max_difference_deg": 15.0,
+      "status": "proposed"
+    },
+    "tracking": {
+      "visibility_min": 0.7,
+      "maximum_frame_gap_s": 0.5
+    }
+  },
+  "implementation_choices": {
+    "filter_tau_seconds": 0.08,
+    "note": "The report requires smoothing that reduces jitter without hiding centre crossings and says to tune it on recordings. 0.08 s matches the elbow engine and is an engineering choice, not a value from the report.",
+    "duration_and_speed": "Reported for information only. The report proposes no speed or duration pass/fail limit, so pace never raises an error code."
+  },
+  "limitations": "Single-camera depth estimates can make forearm rotation noisy. Before enabling these rules for patients, review representative recordings covering both movement directions, varied camera distance, body proportions, reduced range, incorrect posture and occlusion."
+}

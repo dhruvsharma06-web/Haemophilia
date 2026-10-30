@@ -1,0 +1,38 @@
+{
+  "phase": "7.2",
+  "authoritative_model": "Phase 3 BalancedSVM (FROZEN)",
+  "selected_candidate": "AugmentedCausalSegmenter",
+  "parameters": {
+    "pre_roll_frames": 15,
+    "post_roll_frames": 15,
+    "min_rom_deg": 15.0,
+    "onset_delta_deg": 8.0,
+    "reversal_delta_deg": 8.0,
+    "min_frames": 15,
+    "min_duration_sec": 0.8,
+    "adaptive_baseline_init": 148.0
+  },
+  "runner_policy": {
+    "store_all_emissions": true,
+    "blind_overwrite": false,
+    "rejection_rules": {
+      "micro_wobble_duration_thresh_sec": 1.5,
+      "micro_wobble_rom_thresh_deg": 26.0
+    },
+    "selection_rule": "primary_maximal_rom_cycle"
+  },
+  "development_metrics": {
+    "completion_rate_pct": 88.89,
+    "median_iou": 0.796,
+    "median_start_error_frames": 11.0,
+    "median_end_error_frames": -15.5,
+    "conditioned_balanced_acc_pct": 84.29,
+    "end_to_end_correct_rate_pct": 74.6
+  },
+  "locked_held_out_metrics": {
+    "completion_rate_pct": 84.21,
+    "median_iou": 0.874,
+    "conditioned_balanced_acc_pct": 88.33,
+    "end_to_end_correct_rate_pct": 73.68
+  }
+}

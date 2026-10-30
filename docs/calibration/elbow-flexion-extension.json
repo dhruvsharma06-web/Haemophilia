@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0.0",
+  "status": "person_specific_candidate",
+  "source_session_id": "session_20261015_230124_9f81f611",
+  "approved_reps": 22,
+  "pose_engine": "MediaPipe Pose 0.10.11",
+  "angle_source": "pose_world_landmarks",
+  "coordinate_units": "MediaPipe estimated metres; angles degrees",
+  "angle_convention": "180 extended; smaller angle means flexion",
+  "formula": "acos(clamp(dot(S-E,W-E)/(norm(S-E)*norm(W-E)),-1,1))*180/pi; use world x,y,z, anatomical landmarks 11/13/15 and 12/14/16",
+  "smoothing": "causal timestamp low pass; tau=0.08 s; use same smoothing on Android",
+  "method": "Per-arm extension=p10(initial and final)-5 deg; flexion=p90(rep minima)+5 deg; ROM=p10(rep ROM)-5 deg; return and bilateral deviation=p90+5 deg. 5-degree margins are engineering allowances, not validated clinical tolerances.",
+  "thresholds": {
+    "left": {
+      "extension_min_deg": 152.59284378588075,
+      "flexion_max_deg": 70.75558628426776,
+      "rom_min_deg": 87.9257364170231,
+      "return_error_max_deg": 7.763461670817362
+    },
+    "right": {
+      "extension_min_deg": 153.6168987049523,
+      "flexion_max_deg": 91.96654666142514,
+      "rom_min_deg": 70.01687215785255,
+      "return_error_max_deg": 8.541307073061384
+    },
+    "bilateral": {
+      "maximum_angle_difference_deg": 34.758123896484435,
+      "rom_difference_max_deg": 31.302325022900295
+    }
+  },
+  "limitations": "Estimated 3D person-specific candidate references, not clinical targets. Do not mix with image-plane angles. No technique accuracy claim without held-out labelled validation."
+}

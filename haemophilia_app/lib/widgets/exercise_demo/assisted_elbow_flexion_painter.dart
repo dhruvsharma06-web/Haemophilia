@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 /// Custom painter rendering a clinical/recovery-style skeletal figure performing
@@ -16,14 +17,24 @@ class AssistedElbowFlexionPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     // 1. Theme colors
-    final bodyColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
-    final activeArmColor = isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7);
-    final assistArmColor = isDark ? const Color(0xFFFBBF24) : const Color(0xFFD97706);
-    final jointGlowColor = isDark ? const Color(0xFF06B6D4) : const Color(0xFF0EA5E9);
+    final bodyColor = isDark
+        ? const Color(0xFF94A3B8)
+        : const Color(0xFF64748B);
+    final activeArmColor = isDark
+        ? const Color(0xFF38BDF8)
+        : const Color(0xFF0284C7);
+    final assistArmColor = isDark
+        ? const Color(0xFFFBBF24)
+        : const Color(0xFFD97706);
+    final jointGlowColor = isDark
+        ? const Color(0xFF06B6D4)
+        : const Color(0xFF0EA5E9);
     final arcColor = isDark
         ? const Color(0xFF38BDF8).withValues(alpha: 0.35)
         : const Color(0xFF0284C7).withValues(alpha: 0.30);
-    final arrowColor = isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7);
+    final arrowColor = isDark
+        ? const Color(0xFF38BDF8)
+        : const Color(0xFF0284C7);
 
     // 2. Geometry scaling based on canvas size
     final scale = math.min(size.width / 260, size.height / 260);
@@ -34,7 +45,10 @@ class AssistedElbowFlexionPainter extends CustomPainter {
     final headCenter = Offset(originX, originY - 60 * scale);
     final neck = Offset(originX, originY - 44 * scale);
     final shoulder = Offset(originX, originY - 34 * scale);
-    final contralateralShoulder = Offset(originX - 12 * scale, originY - 35 * scale);
+    final contralateralShoulder = Offset(
+      originX - 12 * scale,
+      originY - 35 * scale,
+    );
     final hip = Offset(originX - 4 * scale, originY + 28 * scale);
     final knee = Offset(originX - 2 * scale, originY + 70 * scale);
     final ankle = Offset(originX - 4 * scale, originY + 110 * scale);
@@ -46,31 +60,27 @@ class AssistedElbowFlexionPainter extends CustomPainter {
     final elbow = Offset(shoulder.dx, shoulder.dy + upperArmLen);
 
     // 3. Movement phases:
-    // 0.00 - 0.20: Extended starting posture (~10 deg)
-    // 0.20 - 0.50: Assisted upward bending (10 deg -> 135 deg)
-    // 0.50 - 0.60: Peak flexion hold with support (135 deg)
-    // 0.60 - 0.95: Controlled assisted lowering (135 deg -> 10 deg)
-    // 0.95 - 1.00: Return to start pause (10 deg)
-    double thetaDeg = 10.0;
+    // Elbow joint angle: near 180° is straight; flexion reduces it.
+    double thetaDeg = 160.0;
     bool isFlexing = false;
     bool isExtending = false;
 
     if (progress <= 0.20) {
-      thetaDeg = 10.0;
+      thetaDeg = 160.0;
     } else if (progress <= 0.50) {
       isFlexing = true;
       final t = (progress - 0.20) / 0.30;
       final curved = Curves.easeInOutCubic.transform(t);
-      thetaDeg = 10.0 + 125.0 * curved;
+      thetaDeg = 160.0 - 100.0 * curved;
     } else if (progress <= 0.60) {
-      thetaDeg = 135.0;
+      thetaDeg = 60.0;
     } else if (progress <= 0.95) {
       isExtending = true;
       final t = (progress - 0.60) / 0.35;
       final curved = Curves.easeInOutCubic.transform(t);
-      thetaDeg = 135.0 - 125.0 * curved;
+      thetaDeg = 60.0 + 100.0 * curved;
     } else {
-      thetaDeg = 10.0;
+      thetaDeg = 160.0;
     }
 
     final thetaRad = thetaDeg * math.pi / 180.0;
@@ -82,10 +92,7 @@ class AssistedElbowFlexionPainter extends CustomPainter {
     );
 
     // Contralateral assisting hand supports under the active wrist/distal forearm
-    final supportContact = Offset(
-      wrist.dx - 4 * scale * math.cos(thetaRad),
-      wrist.dy - 4 * scale * math.sin(thetaRad),
-    );
+    final supportContact = Offset(wrist.dx, wrist.dy + 4 * scale);
 
     // Contralateral elbow position (reaching across torso to meet supportContact)
     final assistElbow = Offset(
@@ -111,8 +118,8 @@ class AssistedElbowFlexionPainter extends CustomPainter {
       ..color = arcColor
       ..strokeWidth = 2.0 * scale
       ..style = PaintingStyle.stroke;
-    final startRad = (90.0 - 10.0) * math.pi / 180.0;
-    final sweepRad = -(135.0 - 10.0) * math.pi / 180.0;
+    final startRad = (160.0 - 90.0) * math.pi / 180.0;
+    final sweepRad = (60.0 - 160.0) * math.pi / 180.0;
     canvas.drawArc(rect, startRad, sweepRad, false, arcPaint);
 
     // 6. Direction arrows
@@ -123,7 +130,10 @@ class AssistedElbowFlexionPainter extends CustomPainter {
         ..strokeCap = StrokeCap.round
         ..style = PaintingStyle.stroke;
 
-      final leadAngleDeg = (thetaDeg + (isFlexing ? 15.0 : -15.0)).clamp(15.0, 130.0);
+      final leadAngleDeg = (thetaDeg + (isFlexing ? -15.0 : 15.0)).clamp(
+        60.0,
+        160.0,
+      );
       final leadRad = leadAngleDeg * math.pi / 180.0;
       final arrowPos = Offset(
         elbow.dx + forearmLen * math.sin(leadRad),
@@ -225,7 +235,11 @@ class AssistedElbowFlexionPainter extends CustomPainter {
     canvas.drawCircle(assistElbow, 2.5 * scale, jointCenter);
 
     canvas.drawCircle(supportContact, 6 * scale, assistHalo);
-    canvas.drawCircle(supportContact, 3 * scale, Paint()..color = assistArmColor);
+    canvas.drawCircle(
+      supportContact,
+      3 * scale,
+      Paint()..color = assistArmColor,
+    );
 
     // 11. Support cue badge
     _drawSupportBadge(
@@ -269,7 +283,9 @@ class AssistedElbowFlexionPainter extends CustomPainter {
     );
 
     final badgePaint = Paint()
-      ..color = (isDark ? const Color(0xFF0F172A) : Colors.white).withValues(alpha: 0.85)
+      ..color = (isDark ? const Color(0xFF0F172A) : Colors.white).withValues(
+        alpha: 0.85,
+      )
       ..style = PaintingStyle.fill;
     final borderPaint = Paint()
       ..color = badgeColor.withValues(alpha: 0.5)

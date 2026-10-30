@@ -1,4 +1,6 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+import os
 
 from backend.app.api.routes.health import (
     router as health_router,
@@ -33,6 +35,15 @@ app = FastAPI(
     title="Haemophilia Physiotherapy AI",
     version="1.0.0",
 )
+
+# Opt-in browser testing; production keeps its existing CORS behavior.
+if os.environ.get('HEMO_LOCAL_BROWSER') == '1':
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origin_regex=r'http://(localhost|127\.0\.0\.1)(:\d+)?',
+        allow_methods=['GET', 'POST'],
+        allow_headers=['*'],
+    )
 
 
 # ============================================================

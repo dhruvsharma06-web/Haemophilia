@@ -1,3 +1,4 @@
+import 'app_text.dart';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
@@ -193,7 +194,7 @@ class _SessionAnalyticsChartState extends State<SessionAnalyticsChart> {
                     color: primary.withValues(alpha: .10),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Text(
+                  child: AppText(
                     '${chronologicalSessions.length} ${tr('Sessions')}',
                     style: TextStyle(
                       color: primary,
@@ -504,6 +505,7 @@ class _SummaryItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [

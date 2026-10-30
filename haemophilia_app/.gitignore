@@ -46,3 +46,16 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+node_modules/
+
+# Release signing secrets
+/android/key.properties
+*.jks
+*.keystore
+
+# Web admin portal build output
+/build/admin_web/
+
+# Stray archives and installers
+*.zip
+*.exe

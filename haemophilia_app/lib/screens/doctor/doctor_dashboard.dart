@@ -1,5 +1,8 @@
+import '../../services/local_test_config.dart';
+import '../../utils/firebase_errors.dart';
+import '../../widgets/app_text.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/user_model.dart';
@@ -9,8 +12,10 @@ import '../../utils/app_localizations.dart';
 import '../../utils/exercise_utils.dart';
 import '../patient/patient_history.dart';
 import '../profile/edit_profile_screen.dart';
+import '../support/help_screen.dart';
 import 'assign_exercises_screen.dart';
 import 'doctor_patient_detail.dart';
+import '../../widgets/notification_bell.dart';
 
 class DoctorDashboard extends StatefulWidget {
   final UserModel user;
@@ -23,6 +28,8 @@ class DoctorDashboard extends StatefulWidget {
 
 class _DoctorDashboardState extends State<DoctorDashboard> {
   bool _isLoggingOut = false;
+  String _search = '';
+  int _section = 0;
 
   Future<void> _logout() async {
     if (_isLoggingOut) return;
@@ -64,7 +71,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
                           tr('Select Patient to Assign'),
                           style: const TextStyle(
                             fontSize: 18,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ),
@@ -78,12 +85,19 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
                 const Divider(height: 1),
                 Expanded(
                   child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                    stream: FirebaseFirestore.instance
+                    stream: LocalTestConfig.database
                         .collection('users')
                         .where('role', isEqualTo: 'patient')
+                        .where('doctorId', isEqualTo: doctorId)
                         .snapshots(),
                     builder: (context, snap) {
-                      if (snap.connectionState == ConnectionState.waiting && !snap.hasData) {
+                      if (snap.hasError) {
+                        return Center(
+                          child: Text(firebaseErrorMessage(snap.error)),
+                        );
+                      }
+                      if (snap.connectionState == ConnectionState.waiting &&
+                          !snap.hasData) {
                         return const Center(child: CircularProgressIndicator());
                       }
                       final docs = snap.data?.docs ?? [];
@@ -97,7 +111,10 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
                       }
                       return ListView.separated(
                         controller: scrollController,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
                         itemCount: docs.length,
                         separatorBuilder: (_, _) => const Divider(height: 1),
                         itemBuilder: (context, i) {
@@ -105,9 +122,14 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
                           final p = UserModel.fromMap(doc.id, doc.data());
                           return ListTile(
                             leading: CircleAvatar(
-                              backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: .10),
+                              backgroundColor: Theme.of(context)
+                                  .colorScheme
+                                  .primary
+                                  .withValues(alpha: .10),
                               child: Text(
-                                p.name.isNotEmpty ? p.name[0].toUpperCase() : 'P',
+                                p.name.isNotEmpty
+                                    ? p.name[0].toUpperCase()
+                                    : 'P',
                                 style: TextStyle(
                                   color: Theme.of(context).colorScheme.primary,
                                   fontWeight: FontWeight.bold,
@@ -116,10 +138,15 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
                             ),
                             title: Text(
                               p.name.isNotEmpty ? p.name : tr('Patient'),
-                              style: const TextStyle(fontWeight: FontWeight.w700),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                             subtitle: Text(p.email),
-                            trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                            trailing: const Icon(
+                              Icons.arrow_forward_ios,
+                              size: 14,
+                            ),
                             onTap: () {
                               Navigator.pop(sheetContext);
                               Navigator.push(
@@ -150,7 +177,7 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
   Widget build(BuildContext context) {
     AppLocaleScope.of(context);
     final currentUser = widget.user;
-    final doctorId = FirebaseAuth.instance.currentUser?.uid ?? currentUser.uid;
+    final doctorId = LocalTestConfig.auth.currentUser?.uid ?? currentUser.uid;
 
     return Scaffold(
       appBar: AppBar(
@@ -169,15 +196,16 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
             ),
             const SizedBox(width: 8),
             const Expanded(
-              child: Text(
-                'Somaiya HaemoPhysio',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+              child: AppText(
+                'Somaiya HemoPhysio',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
         ),
         actions: [
+          const NotificationBell(),
           const LanguageToggleButton(),
           IconButton(
             tooltip: tr('Edit Profile'),
@@ -205,102 +233,149 @@ class _DoctorDashboardState extends State<DoctorDashboard> {
           const SizedBox(width: 8),
         ],
       ),
-      body: SafeArea(
-        child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-          stream: FirebaseFirestore.instance
-              .collection('exerciseAssignments')
-              .where('doctorId', isEqualTo: doctorId)
-              .snapshots(),
-          builder: (context, assignSnap) {
-            if (assignSnap.hasError) {
-              return _ErrorState(message: assignSnap.error.toString());
-            }
-
-            if (assignSnap.connectionState == ConnectionState.waiting &&
-                !assignSnap.hasData) {
-              return const Center(child: CircularProgressIndicator());
-            }
-
-            final assignDocs = assignSnap.data?.docs ?? [];
-
-            // Doctor-specific: strictly extract unique patient IDs from this doctor's exerciseAssignments
-            final uniquePatientIds = <String>{};
-            for (final a in assignDocs) {
-              final data = a.data();
-              final pid = data['patientId']?.toString().trim();
-              final resolved = (pid != null && pid.isNotEmpty) ? pid : a.id;
-              if (resolved.isNotEmpty) {
-                uniquePatientIds.add(resolved);
-              }
-            }
-
-            final patientIdList = uniquePatientIds.toList();
-
-            return ListView(
-              padding: const EdgeInsets.fromLTRB(20, 10, 20, 32),
-              children: [
-                _Hero(
-                  title: '${tr('Welcome, Dr.')} ${currentUser.name}',
-                  subtitle: tr('Review patient progress, movement quality and clinical feedback.'),
-                ),
-                const SizedBox(height: 24),
-                _Metric(
-                  tr('Assigned Patients'),
-                  '${uniquePatientIds.length}',
-                  Icons.people_outline,
-                ),
-                const SizedBox(height: 24),
-                _LiveAssessmentSection(
-                  doctorId: doctorId,
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            tr('Your patients'),
-                            style: const TextStyle(
-                                fontSize: 21, fontWeight: FontWeight.w800),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            tr('Open a patient to review sessions and errors.'),
-                            style: TextStyle(color: Colors.grey.shade600),
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.person_add_alt_1_outlined),
-                      tooltip: tr('Assign exercises to a patient'),
-                      onPressed: () => _showAssignPatientPicker(context, doctorId),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                if (patientIdList.isEmpty)
-                  _EmptyCard(
-                    onAssignPatient: () => _showAssignPatientPicker(context, doctorId),
-                  )
-                else
-                  Column(
-                    children: patientIdList
-                        .map(
-                          (pid) => Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: _PatientCard(patientId: pid),
-                          ),
-                        )
-                        .toList(),
-                  ),
-              ],
-            );
-          },
-        ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _section,
+        onDestinationSelected: (value) => setState(() => _section = value),
+        destinations: [
+          NavigationDestination(
+            icon: const Icon(Icons.people_outline),
+            label: tr('Patients'),
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.monitor_heart_outlined),
+            label: tr('Live sessions'),
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.support_agent),
+            label: tr('Help'),
+          ),
+        ],
       ),
+      body: _section == 2
+          ? const HelpScreen()
+          : SafeArea(
+              child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                stream: LocalTestConfig.database
+                    .collection('users')
+                    .where('role', isEqualTo: 'patient')
+                    .where('doctorId', isEqualTo: doctorId)
+                    .snapshots(),
+                builder: (context, assignSnap) {
+                  if (assignSnap.hasError) {
+                    return _ErrorState(
+                      message: firebaseErrorMessage(
+                        assignSnap.error,
+                        fallback: 'Could not load patient data.',
+                      ),
+                    );
+                  }
+
+                  if (assignSnap.connectionState == ConnectionState.waiting &&
+                      !assignSnap.hasData) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  final assignDocs = assignSnap.data?.docs ?? [];
+
+                  // Doctor-specific: strictly extract unique patient IDs from this doctor's exerciseAssignments
+                  final uniquePatientIds = assignDocs.map((d) => d.id).toSet();
+
+                  final patientIdList = uniquePatientIds.toList();
+
+                  return ListView(
+                    padding: const EdgeInsets.fromLTRB(20, 10, 20, 32),
+                    children: [
+                      if (_section == 0) ...[
+                        _Hero(
+                          title: '${tr('Welcome, Dr.')} ${currentUser.name}',
+                          subtitle: tr(
+                            'Review patient progress, movement quality and clinical feedback.',
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        _Metric(
+                          tr('Assigned Patients'),
+                          '${uniquePatientIds.length}',
+                          Icons.people_outline,
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+                      if (_section == 1)
+                        _LiveAssessmentSection(doctorId: doctorId),
+                      if (_section == 0) ...[
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    tr('Your patients'),
+                                    style: const TextStyle(
+                                      fontSize: 21,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    tr(
+                                      'Open a patient to review sessions and errors.',
+                                    ),
+                                    style: TextStyle(
+                                      color: Colors.grey.shade600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.person_add_alt_1_outlined),
+                              tooltip: tr('Assign exercises to a patient'),
+                              onPressed: () =>
+                                  _showAssignPatientPicker(context, doctorId),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        TextField(
+                          decoration: InputDecoration(
+                            labelText: tr('Search by patient ID'),
+                            prefixIcon: const Icon(Icons.search),
+                          ),
+                          onChanged: (v) =>
+                              setState(() => _search = v.trim().toUpperCase()),
+                        ),
+                        const SizedBox(height: 12),
+                        if (patientIdList.isEmpty)
+                          _EmptyCard(
+                            onAssignPatient: () =>
+                                _showAssignPatientPicker(context, doctorId),
+                          )
+                        else
+                          Column(
+                            children: patientIdList
+                                .where(
+                                  (id) =>
+                                      _search.isEmpty ||
+                                      ('SHP-${id.toUpperCase()}').contains(
+                                        _search,
+                                      ),
+                                )
+                                .map(
+                                  (pid) => Padding(
+                                    padding: const EdgeInsets.only(bottom: 12),
+                                    child: _PatientCard(patientId: pid),
+                                  ),
+                                )
+                                .toList(),
+                          ),
+                      ],
+                    ],
+                  );
+                },
+              ),
+            ),
     );
   }
 }
@@ -312,10 +387,11 @@ class _PatientCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     final primary = Theme.of(context).colorScheme.primary;
 
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance
+      stream: LocalTestConfig.database
           .collection('users')
           .doc(patientId)
           .snapshots(),
@@ -324,13 +400,15 @@ class _PatientCard extends StatelessWidget {
         final patient = UserModel.fromMap(patientId, data);
 
         return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-          stream: FirebaseFirestore.instance
+          stream: LocalTestConfig.database
               .collection('exerciseAssignments')
               .doc(patientId)
               .snapshots(),
           builder: (context, assignmentSnap) {
             final assignData = assignmentSnap.data?.data();
-            final assignStatus = assignData?['status']?.toString().toLowerCase();
+            final assignStatus = assignData?['status']
+                ?.toString()
+                .toLowerCase();
             final isPaused = assignStatus == 'paused';
             final isInProgress = assignStatus == 'in_progress';
             final sessionName = assignData?['sessionName']?.toString();
@@ -371,7 +449,7 @@ class _PatientCard extends StatelessWidget {
                                   : 'P',
                               style: TextStyle(
                                 color: primary,
-                                fontWeight: FontWeight.w800,
+                                fontWeight: FontWeight.w700,
                                 fontSize: 18,
                               ),
                             ),
@@ -381,6 +459,13 @@ class _PatientCard extends StatelessWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                Text(
+                                  patient.patientId,
+                                  style: TextStyle(
+                                    color: primary,
+                                    fontSize: 11,
+                                  ),
+                                ),
                                 Row(
                                   children: [
                                     Expanded(
@@ -389,7 +474,7 @@ class _PatientCard extends StatelessWidget {
                                             ? patient.name
                                             : tr('Patient'),
                                         style: const TextStyle(
-                                          fontWeight: FontWeight.w800,
+                                          fontWeight: FontWeight.w700,
                                           fontSize: 16,
                                         ),
                                       ),
@@ -397,26 +482,33 @@ class _PatientCard extends StatelessWidget {
                                     if (isPaused)
                                       Container(
                                         padding: const EdgeInsets.symmetric(
-                                            horizontal: 7, vertical: 2),
+                                          horizontal: 7,
+                                          vertical: 2,
+                                        ),
                                         decoration: BoxDecoration(
                                           color: Colors.amber.shade100,
-                                          borderRadius: BorderRadius.circular(6),
+                                          borderRadius: BorderRadius.circular(
+                                            6,
+                                          ),
                                           border: Border.all(
-                                              color: Colors.amber.shade400),
+                                            color: Colors.amber.shade400,
+                                          ),
                                         ),
                                         child: Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
-                                            Icon(Icons.pause_circle_outline,
-                                                size: 11,
-                                                color: Colors.amber.shade900),
+                                            Icon(
+                                              Icons.pause_circle_outline,
+                                              size: 11,
+                                              color: Colors.amber.shade900,
+                                            ),
                                             const SizedBox(width: 3),
-                                            Text(
+                                            AppText(
                                               '${tr('PAUSED')} ($progressPct%)',
                                               style: TextStyle(
                                                 color: Colors.amber.shade900,
                                                 fontSize: 10,
-                                                fontWeight: FontWeight.w800,
+                                                fontWeight: FontWeight.w700,
                                               ),
                                             ),
                                           ],
@@ -425,26 +517,33 @@ class _PatientCard extends StatelessWidget {
                                     else if (isInProgress)
                                       Container(
                                         padding: const EdgeInsets.symmetric(
-                                            horizontal: 7, vertical: 2),
+                                          horizontal: 7,
+                                          vertical: 2,
+                                        ),
                                         decoration: BoxDecoration(
                                           color: Colors.blue.shade100,
-                                          borderRadius: BorderRadius.circular(6),
+                                          borderRadius: BorderRadius.circular(
+                                            6,
+                                          ),
                                           border: Border.all(
-                                              color: Colors.blue.shade400),
+                                            color: Colors.blue.shade400,
+                                          ),
                                         ),
                                         child: Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
-                                            Icon(Icons.play_circle_outline,
-                                                size: 11,
-                                                color: Colors.blue.shade900),
+                                            Icon(
+                                              Icons.play_circle_outline,
+                                              size: 11,
+                                              color: Colors.blue.shade900,
+                                            ),
                                             const SizedBox(width: 3),
-                                            Text(
+                                            AppText(
                                               '${tr('IN PROGRESS')} ($progressPct%)',
                                               style: TextStyle(
                                                 color: Colors.blue.shade900,
                                                 fontSize: 10,
-                                                fontWeight: FontWeight.w800,
+                                                fontWeight: FontWeight.w700,
                                               ),
                                             ),
                                           ],
@@ -457,16 +556,16 @@ class _PatientCard extends StatelessWidget {
                                   isPaused
                                       ? '${sessionName ?? tr("Session")} ${tr("paused")} • $progressPct% ${tr("complete")}'
                                       : isInProgress
-                                          ? '${sessionName ?? tr("Session")} ${tr("in progress")} • $progressPct%'
-                                          : latest == null
-                                              ? tr('No assessments yet')
-                                              : '${tr("Latest session")} • ${latest.averageScore.toStringAsFixed(0)}/100',
+                                      ? '${sessionName ?? tr("Session")} ${tr("in progress")} • $progressPct%'
+                                      : latest == null
+                                      ? tr('No assessments yet')
+                                      : '${tr("Latest session")} • ${latest.averageScore.toStringAsFixed(0)}/100',
                                   style: TextStyle(
                                     color: isPaused
                                         ? Colors.amber.shade800
                                         : isInProgress
-                                            ? Colors.blue.shade800
-                                            : Colors.grey.shade600,
+                                        ? Colors.blue.shade800
+                                        : Colors.grey.shade600,
                                     fontSize: 12,
                                     fontWeight: (isPaused || isInProgress)
                                         ? FontWeight.w600
@@ -499,17 +598,13 @@ class _Hero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     final primary = Theme.of(context).colorScheme.primary;
 
     return Container(
       padding: const EdgeInsets.all(21),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            primary,
-            Color.lerp(primary, const Color(0xFF63B4E8), .45)!,
-          ],
-        ),
+        color: primary,
         borderRadius: BorderRadius.circular(24),
       ),
       child: Column(
@@ -520,7 +615,7 @@ class _Hero extends StatelessWidget {
             style: const TextStyle(
               color: Colors.white,
               fontSize: 24,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 7),
@@ -546,6 +641,7 @@ class _Metric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     final primary = Theme.of(context).colorScheme.primary;
 
     return Card(
@@ -571,15 +667,12 @@ class _Metric extends StatelessWidget {
                     value,
                     style: const TextStyle(
                       fontSize: 22,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                   Text(
                     title,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.grey.shade600,
-                    ),
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                   ),
                 ],
               ),
@@ -598,6 +691,7 @@ class _EmptyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(28),
@@ -607,7 +701,7 @@ class _EmptyCard extends StatelessWidget {
             const SizedBox(height: 10),
             Text(
               tr('No patients assigned'),
-              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17),
             ),
             const SizedBox(height: 5),
             Text(
@@ -637,10 +731,11 @@ class _ErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
-        child: Text(
+        child: AppText(
           '${tr("Could not load patients.")}\n\n$message',
           textAlign: TextAlign.center,
         ),
@@ -652,20 +747,50 @@ class _ErrorState extends StatelessWidget {
 class _LiveAssessmentSection extends StatelessWidget {
   final String doctorId;
 
-  const _LiveAssessmentSection({
-    required this.doctorId,
-  });
+  const _LiveAssessmentSection({required this.doctorId});
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+    AppLocaleScope.of(context);
+    return StreamBuilder<List<QueryDocumentSnapshot<Map<String, dynamic>>>>(
       stream: ClinicalDataService().watchActiveDoctorSessions(doctorId),
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Text(firebaseErrorMessage(snapshot.error));
+        }
         if (!snapshot.hasData) {
           return const SizedBox.shrink();
         }
 
-        final docs = snapshot.data!.docs;
+        final docs =
+            snapshot.data!
+                .where((doc) => doc.data()['practice'] != true)
+                .toList()
+              ..sort(
+                (a, b) =>
+                    ((b.data()['completedAt'] ??
+                                    b.data()['lastUpdatedAt'] ??
+                                    b.data()['startedAt'])
+                                is Timestamp
+                            ? ((b.data()['completedAt'] ??
+                                          b.data()['lastUpdatedAt'] ??
+                                          b.data()['startedAt'])
+                                      as Timestamp)
+                                  .millisecondsSinceEpoch
+                            : 0)
+                        .compareTo(
+                          (a.data()['completedAt'] ??
+                                      a.data()['lastUpdatedAt'] ??
+                                      a.data()['startedAt'])
+                                  is Timestamp
+                              ? ((a.data()['completedAt'] ??
+                                            a.data()['lastUpdatedAt'] ??
+                                            a.data()['startedAt'])
+                                        as Timestamp)
+                                    .millisecondsSinceEpoch
+                              : 0,
+                        ),
+              );
         final now = DateTime.now();
 
         // 1. Active sessions (exclude stale sessions where no update happened in the last 20 minutes)
@@ -682,36 +807,43 @@ class _LiveAssessmentSection extends StatelessWidget {
           return true;
         }).toList();
 
-        // 2. Paused sessions (within last 24 hours)
+        // Paused work remains visible until completed or discarded.
         final pausedSessions = docs.where((d) {
           final data = d.data();
           final status = data['status']?.toString().toLowerCase();
           if (status != 'paused') return false;
 
-          final pausedAt = data['pausedAt'] ?? data['lastUpdatedAt'] ?? data['updatedAt'];
-          if (pausedAt is Timestamp) {
-            final diff = now.difference(pausedAt.toDate().toLocal());
-            if (diff.inHours > 24) return false;
-          }
           return true;
         }).toList();
 
-        // 3. Completed sessions in the last 30 minutes
-        final recentlyCompleted = docs.where((d) {
-          final data = d.data();
-          final status = data['status']?.toString().toLowerCase();
-          if (status != 'completed') return false;
-          final completedAt =
-              data['completedAt'] ?? data['endedAt'] ?? data['lastUpdatedAt'];
-          if (completedAt is Timestamp) {
-            final diff = now.difference(completedAt.toDate().toLocal());
-            return diff.inMinutes <= 30;
-          }
-          return false;
-        }).toList();
+        // Completed sessions from the past week, newest first.
+        final recentlyCompleted = docs
+            .where((d) {
+              final data = d.data();
+              final status = data['status']?.toString().toLowerCase();
+              if (status != 'completed') return false;
+              final completedAt =
+                  data['completedAt'] ??
+                  data['endedAt'] ??
+                  data['lastUpdatedAt'];
+              if (completedAt is Timestamp) {
+                final diff = now.difference(completedAt.toDate().toLocal());
+                return diff.inDays <= 7;
+              }
+              return false;
+            })
+            .take(10)
+            .toList();
 
-        if (activeSessions.isEmpty && pausedSessions.isEmpty && recentlyCompleted.isEmpty) {
-          return const SizedBox.shrink();
+        if (activeSessions.isEmpty &&
+            pausedSessions.isEmpty &&
+            recentlyCompleted.isEmpty) {
+          return Card(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Text(tr('No recent sessions yet.')),
+            ),
+          );
         }
 
         return Column(
@@ -726,7 +858,7 @@ class _LiveAssessmentSection extends StatelessWidget {
                     tr('Active Live Assessments'),
                     style: const TextStyle(
                       fontSize: 17,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                       color: Color(0xFFD32F2F),
                     ),
                   ),
@@ -738,14 +870,14 @@ class _LiveAssessmentSection extends StatelessWidget {
                 final patientId = data['patientId']?.toString() ?? '';
                 final rawName = data['patientName']?.toString();
                 final patientName = formatFullName(
-                    (rawName != null && rawName.isNotEmpty)
-                        ? rawName
-                        : 'Patient');
+                  (rawName != null && rawName.isNotEmpty) ? rawName : 'Patient',
+                );
                 final patientUser = UserModel(
-                    uid: patientId,
-                    name: patientName,
-                    email: '',
-                    role: 'patient');
+                  uid: patientId,
+                  name: patientName,
+                  email: '',
+                  role: 'patient',
+                );
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
@@ -761,14 +893,17 @@ class _LiveAssessmentSection extends StatelessWidget {
               if (activeSessions.isNotEmpty) const SizedBox(height: 8),
               Row(
                 children: [
-                  const Icon(Icons.pause_circle_outline_rounded,
-                      color: Color(0xFFF57F17), size: 18),
+                  const Icon(
+                    Icons.pause_circle_outline_rounded,
+                    color: Color(0xFFF57F17),
+                    size: 18,
+                  ),
                   const SizedBox(width: 8),
-                  Text(
+                  AppText(
                     '${tr("Paused Assessments")} (${pausedSessions.length})',
                     style: const TextStyle(
                       fontSize: 17,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                       color: Color(0xFFF57F17),
                     ),
                   ),
@@ -780,14 +915,14 @@ class _LiveAssessmentSection extends StatelessWidget {
                 final patientId = data['patientId']?.toString() ?? '';
                 final rawName = data['patientName']?.toString();
                 final patientName = formatFullName(
-                    (rawName != null && rawName.isNotEmpty)
-                        ? rawName
-                        : 'Patient');
+                  (rawName != null && rawName.isNotEmpty) ? rawName : 'Patient',
+                );
                 final patientUser = UserModel(
-                    uid: patientId,
-                    name: patientName,
-                    email: '',
-                    role: 'patient');
+                  uid: patientId,
+                  name: patientName,
+                  email: '',
+                  role: 'patient',
+                );
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
@@ -804,15 +939,18 @@ class _LiveAssessmentSection extends StatelessWidget {
                 const SizedBox(height: 8),
               Row(
                 children: [
-                  const Icon(Icons.check_circle_rounded,
-                      color: Color(0xFF2E7D32), size: 18),
+                  const Icon(
+                    Icons.check_circle_rounded,
+                    color: Color(0xFF2E7D32),
+                    size: 18,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       tr('Recently Completed Assessments'),
                       style: const TextStyle(
                         fontSize: 17,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                         color: Color(0xFF2E7D32),
                       ),
                     ),
@@ -825,14 +963,14 @@ class _LiveAssessmentSection extends StatelessWidget {
                 final patientId = data['patientId']?.toString() ?? '';
                 final rawName = data['patientName']?.toString();
                 final patientName = formatFullName(
-                    (rawName != null && rawName.isNotEmpty)
-                        ? rawName
-                        : 'Patient');
+                  (rawName != null && rawName.isNotEmpty) ? rawName : 'Patient',
+                );
                 final patientUser = UserModel(
-                    uid: patientId,
-                    name: patientName,
-                    email: '',
-                    role: 'patient');
+                  uid: patientId,
+                  name: patientName,
+                  email: '',
+                  role: 'patient',
+                );
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
@@ -878,10 +1016,12 @@ class _LiveSessionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     final repCount = (sessionData['currentRepCount'] as num?)?.toInt() ?? 0;
     final score = (sessionData['currentScore'] as num?)?.toDouble() ?? 0.0;
     final form = sessionData['currentForm']?.toString() ?? 'Assessing...';
-    final rawExercise = sessionData['currentExercise']?.toString() ??
+    final rawExercise =
+        sessionData['currentExercise']?.toString() ??
         sessionData['exercise']?.toString() ??
         sessionData['sessionName']?.toString() ??
         '';
@@ -894,7 +1034,8 @@ class _LiveSessionCard extends StatelessWidget {
         ? const Color(0xFF2E7D32)
         : (score >= 50 ? const Color(0xFFE65100) : const Color(0xFFC62828));
 
-    final Color formColor = form.toLowerCase().contains('incorrect') ||
+    final Color formColor =
+        form.toLowerCase().contains('incorrect') ||
             form.toLowerCase().contains('slow') ||
             form.toLowerCase().contains('fast') ||
             form.toLowerCase().contains('incomplete')
@@ -915,8 +1056,10 @@ class _LiveSessionCard extends StatelessWidget {
             Row(
               children: [
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFFFEBEE),
                     borderRadius: BorderRadius.circular(8),
@@ -931,7 +1074,7 @@ class _LiveSessionCard extends StatelessWidget {
                         tr('LIVE ASSESSMENT'),
                         style: const TextStyle(
                           color: Color(0xFFD32F2F),
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w700,
                           fontSize: 10,
                           letterSpacing: 0.5,
                         ),
@@ -942,10 +1085,7 @@ class _LiveSessionCard extends StatelessWidget {
                 const Spacer(),
                 Text(
                   _formatTime(startedAt),
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey.shade600,
-                  ),
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                 ),
               ],
             ),
@@ -960,7 +1100,7 @@ class _LiveSessionCard extends StatelessWidget {
                         patientName,
                         style: const TextStyle(
                           fontSize: 16,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -988,12 +1128,16 @@ class _LiveSessionCard extends StatelessWidget {
                     );
                   },
                   style: OutlinedButton.styleFrom(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                     minimumSize: Size.zero,
                   ),
-                  child:
-                      Text(tr('View Patient'), style: const TextStyle(fontSize: 12)),
+                  child: Text(
+                    tr('View Patient'),
+                    style: const TextStyle(fontSize: 12),
+                  ),
                 ),
               ],
             ),
@@ -1047,8 +1191,8 @@ class _PausedSessionCard extends StatelessWidget {
       final ago = diff.inMinutes < 1
           ? 'just now'
           : (diff.inMinutes < 60
-              ? '${diff.inMinutes}m ago'
-              : '${diff.inHours}h ago');
+                ? '${diff.inMinutes}m ago'
+                : '${diff.inHours}h ago');
       return '$h:$m $ampm ($ago)';
     }
     return 'Paused';
@@ -1056,7 +1200,9 @@ class _PausedSessionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final repCount = (sessionData['currentRepCount'] as num?)?.toInt() ??
+    AppLocaleScope.of(context);
+    final repCount =
+        (sessionData['currentRepCount'] as num?)?.toInt() ??
         (sessionData['totalReps'] as num?)?.toInt() ??
         (sessionData['completedCorrectReps'] as num?)?.toInt() ??
         0;
@@ -1064,14 +1210,16 @@ class _PausedSessionCard extends StatelessWidget {
     final form = sessionData['currentForm']?.toString() ?? 'Paused';
     final progressPct =
         (sessionData['progressPercentage'] as num?)?.toInt() ?? 0;
-    final rawExercise = sessionData['currentExercise']?.toString() ??
+    final rawExercise =
+        sessionData['currentExercise']?.toString() ??
         sessionData['exercise']?.toString() ??
         sessionData['sessionName']?.toString() ??
         '';
     final exercise = rawExercise.isNotEmpty
         ? getExerciseDisplayName(rawExercise)
         : 'Physiotherapy Assessment';
-    final pausedAt = sessionData['pausedAt'] ??
+    final pausedAt =
+        sessionData['pausedAt'] ??
         sessionData['lastUpdatedAt'] ??
         sessionData['updatedAt'];
 
@@ -1093,8 +1241,10 @@ class _PausedSessionCard extends StatelessWidget {
             Row(
               children: [
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFFFF8E1),
                     borderRadius: BorderRadius.circular(8),
@@ -1103,14 +1253,17 @@ class _PausedSessionCard extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.pause_circle_outline_rounded,
-                          size: 13, color: Color(0xFFF57F17)),
+                      const Icon(
+                        Icons.pause_circle_outline_rounded,
+                        size: 13,
+                        color: Color(0xFFF57F17),
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         tr('PAUSED'),
                         style: const TextStyle(
                           color: Color(0xFFF57F17),
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w700,
                           fontSize: 11,
                           letterSpacing: 0.5,
                         ),
@@ -1121,10 +1274,7 @@ class _PausedSessionCard extends StatelessWidget {
                 const Spacer(),
                 Text(
                   _formatTime(pausedAt),
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey.shade600,
-                  ),
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                 ),
               ],
             ),
@@ -1139,7 +1289,7 @@ class _PausedSessionCard extends StatelessWidget {
                         patientName,
                         style: const TextStyle(
                           fontSize: 16,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -1167,12 +1317,16 @@ class _PausedSessionCard extends StatelessWidget {
                     );
                   },
                   style: OutlinedButton.styleFrom(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                     minimumSize: Size.zero,
                   ),
-                  child:
-                      Text(tr('View Patient'), style: const TextStyle(fontSize: 12)),
+                  child: Text(
+                    tr('View Patient'),
+                    style: const TextStyle(fontSize: 12),
+                  ),
                 ),
               ],
             ),
@@ -1225,16 +1379,19 @@ class _RecentlyCompletedSessionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final finalReps = (sessionData['finalRepCount'] ??
-            sessionData['currentRepCount'] as num?)
-        ?.toInt() ??
+    AppLocaleScope.of(context);
+    final finalReps =
+        (sessionData['finalRepCount'] ?? sessionData['currentRepCount'] as num?)
+            ?.toInt() ??
         0;
-    final finalScore = (sessionData['finalScore'] ??
-            sessionData['averageScore'] ??
-            sessionData['currentScore'] as num?)
-        ?.toDouble() ??
+    final finalScore =
+        (sessionData['finalScore'] ??
+                sessionData['averageScore'] ??
+                sessionData['currentScore'] as num?)
+            ?.toDouble() ??
         0.0;
-    final rawExercise = sessionData['currentExercise']?.toString() ??
+    final rawExercise =
+        sessionData['currentExercise']?.toString() ??
         sessionData['exercise']?.toString() ??
         sessionData['sessionName']?.toString() ??
         '';
@@ -1269,7 +1426,7 @@ class _RecentlyCompletedSessionCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  AppText(
                     '$patientName ${tr('completed')} $exercise',
                     style: const TextStyle(
                       fontSize: 14,
@@ -1277,12 +1434,9 @@ class _RecentlyCompletedSessionCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 2),
-                  Text(
+                  AppText(
                     '${tr('Score')}: ${finalScore.toStringAsFixed(0)}/100 • $finalReps ${tr('reps')}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade700,
-                    ),
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
                   ),
                 ],
               ),
@@ -1321,6 +1475,7 @@ class _LiveChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -1350,9 +1505,7 @@ class _LiveChip extends StatelessWidget {
 class _PulsingLiveDot extends StatefulWidget {
   final double size;
 
-  const _PulsingLiveDot({
-    this.size = 10,
-  });
+  const _PulsingLiveDot({this.size = 10});
 
   @override
   State<_PulsingLiveDot> createState() => _PulsingLiveDotState();
@@ -1370,9 +1523,10 @@ class _PulsingLiveDotState extends State<_PulsingLiveDot>
       vsync: this,
       duration: const Duration(milliseconds: 1000),
     )..repeat(reverse: true);
-    _animation = Tween<double>(begin: 0.6, end: 1.2).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _animation = Tween<double>(
+      begin: 0.6,
+      end: 1.2,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -1383,6 +1537,7 @@ class _PulsingLiveDotState extends State<_PulsingLiveDot>
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     return AnimatedBuilder(
       animation: _animation,
       builder: (context, child) {
