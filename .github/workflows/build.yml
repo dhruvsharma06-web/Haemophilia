@@ -58,9 +58,22 @@ jobs:
       - run: flutter --version
       - run: flutter pub get
       - name: Analyze
-        run: flutter analyze lib test
+        shell: bash
+        run: |
+          set +e
+          flutter analyze lib test --no-fatal-infos > analyze.txt 2>&1
+          code=$?
+          cat analyze.txt
+          # Publish each issue as an annotation: "  error • message • lib/x.dart:1:2 • code"
+          grep -E '^ *(error|warning|info) •' analyze.txt | head -50 | while IFS= read -r line; do
+            level=$(echo "$line" | sed -E 's/^ *(error|warning|info) .*/\1/')
+            [ "$level" = info ] && level=notice
+            echo "::$level::$(echo "$line" | sed -E 's/^ *//')"
+          done
+          exit $code
       - name: Unit and widget tests
-        run: flutter test --concurrency=1
+        if: always()
+        run: flutter test --concurrency=1 --reporter github
 
   build:
     # Independent of the checks so an APK is always produced for device testing;
@@ -82,9 +95,21 @@ jobs:
           cache: true
       - run: flutter pub get
       - name: Build Android APK
-        run: flutter build apk --release
+        shell: bash
+        run: |
+          set -o pipefail
+          flutter build apk --release 2>&1 | tee build_apk.txt || {
+            grep -E 'error|Error|FAILURE|e: ' build_apk.txt | head -40 | sed 's/^/::error::/'
+            exit 1
+          }
       - name: Build web admin portal
-        run: flutter build web --release -t lib/main_admin.dart --output build/admin_web
+        shell: bash
+        run: |
+          set -o pipefail
+          flutter build web --release -t lib/main_admin.dart --output build/admin_web 2>&1 | tee build_web.txt || {
+            grep -E 'Error|error' build_web.txt | head -40 | sed 's/^/::error::/'
+            exit 1
+          }
       - uses: actions/upload-artifact@v4
         with:
           name: somaiya-hemophysio-apk
