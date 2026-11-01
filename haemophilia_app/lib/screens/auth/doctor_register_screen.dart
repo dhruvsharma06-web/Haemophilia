@@ -76,6 +76,10 @@ class _DoctorRegisterScreenState extends State<DoctorRegisterScreen> {
       );
 
       if (files.isNotEmpty) {
+        if ((await files.first.length()) >= 10 * 1024 * 1024) {
+          _showError(tr('Documents must be smaller than 10 MB.'));
+          return;
+        }
         setState(() {
           if (isCert) {
             _registrationCertFile = files.first;
@@ -236,7 +240,9 @@ class _DoctorRegisterScreenState extends State<DoctorRegisterScreen> {
         hospital: _hospitalController.text.trim(),
         yearsExperience: _experienceController.text.trim(),
         registrationCertName: _registrationCertFile?.name,
+        registrationCertBytes: await _registrationCertFile?.readAsBytes(),
         professionalIdName: _professionalIdFile?.name,
+        professionalIdBytes: await _professionalIdFile?.readAsBytes(),
       );
 
       if (!mounted) return;

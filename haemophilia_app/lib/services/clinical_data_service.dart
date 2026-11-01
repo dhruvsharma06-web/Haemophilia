@@ -6,6 +6,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:async';
 
 class ClinicalDataService {
+  Stream<QuerySnapshot<Map<String, dynamic>>> watchSupportTickets() =>
+      LocalTestConfig.database.collection('supportTickets').snapshots();
   final FirebaseFirestore _firestore = LocalTestConfig.database;
   final FirebaseAuth _auth = LocalTestConfig.auth;
 

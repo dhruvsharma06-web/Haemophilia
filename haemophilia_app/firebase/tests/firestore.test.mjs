@@ -295,3 +295,22 @@ test('a new assignment does not permit updates to an old unfinished recording',a
  await env.withSecurityRulesDisabled(c=>updateDoc(doc(c.firestore(),'exerciseAssignments','patient'),{assignmentId:'new',sessionId:'patient_other'}));
  await assertFails(updateDoc(doc(db('patient'),'assessmentSessions','patient_existing'),{status:'active'}));
 });
+
+
+test('admin cannot convert patient accounts into clinician or admin accounts', async()=>{
+ for (const role of ['doctor','pending_doctor','admin']) await assertFails(updateDoc(doc(db('admin'),'users','patient'),{role}));
+ await assertFails(updateDoc(doc(db('admin'),'users','doctor'),{role:'patient'}));
+ await assertSucceeds(updateDoc(doc(db('admin'),'users','pending'),{role:'doctor',isApproved:true}));
+ await assertSucceeds(updateDoc(doc(db('admin'),'users','doctor'),{role:'pending_doctor',isApproved:false}));
+});
+
+test('admin resolves legacy grievance and notifies patient atomically; patient can reopen and resolve',async()=>{
+ await env.withSecurityRulesDisabled(c=>setDoc(doc(c.firestore(),'supportTickets','legacyTicket'),{userId:'patient',status:'open',category:'Other'}));
+ const store=db('admin'); const batch=writeBatch(store);
+ batch.update(doc(store,'supportTickets','legacyTicket'),{status:'resolved',resolvedBy:'admin',resolvedAt:serverTimestamp(),updatedAt:serverTimestamp()});
+ batch.set(doc(store,'users','patient','notifications','resolved'),{senderId:'admin',read:false,title:'Help request resolved',body:'Resolved',createdAt:serverTimestamp(),data:{type:'support_resolved',ticketId:'legacyTicket'}});
+ await assertSucceeds(batch.commit());
+ await assertSucceeds(updateDoc(doc(db('patient'),'supportTickets','legacyTicket'),{status:'open',reopenedAt:serverTimestamp(),updatedAt:serverTimestamp()}));
+ await assertSucceeds(updateDoc(doc(db('patient'),'supportTickets','legacyTicket'),{status:'resolved',resolvedBy:'patient',resolvedAt:serverTimestamp(),updatedAt:serverTimestamp()}));
+ await assertFails(updateDoc(doc(db('otherPatient'),'supportTickets','legacyTicket'),{status:'open'}));
+});

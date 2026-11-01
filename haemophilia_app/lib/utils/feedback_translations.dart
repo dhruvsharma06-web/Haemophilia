@@ -2,6 +2,22 @@
 /// sign-in, grievance resolution, reminders, tutorials, calibration and
 /// exercise snapshots.
 const feedbackHindi = <String, String>{
+  'Filter users': 'उपयोगकर्ता चुनें',
+  'All users': 'सभी उपयोगकर्ता',
+  'Assigned patients': 'डॉक्टर से जुड़े मरीज़',
+  'Unassigned patients': 'डॉक्टर की प्रतीक्षा में मरीज़',
+  'Pending doctors': 'स्वीकृति की प्रतीक्षा में डॉक्टर',
+  'Admins': 'प्रशासक',
+  'Registration documents': 'पंजीकरण दस्तावेज़',
+  'Registration certificate': 'पंजीकरण प्रमाणपत्र',
+  'Professional ID': 'पेशेवर पहचान पत्र',
+  'Document not uploaded.': 'दस्तावेज़ अपलोड नहीं हुआ है।',
+  'Upload document': 'दस्तावेज़ अपलोड करें',
+  'View document': 'दस्तावेज़ देखें',
+  'Document uploaded.': 'दस्तावेज़ अपलोड हो गया।',
+  'Documents must be smaller than 10 MB.': 'दस्तावेज़ 10 एमबी से छोटा होना चाहिए।',
+  'Could not open document. Please try again.': 'दस्तावेज़ नहीं खुल सका। फिर कोशिश करें।',
+  'Could not upload document. Use a PDF, JPG or PNG smaller than 10 MB.': 'दस्तावेज़ अपलोड नहीं हुआ। 10 एमबी से छोटी पीडीएफ, जेपीजी या पीएनजी फ़ाइल चुनें।',
   // Password policy
   'At least 8 characters with a letter and a number. Avoid sequences like "abc" or "123".':
       'कम से कम 8 अक्षर, जिनमें एक अक्षर और एक अंक हो। "abc" या "123" जैसे क्रम न रखें।',

@@ -69,7 +69,7 @@ service cloud.firestore {
         || (active() && resource.data.role == 'doctor' && profile(request.auth.uid).get('doctorId', '') == uid);
       allow list: if isAdmin() || (isDoctor() && resource.data.role == 'patient' && resource.data.doctorId == request.auth.uid)
         || (active() && profile(request.auth.uid).role == 'patient' && profile(request.auth.uid).get('doctorId', '') == uid);
-      allow update: if isAdmin() || (isSelf(uid) && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+      allow update: if (isAdmin() && (request.resource.data.role == resource.data.role || (resource.data.role in ['doctor', 'pending_doctor'] && request.resource.data.role in ['doctor', 'pending_doctor']))) || (isSelf(uid) && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
         'role', 'doctorId', 'uid', 'email', 'isApproved', 'accountActive', 'status', 'approvedBy', 'approvalUpdatedAt', 'rejectionReason', 'removedAt',
         'registrationNumber', 'regulatoryCouncil', 'createdBy'
       ]) && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['patientId']) || request.resource.data.patientId == 'SHP-' + uid.upper())
@@ -276,7 +276,7 @@ service cloud.firestore {
       function ticketChange() { return request.resource.data.diff(resource.data).affectedKeys(); }
       function validStatusChange() {
         return request.resource.data.status in ['open', 'resolved']
-          && (!ticketChange().hasAny(['resolvedBy']) || request.resource.data.resolvedBy == request.auth.uid);
+          && (!ticketChange().hasAny(['resolvedBy']) || request.resource.data.get('resolvedBy', '') == request.auth.uid);
       }
       allow read: if isAdmin() || isSelf(resource.data.userId);
       allow create: if active() && request.resource.data.userId == request.auth.uid && request.resource.data.status == 'open'

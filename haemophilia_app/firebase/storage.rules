@@ -39,6 +39,15 @@ service firebase.storage {
         && request.resource.size < 5 * 1024 * 1024;
     }
 
+    match /doctor_documents/{doctorId}/{fileName} {
+      allow read: if isAdmin() || (current() && request.auth.uid == doctorId);
+      allow create, update: if current() && request.auth.uid == doctorId
+        && myUser().data.role == 'pending_doctor'
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType in ['application/pdf', 'image/jpeg', 'image/png'];
+      allow delete: if isAdmin();
+    }
+
     // Patients upload their own error evidence. Assigned doctors and admins
     // can review it. Images are JPEGs produced on the device.
     match /assessment_errors/{patientId}/{sessionId}/{fileName} {

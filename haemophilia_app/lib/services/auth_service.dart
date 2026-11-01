@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../utils/account_validation.dart';
@@ -160,7 +161,9 @@ class AuthService {
     required String hospital,
     required String yearsExperience,
     String? registrationCertName,
+    Uint8List? registrationCertBytes,
     String? professionalIdName,
+    Uint8List? professionalIdBytes,
     bool consentAccepted = false,
     bool researchConsent = false,
   }) async {
@@ -234,7 +237,43 @@ class AuthService {
     }
 
     await claimDeviceSession(user);
+    try {
+      await uploadDoctorDocuments(user.uid, {
+        'registrationCert': (registrationCertName, registrationCertBytes),
+        'professionalId': (professionalIdName, professionalIdBytes),
+      });
+    } catch (error) {
+      debugPrint('Document upload needs retry: $error');
+    }
     return userModel;
+  }
+
+  Future<void> uploadDoctorDocuments(
+    String uid,
+    Map<String, (String?, Uint8List?)> documents,
+  ) async {
+    for (final entry in documents.entries) {
+      final (name, bytes) = entry.value;
+      if (name == null || bytes == null) continue;
+      if (bytes.length >= 10 * 1024 * 1024) {
+        throw StateError('Documents must be smaller than 10 MB.');
+      }
+      final extension = name.split('.').last.toLowerCase();
+      final contentType = switch (extension) {
+        'pdf' => 'application/pdf',
+        'png' => 'image/png',
+        'jpg' || 'jpeg' => 'image/jpeg',
+        _ => throw StateError('Select a PDF, JPG or PNG document.'),
+      };
+      final path = 'doctor_documents/$uid/${entry.key}.$extension';
+      await LocalTestConfig.storage
+          .ref(path)
+          .putData(bytes, SettableMetadata(contentType: contentType));
+      await _firestore.collection('users').doc(uid).update({
+        '${entry.key}Path': path,
+        '${entry.key}Name': name,
+      });
+    }
   }
 
   // ==========================================================

@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 import 'local_test_config.dart';
+import '../utils/admin_account_policy.dart';
 
 class AdminService {
   final _db = LocalTestConfig.database;
@@ -78,6 +79,10 @@ class AdminService {
         throw StateError(
           'Your own administrator account cannot be changed here.',
         );
+      }
+      if (!allowedManagedRoles(userDoc.data()?['role']?.toString() ?? '')
+          .contains(role)) {
+        throw StateError('Account type cannot be changed.');
       }
       if (doctorId != null) {
         final doctor = await tx.get(_db.collection('users').doc(doctorId));

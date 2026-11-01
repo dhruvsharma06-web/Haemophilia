@@ -3,13 +3,18 @@ import 'package:firebase_core/firebase_core.dart';
 import 'app_localizations.dart';
 
 /// Keep service error codes in logs; show an actionable message in the app.
-String firebaseErrorMessage(Object? error, {String fallback = 'Could not save. Please try again.'}) {
+String firebaseErrorMessage(
+  Object? error, {
+  String fallback = 'Could not save. Please try again.',
+}) {
   if (error is FirebaseException) {
     switch (error.code) {
       case 'permission-denied':
         return tr('Access is unavailable. Please contact the administrator.');
       case 'failed-precondition':
-        return tr('This feature is being configured. Please contact the administrator.');
+        return tr(
+          'This feature is being configured. Please contact the administrator.',
+        );
       case 'unavailable':
       case 'deadline-exceeded':
       case 'network-request-failed':
@@ -34,14 +39,10 @@ String authErrorMessage(Object error) {
       case 'invalid-login-credentials':
         return tr('Invalid email or password.');
       case 'wrong-login-portal':
-        return tr(
-          'Invalid email or password for this sign-in page. Patients and physiotherapists sign in on separate pages.',
-        );
       case 'admin-web-only':
-        return tr('Administrator accounts sign in on the web admin portal.');
       case 'not-admin':
-        return tr('This account does not have administrator access.');
       case 'profile-not-found':
+        return tr('Invalid email or password.');
       case 'account-inactive':
         return tr('Account inactive. Please contact the administrator.');
       case 'invalid-email':

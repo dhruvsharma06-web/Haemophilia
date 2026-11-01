@@ -1,5 +1,8 @@
 import '../../services/local_test_config.dart';
 import '../../widgets/app_text.dart';
+import '../../widgets/doctor_documents.dart';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'package:flutter/material.dart';
 
@@ -103,6 +106,42 @@ class _DoctorPendingApprovalScreenState
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.description_outlined),
+                    label: Text(tr('Registration documents')),
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => Scaffold(
+                          appBar: AppBar(
+                            title: Text(tr('Registration documents')),
+                          ),
+                          body: SingleChildScrollView(
+                            padding: const EdgeInsets.all(20),
+                            child:
+                                StreamBuilder<
+                                  DocumentSnapshot<Map<String, dynamic>>
+                                >(
+                                  stream: LocalTestConfig.database
+                                      .collection('users')
+                                      .doc(user.uid)
+                                      .snapshots(),
+                                  builder: (context, snapshot) =>
+                                      snapshot.hasData
+                                      ? DoctorDocuments(
+                                          userId: user.uid,
+                                          data: snapshot.data!.data() ?? {},
+                                          editable: true,
+                                        )
+                                      : const Center(
+                                          child: CircularProgressIndicator(),
+                                        ),
+                                ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                   Center(
                     child: Image.asset(
                       'assets/icon/haemophysio_logo.png',

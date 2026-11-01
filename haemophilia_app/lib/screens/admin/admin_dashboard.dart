@@ -1,4 +1,6 @@
 import '../../widgets/app_text.dart';
+import '../../widgets/doctor_documents.dart';
+import '../../utils/admin_account_policy.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -27,6 +29,7 @@ class AdminDashboard extends StatefulWidget {
 class _AdminDashboardState extends State<AdminDashboard> {
   bool _isLoggingOut = false;
   int _section = 0;
+  String _userFilter = 'all';
 
   Future<void> _logout() async {
     if (_isLoggingOut) return;
@@ -155,7 +158,21 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 label: tr('Doctor approvals'),
               ),
               NavigationDestination(
-                icon: const Icon(Icons.support_agent),
+                icon: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                  stream: service.watchSupportTickets(),
+                  builder: (context, tickets) {
+                    final count =
+                        tickets.data?.docs
+                            .where((d) => !ticketResolved(d.data()))
+                            .length ??
+                        0;
+                    return Badge(
+                      isLabelVisible: count > 0,
+                      label: Text(count > 99 ? '99+' : '$count'),
+                      child: const Icon(Icons.support_agent),
+                    );
+                  },
+                ),
                 label: tr('Grievances'),
               ),
             ],
@@ -202,10 +219,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
                           .toList()
                     : allDocs
                           .where(
-                            (doc) => ![
-                              'rejected',
-                              'removed',
-                            ].contains(doc.data()['status']),
+                            (doc) =>
+                                ![
+                                  'rejected',
+                                  'removed',
+                                ].contains(doc.data()['status']) &&
+                                matchesUserFilter(doc.data(), _userFilter),
                           )
                           .toList();
                 if (_section == 0) {
@@ -306,6 +325,28 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       style: TextStyle(color: Colors.grey.shade600),
                     ),
                     const SizedBox(height: 14),
+                    if (_section == 1) ...[
+                      DropdownButtonFormField<String>(
+                        initialValue: _userFilter,
+                        decoration: InputDecoration(
+                          labelText: tr('Filter users'),
+                        ),
+                        items: userFilters.entries
+                            .map(
+                              (entry) => DropdownMenuItem(
+                                value: entry.key,
+                                child: Text(tr(entry.value)),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            setState(() => _userFilter = value);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 14),
+                    ],
                     if (docs.isEmpty)
                       _Empty(
                         message: _section == 0
@@ -719,12 +760,9 @@ class _UserCard extends StatelessWidget {
                         initialValue: role,
                         decoration: InputDecoration(labelText: tr('Role')),
                         items:
-                            const [
-                                  'patient',
-                                  'pending_doctor',
-                                  'doctor',
-                                  'admin',
-                                ]
+                            allowedManagedRoles(
+                                  data['role']?.toString() ?? 'patient',
+                                )
                                 .map(
                                   (value) => DropdownMenuItem<String>(
                                     value: value,
@@ -766,6 +804,8 @@ class _UserCard extends StatelessWidget {
                         AppText(
                           '${tr('Hospital / Clinic')}: ${data['hospital']}',
                         ),
+                      if (role == 'doctor' || role == 'pending_doctor')
+                        DoctorDocuments(userId: doc.id, data: data),
                       if (role == 'patient') PatientScreeningCard(data: data),
                       const SizedBox(height: 14),
                       if (role == 'patient')

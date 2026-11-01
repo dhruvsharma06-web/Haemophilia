@@ -324,10 +324,10 @@ class AdminWebOnlyScreen extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.admin_panel_settings_outlined, size: 48),
+                  const Icon(Icons.lock_outline, size: 48),
                   const SizedBox(height: 16),
                   Text(
-                    tr('Administrator accounts sign in on the web admin portal.'),
+                    tr('Invalid email or password.'),
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontSize: 18,
@@ -337,7 +337,7 @@ class AdminWebOnlyScreen extends StatelessWidget {
                   const SizedBox(height: 8),
                   Text(
                     tr(
-                      'Open the admin portal in a web browser to manage accounts, doctor approvals and grievances.',
+                      'Please sign in again.',
                     ),
                     textAlign: TextAlign.center,
                   ),
