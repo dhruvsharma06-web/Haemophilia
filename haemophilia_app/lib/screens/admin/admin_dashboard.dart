@@ -137,6 +137,15 @@ class _AdminDashboardState extends State<AdminDashboard> {
         stream: service.watchAllUsers(),
         builder: (context, snapshot) {
           final pending = snapshot.data?.docs.where(_isNewPatient).length ?? 0;
+          final pendingDoctors =
+              snapshot.data?.docs
+                  .where(
+                    (doc) =>
+                        doc.data()['accountActive'] != false &&
+                        matchesUserFilter(doc.data(), 'pending_doctor'),
+                  )
+                  .length ??
+              0;
           return NavigationBar(
             selectedIndex: _section,
             onDestinationSelected: (value) => setState(() => _section = value),
@@ -154,7 +163,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 label: tr('Manage Users'),
               ),
               NavigationDestination(
-                icon: const Icon(Icons.how_to_reg),
+                icon: Badge(
+                  backgroundColor: Colors.red,
+                  textColor: Colors.white,
+                  isLabelVisible: pendingDoctors > 0,
+                  label: Text(pendingDoctors > 99 ? '99+' : '$pendingDoctors'),
+                  child: const Icon(Icons.how_to_reg),
+                ),
                 label: tr('Doctor approvals'),
               ),
               NavigationDestination(
