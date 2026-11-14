@@ -1,7 +1,10 @@
+import '../../widgets/app_text.dart';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../services/auth_service.dart';
+import '../../utils/firebase_errors.dart';
 import '../../utils/app_localizations.dart';
 import 'doctor_register_screen.dart';
 
@@ -43,21 +46,12 @@ class _DoctorLoginScreenState extends State<DoctorLoginScreen> {
     setState(() => _loading = true);
 
     try {
-      final userModel = await _authService.login(
+      await _authService.login(
+        portal: LoginPortal.clinician,
         email: identifier,
         password: password,
       );
-
-      // Verify role
-      final role = userModel.role.toLowerCase();
-      if (role == 'patient') {
-        await _authService.logout();
-        if (!mounted) return;
-        _showError(
-          tr('This account is registered as a patient. Please use the Patient Login.'),
-        );
-        return;
-      }
+      AuthService.signedOutReason.value = null;
 
       if (!mounted) return;
 
@@ -92,13 +86,6 @@ class _DoctorLoginScreenState extends State<DoctorLoginScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    tr('Enter your registered email address to receive password reset instructions.'),
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: emailController,
@@ -147,7 +134,9 @@ class _DoctorLoginScreenState extends State<DoctorLoginScreen> {
                                 SnackBar(
                                   behavior: SnackBarBehavior.floating,
                                   content: Text(
-                                    tr('Password reset link sent to your email.'),
+                                    tr(
+                                      'If an account exists for this email, a password reset link has been sent.',
+                                    ),
                                   ),
                                 ),
                               );
@@ -157,9 +146,7 @@ class _DoctorLoginScreenState extends State<DoctorLoginScreen> {
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text(
-                                    '${tr('Could not send reset email:')} $e',
-                                  ),
+                                  content: Text(authErrorMessage(e)),
                                 ),
                               );
                             }
@@ -184,33 +171,14 @@ class _DoctorLoginScreenState extends State<DoctorLoginScreen> {
     );
   }
 
-  String _firebaseAuthError(FirebaseAuthException e) {
-    switch (e.code) {
-      case 'invalid-credential':
-        return tr('Invalid credentials or password.');
-      case 'user-not-found':
-        return tr('No clinician account found with this ID.');
-      case 'wrong-password':
-        return tr('Incorrect password.');
-      case 'invalid-email':
-        return tr('Please enter a valid email address.');
-      case 'user-disabled':
-        return tr('This account has been disabled.');
-      case 'too-many-requests':
-        return tr('Too many attempts. Please try again later.');
-      default:
-        return e.message ?? tr('Login failed. Please try again.');
-    }
-  }
+  String _firebaseAuthError(FirebaseAuthException e) => authErrorMessage(e);
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         behavior: SnackBarBehavior.floating,
         margin: const EdgeInsets.all(16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         content: Text(message),
       ),
     );
@@ -220,16 +188,12 @@ class _DoctorLoginScreenState extends State<DoctorLoginScreen> {
   Widget build(BuildContext context) {
     AppLocaleScope.of(context);
     final compact = MediaQuery.sizeOf(context).width < 600;
-    final primary = Theme.of(context).colorScheme.primary;
 
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        actions: const [
-          LanguageToggleButton(),
-          SizedBox(width: 8),
-        ],
+        actions: const [LanguageToggleButton(), SizedBox(width: 8)],
       ),
       body: SafeArea(
         top: false,
@@ -249,8 +213,8 @@ class _DoctorLoginScreenState extends State<DoctorLoginScreen> {
                     fit: BoxFit.contain,
                   ),
                   const SizedBox(height: 16),
-                  Text(
-                    'Somaiya HaemoPhysio',
+                  AppText(
+                    'Somaiya HemoPhysio',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: compact ? 25 : 29,
@@ -259,25 +223,6 @@ class _DoctorLoginScreenState extends State<DoctorLoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: primary.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      tr('Clinician & Healthcare Portal'),
-                      style: TextStyle(
-                        color: primary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
                   Card(
                     elevation: 0,
                     shape: RoundedRectangleBorder(
@@ -296,16 +241,7 @@ class _DoctorLoginScreenState extends State<DoctorLoginScreen> {
                               fontWeight: FontWeight.w800,
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            tr('Sign in to prescribe exercises, track patient recovery, and review AI assessments.'),
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontSize: 13,
-                              height: 1.35,
-                            ),
-                          ),
-                          const SizedBox(height: 22),
+                          const SizedBox(height: 18),
                           TextField(
                             controller: _idController,
                             keyboardType: TextInputType.emailAddress,
@@ -391,13 +327,6 @@ class _DoctorLoginScreenState extends State<DoctorLoginScreen> {
                             alignment: WrapAlignment.center,
                             crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
-                              Text(
-                                tr('New clinician?'),
-                                style: TextStyle(
-                                  color: Colors.grey.shade700,
-                                  fontSize: 13,
-                                ),
-                              ),
                               TextButton(
                                 onPressed: _loading
                                     ? null

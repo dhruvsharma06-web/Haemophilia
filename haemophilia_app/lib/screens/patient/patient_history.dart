@@ -1,3 +1,8 @@
+import '../../services/local_test_config.dart';
+import '../../utils/movement_feedback.dart';
+import '../../utils/firebase_errors.dart';
+import '../../widgets/app_text.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
@@ -5,6 +10,7 @@ import '../../services/assessment_history_service.dart';
 import '../../utils/app_localizations.dart';
 import '../../utils/exercise_utils.dart';
 import '../../widgets/session_analytics_chart.dart';
+import 'session_reports_screen.dart';
 
 class PatientHistory extends StatelessWidget {
   final String? userId;
@@ -20,10 +26,7 @@ class PatientHistory extends StatelessWidget {
           tr('Session history'),
           style: const TextStyle(fontWeight: FontWeight.w800),
         ),
-        actions: const [
-          LanguageToggleButton(),
-          SizedBox(width: 8),
-        ],
+        actions: const [LanguageToggleButton(), SizedBox(width: 8)],
       ),
       body: SafeArea(
         child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
@@ -31,9 +34,7 @@ class PatientHistory extends StatelessWidget {
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting &&
                 !snapshot.hasData) {
-              return const Center(
-                child: CircularProgressIndicator(),
-              );
+              return const Center(child: CircularProgressIndicator());
             }
 
             if (snapshot.hasError) {
@@ -41,7 +42,10 @@ class PatientHistory extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.all(24),
                   child: Text(
-                    'Could not load your session history.\n\n${snapshot.error}',
+                    firebaseErrorMessage(
+                      snapshot.error,
+                      fallback: 'Could not load your session history.',
+                    ),
                     textAlign: TextAlign.center,
                   ),
                 ),
@@ -71,17 +75,17 @@ class PatientHistory extends StatelessWidget {
             final double avgScore = groups.isEmpty
                 ? 0.0
                 : groups.fold<double>(
-                      0.0,
-                      (total, session) => total + session.averageScore,
-                    ) /
-                    groups.length;
+                        0.0,
+                        (total, session) => total + session.averageScore,
+                      ) /
+                      groups.length;
             final double avgRom = groups.isEmpty
                 ? 0.0
                 : groups.fold<double>(
-                      0.0,
-                      (total, session) => total + session.averageRom,
-                    ) /
-                    groups.length;
+                        0.0,
+                        (total, session) => total + session.averageRom,
+                      ) /
+                      groups.length;
 
             return ListView(
               padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
@@ -156,14 +160,14 @@ class PatientHistory extends StatelessWidget {
                   },
                 ),
                 const SizedBox(height: 20),
-                SessionAnalyticsChart(
-                  sessions: groups,
-                  isDoctorView: false,
-                ),
+                SessionAnalyticsChart(sessions: groups, isDoctorView: false),
                 const SizedBox(height: 24),
                 Text(
                   tr('Completed Sessions'),
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 ...groups.map(
@@ -171,12 +175,32 @@ class PatientHistory extends StatelessWidget {
                     padding: const EdgeInsets.only(bottom: 12),
                     child: _SessionCard(
                       session: session,
+                      onReport: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => SessionReportDetail(
+                            patientId:
+                                userId ??
+                                LocalTestConfig.auth.currentUser?.uid ??
+                                '',
+                            sessionId: session.id,
+                            fallbackSession: {
+                              'sessionName': session.sessionName,
+                              'exercise': session.exercise,
+                            },
+                            fallbackReps: session.repsData,
+                          ),
+                        ),
+                      ),
                       onTap: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (_) => SessionDetails(
                               session: session,
+                              patientId:
+                                  userId ??
+                                  LocalTestConfig.auth.currentUser?.uid,
                             ),
                           ),
                         );
@@ -195,11 +219,9 @@ class PatientHistory extends StatelessWidget {
 
 class SessionDetails extends StatelessWidget {
   final AssessmentSession session;
+  final String? patientId;
 
-  const SessionDetails({
-    super.key,
-    required this.session,
-  });
+  const SessionDetails({super.key, required this.session, this.patientId});
 
   @override
   Widget build(BuildContext context) {
@@ -216,10 +238,7 @@ class SessionDetails extends StatelessWidget {
           tr('Session details'),
           style: const TextStyle(fontWeight: FontWeight.w800),
         ),
-        actions: const [
-          LanguageToggleButton(),
-          SizedBox(width: 8),
-        ],
+        actions: const [LanguageToggleButton(), SizedBox(width: 8)],
       ),
       body: SafeArea(
         child: ListView(
@@ -245,8 +264,8 @@ class SessionDetails extends StatelessWidget {
             ),
             if (isWorkInProgressExercise(session.exercise)) ...[
               const SizedBox(height: 3),
-              Text(
-                '${tr(getExerciseDisplayName(session.exercise))} • ${tr('Work in progress')}',
+              AppText(
+                '${tr(getExerciseDisplayName(session.exercise))} • ${tr('Preview exercise')}',
                 style: TextStyle(
                   color: Colors.amber.shade900,
                   fontSize: 12,
@@ -257,15 +276,10 @@ class SessionDetails extends StatelessWidget {
             const SizedBox(height: 5),
             Text(
               _formatDateTime(session.date),
-              style: TextStyle(
-                color: Colors.grey.shade600,
-              ),
+              style: TextStyle(color: Colors.grey.shade600),
             ),
             const SizedBox(height: 18),
-            _SessionStatsGrid(
-              session: session,
-              correctRate: correctRate,
-            ),
+            _SessionStatsGrid(session: session, correctRate: correctRate),
             const SizedBox(height: 24),
             Row(
               children: [
@@ -278,12 +292,9 @@ class SessionDetails extends StatelessWidget {
                     ),
                   ),
                 ),
-                Text(
+                AppText(
                   '${session.reps} ${tr('reps')}',
-                  style: TextStyle(
-                    color: primary,
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: TextStyle(color: primary, fontWeight: FontWeight.w700),
                 ),
               ],
             ),
@@ -297,6 +308,26 @@ class SessionDetails extends StatelessWidget {
                 ),
               ),
             ),
+            const SizedBox(height: 12),
+            if (patientId != null && patientId!.isNotEmpty)
+              OutlinedButton.icon(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => SessionReportDetail(
+                      patientId: patientId!,
+                      sessionId: session.id,
+                      fallbackSession: {
+                        'sessionName': session.sessionName,
+                        'exercise': session.exercise,
+                      },
+                      fallbackReps: session.repsData,
+                    ),
+                  ),
+                ),
+                icon: const Icon(Icons.description_outlined),
+                label: Text(tr('View report')),
+              ),
           ],
         ),
       ),
@@ -322,9 +353,9 @@ class AssessmentSession {
   int get reps => repsData.length;
 
   int get correctReps => repsData.where((data) {
-        final form = data['form']?.toString().toLowerCase() ?? '';
-        return form.contains('correct') && !form.contains('incorrect');
-      }).length;
+    final form = data['form']?.toString().toLowerCase() ?? '';
+    return form.contains('correct') && !form.contains('incorrect');
+  }).length;
 
   double get correctRate => reps == 0 ? 0.0 : (correctReps / reps) * 100.0;
 
@@ -352,10 +383,7 @@ class AssessmentSession {
     return parsed;
   }
 
-  static double _average(
-    List<Map<String, dynamic>> data,
-    List<String> keys,
-  ) {
+  static double _average(List<Map<String, dynamic>> data, List<String> keys) {
     final values = <double>[];
     for (final item in data) {
       double? val;
@@ -385,19 +413,13 @@ List<AssessmentSession> groupAssessmentSessions(
   final sessionNames = <String, String>{};
 
   for (final doc in docs) {
-    final data = <String, dynamic>{
-      ...doc.data(),
-      '__docId': doc.id,
-    };
+    final data = <String, dynamic>{...doc.data(), '__docId': doc.id};
 
-    final exercise =
-        data['exercise']?.toString() ?? 'Assessment';
+    final exercise = data['exercise']?.toString() ?? 'Assessment';
 
-    final sessionName =
-        data['sessionName']?.toString().trim() ?? '';
+    final sessionName = data['sessionName']?.toString().trim() ?? '';
 
-    final rawSessionId =
-        data['sessionId']?.toString().trim() ?? '';
+    final rawSessionId = data['sessionId']?.toString().trim() ?? '';
 
     final createdAt = data['createdAt'];
 
@@ -413,18 +435,12 @@ List<AssessmentSession> groupAssessmentSessions(
         ? rawSessionId
         : 'legacy_${exercise}_${date.year}_${date.month}_${date.day}';
 
-    groups
-        .putIfAbsent(
-          sessionId,
-          () => <Map<String, dynamic>>[],
-        )
-        .add(data);
+    groups.putIfAbsent(sessionId, () => <Map<String, dynamic>>[]).add(data);
 
     dates[sessionId] =
-        dates[sessionId] == null ||
-                date.isBefore(dates[sessionId]!)
-            ? date
-            : dates[sessionId]!;
+        dates[sessionId] == null || date.isBefore(dates[sessionId]!)
+        ? date
+        : dates[sessionId]!;
 
     exercises[sessionId] = exercise;
 
@@ -482,9 +498,7 @@ List<AssessmentSession> groupAssessmentSessions(
     );
   }
 
-  sessions.sort(
-    (a, b) => b.date.compareTo(a.date),
-  );
+  sessions.sort((a, b) => b.date.compareTo(a.date));
 
   return sessions;
 }
@@ -506,6 +520,7 @@ class _HistoryStatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     final primary = Theme.of(context).colorScheme.primary;
 
     return Card(
@@ -570,14 +585,17 @@ class _HistoryStatCard extends StatelessWidget {
 class _SessionCard extends StatelessWidget {
   final AssessmentSession session;
   final VoidCallback onTap;
+  final VoidCallback onReport;
 
   const _SessionCard({
     required this.session,
     required this.onTap,
+    required this.onReport,
   });
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     final primary = Theme.of(context).colorScheme.primary;
 
     final correctRate = session.reps == 0
@@ -603,12 +621,15 @@ class _SessionCard extends StatelessWidget {
           '${distinctExercises.length} ${tr('exercises')} (${distinctExercises.map((e) => tr(getExerciseDisplayName(e!))).join(', ')})';
     }
 
-    final String statusLabel =
-        isGood ? 'Completed' : 'Completed (Needs Practice)';
-    final Color statusColor =
-        isGood ? Colors.green.shade700 : Colors.orange.shade800;
-    final Color statusBg =
-        (isGood ? Colors.green : Colors.orange).withValues(alpha: .09);
+    final String statusLabel = isGood
+        ? 'Completed'
+        : 'Completed (Needs Practice)';
+    final Color statusColor = isGood
+        ? Colors.green.shade700
+        : Colors.orange.shade800;
+    final Color statusBg = (isGood ? Colors.green : Colors.orange).withValues(
+      alpha: .09,
+    );
 
     return Card(
       elevation: 0,
@@ -695,8 +716,10 @@ class _SessionCard extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 9,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.grey.withValues(alpha: .04),
                   borderRadius: BorderRadius.circular(12),
@@ -752,7 +775,7 @@ class _SessionCard extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 2),
-                          Text(
+                          AppText(
                             '${session.correctReps}/${session.reps} (${correctRate.toStringAsFixed(0)}%)',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -789,7 +812,7 @@ class _SessionCard extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 2),
-                          Text(
+                          AppText(
                             '${session.averageScore.toStringAsFixed(0)}/100',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -803,6 +826,14 @@ class _SessionCard extends StatelessWidget {
                       ),
                     ),
                   ],
+                ),
+              ),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: onReport,
+                  icon: const Icon(Icons.description_outlined),
+                  label: Text(tr('View report')),
                 ),
               ),
             ],
@@ -821,13 +852,11 @@ class _SessionStatsGrid extends StatelessWidget {
   final AssessmentSession session;
   final double correctRate;
 
-  const _SessionStatsGrid({
-    required this.session,
-    required this.correctRate,
-  });
+  const _SessionStatsGrid({required this.session, required this.correctRate});
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -854,10 +883,11 @@ class _SessionStatsGrid extends StatelessWidget {
                 label: tr('Average Duration'),
                 value: '${session.averageDuration.toStringAsFixed(1)}s',
               ),
-              _StatTile(
-                label: tr('AI Confidence'),
-                value: '${session.averageConfidence.toStringAsFixed(0)}%',
-              ),
+              if (session.repsData.any((rep) => rep['confidence'] != null))
+                _StatTile(
+                  label: tr('AI Confidence'),
+                  value: '${session.averageConfidence.toStringAsFixed(0)}%',
+                ),
             ];
 
             final columns = constraints.maxWidth >= 700 ? 3 : 2;
@@ -919,7 +949,7 @@ class _SessionStatsGrid extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      AppText(
                         '${tr('AI Pose Confidence')}: ${session.averageConfidence.toStringAsFixed(1)}%',
                         style: const TextStyle(
                           fontSize: 12.5,
@@ -928,7 +958,7 @@ class _SessionStatsGrid extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 3),
-                      const Text(
+                      const AppText(
                         'Pose landmarks detected by real-time MediaPipe model.',
                         style: TextStyle(fontSize: 11.5, color: Colors.grey),
                       ),
@@ -948,13 +978,11 @@ class _StatTile extends StatelessWidget {
   final String label;
   final String value;
 
-  const _StatTile({
-    required this.label,
-    required this.value,
-  });
+  const _StatTile({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     final primary = Theme.of(context).colorScheme.primary;
 
     return Container(
@@ -994,31 +1022,16 @@ class _RepCard extends StatelessWidget {
   final Map<String, dynamic> data;
   final int fallbackRepNumber;
 
-  const _RepCard({
-    required this.data,
-    required this.fallbackRepNumber,
-  });
+  const _RepCard({required this.data, required this.fallbackRepNumber});
 
   String _formatPatientError(String error) {
-    final upper = error.toUpperCase().trim();
-    switch (upper) {
-      case 'RIGHT_ARM_LOW':
-        return 'Keep both arms level during the movement.';
-      case 'LEFT_ARM_LOW':
-        return 'Keep both arms level during the movement.';
-      case 'ARM_ASYMMETRY':
-        return 'Raise both arms with even height and symmetry.';
-      case 'BODY_TILT':
-        return 'Keep your torso upright and avoid leaning.';
-      case 'GENERAL_FORM_ERROR':
-        return 'Maintain steady posture through the full movement.';
-      default:
-        return error.replaceAll('_', ' ').toLowerCase();
-    }
+    return movementCorrection(error, hindi: AppLocaleService.isHindi) ??
+        movementErrorLabel(error, hindi: AppLocaleService.isHindi);
   }
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     final primary = Theme.of(context).colorScheme.primary;
 
     final form = data['form']?.toString() ?? 'Unknown';
@@ -1033,9 +1046,7 @@ class _RepCard extends StatelessWidget {
     final feedback = data['feedback']?.toString() ?? '';
 
     final storedRepNumber = _number(data['repNumber']).toInt();
-    final repNumber = storedRepNumber > 0
-        ? storedRepNumber
-        : fallbackRepNumber;
+    final repNumber = storedRepNumber > 0 ? storedRepNumber : fallbackRepNumber;
 
     return Card(
       elevation: 0,
@@ -1060,7 +1071,7 @@ class _RepCard extends StatelessWidget {
                 Expanded(
                   child: Row(
                     children: [
-                      Text(
+                      AppText(
                         '${tr('Rep')} $repNumber',
                         style: const TextStyle(fontWeight: FontWeight.w800),
                       ),
@@ -1089,7 +1100,7 @@ class _RepCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                Text(
+                AppText(
                   '${score.toStringAsFixed(0)}/100',
                   style: TextStyle(
                     color: incorrect ? Colors.red.shade700 : primary,
@@ -1106,10 +1117,7 @@ class _RepCard extends StatelessWidget {
                   label: tr('RANGE OF MOTION'),
                   value: '${rom.toStringAsFixed(0)}°',
                 ),
-                _RepMetric(
-                  label: tr('SPEED'),
-                  value: speed,
-                ),
+                _RepMetric(label: tr('SPEED'), value: speed),
                 _RepMetric(
                   label: tr('DURATION'),
                   value: '${duration.toStringAsFixed(1)}s',
@@ -1122,12 +1130,14 @@ class _RepCard extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: (incorrect ? Colors.red : Colors.blue)
-                      .withValues(alpha: .05),
+                  color: (incorrect ? Colors.red : Colors.blue).withValues(
+                    alpha: .05,
+                  ),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: (incorrect ? Colors.red : Colors.blue)
-                        .withValues(alpha: .15),
+                    color: (incorrect ? Colors.red : Colors.blue).withValues(
+                      alpha: .15,
+                    ),
                   ),
                 ),
                 child: Column(
@@ -1181,7 +1191,7 @@ class _RepCard extends StatelessWidget {
                     ],
                     if (confidence > 0) ...[
                       const SizedBox(height: 6),
-                      Text(
+                      AppText(
                         'Assessment consistency: ${confidence.toStringAsFixed(0)}%',
                         style: TextStyle(
                           color: Colors.grey.shade500,
@@ -1192,7 +1202,7 @@ class _RepCard extends StatelessWidget {
                     if ((data['doctorFeedback']?.toString() ?? '')
                         .isNotEmpty) ...[
                       const SizedBox(height: 10),
-                      Text(
+                      AppText(
                         'Doctor feedback',
                         style: TextStyle(
                           color: Theme.of(context).colorScheme.primary,
@@ -1221,22 +1231,18 @@ class _RepCard extends StatelessWidget {
   }
 }
 
-
 class _RepMetric extends StatelessWidget {
   final String label;
   final String value;
 
-  const _RepMetric({
-    required this.label,
-    required this.value,
-  });
+  const _RepMetric({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     return Expanded(
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             label,
@@ -1251,10 +1257,7 @@ class _RepMetric extends StatelessWidget {
             value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w700,
-            ),
+            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700),
           ),
         ],
       ),
@@ -1267,8 +1270,8 @@ class _HistoryEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final primary =
-        Theme.of(context).colorScheme.primary;
+    AppLocaleScope.of(context);
+    final primary = Theme.of(context).colorScheme.primary;
 
     return Center(
       child: Padding(
@@ -1280,23 +1283,15 @@ class _HistoryEmptyState extends StatelessWidget {
               width: 72,
               height: 72,
               decoration: BoxDecoration(
-                color:
-                    primary.withValues(alpha: .08),
+                color: primary.withValues(alpha: .08),
                 shape: BoxShape.circle,
               ),
-              child: Icon(
-                Icons.history_rounded,
-                size: 36,
-                color: primary,
-              ),
+              child: Icon(Icons.history_rounded, size: 36, color: primary),
             ),
             const SizedBox(height: 16),
             Text(
               tr('No assessment sessions yet'),
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-              ),
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 7),
             Text(
@@ -1320,10 +1315,7 @@ double _number(dynamic value) {
     return value.toDouble();
   }
 
-  return double.tryParse(
-        value?.toString() ?? '',
-      ) ??
-      0;
+  return double.tryParse(value?.toString() ?? '') ?? 0;
 }
 
 String _formatDateTime(DateTime date) {

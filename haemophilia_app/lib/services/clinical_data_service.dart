@@ -1,9 +1,13 @@
+import 'local_test_config.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import 'dart:async';
+
 class ClinicalDataService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = LocalTestConfig.database;
+  final FirebaseAuth _auth = LocalTestConfig.auth;
 
   CollectionReference<Map<String, dynamic>> get _users =>
       _firestore.collection('users');
@@ -52,6 +56,9 @@ class ClinicalDataService {
     if (user == null) throw StateError('You are not signed in.');
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
+    if (trimmed.length > 2000) {
+      throw StateError('Keep messages within 2000 characters.');
+    }
 
     await _messages(patientId).add({
       'senderId': user.uid,
@@ -72,25 +79,20 @@ class ClinicalDataService {
 
   CollectionReference<Map<String, dynamic>> _conversationMessages(
     String conversationId,
-  ) =>
-      _conversations.doc(conversationId).collection('messages');
+  ) => _conversations.doc(conversationId).collection('messages');
 
   /// Streams all conversations for a patient.
   Stream<QuerySnapshot<Map<String, dynamic>>> watchPatientConversations(
     String patientId,
   ) {
-    return _conversations
-        .where('patientId', isEqualTo: patientId)
-        .snapshots();
+    return _conversations.where('patientId', isEqualTo: patientId).snapshots();
   }
 
   /// Streams all conversations for a doctor.
   Stream<QuerySnapshot<Map<String, dynamic>>> watchDoctorConversations(
     String doctorId,
   ) {
-    return _conversations
-        .where('doctorId', isEqualTo: doctorId)
-        .snapshots();
+    return _conversations.where('doctorId', isEqualTo: doctorId).snapshots();
   }
 
   /// Streams messages in a specific conversation thread.
@@ -98,7 +100,7 @@ class ClinicalDataService {
     String conversationId,
   ) {
     return _conversationMessages(conversationId)
-        .orderBy('createdAt', descending: false)
+        .orderBy('createdAt', descending: true)
         .limit(200)
         .snapshots();
   }
@@ -118,6 +120,24 @@ class ClinicalDataService {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
 
+    if (trimmed.length > 2000) {
+      throw StateError('Keep messages within 2000 characters.');
+    }
+    final profile = await _users.doc(patientId).get();
+    final doctor = await _users.doc(doctorId).get();
+    if (profile.data()?['doctorId'] != doctorId ||
+        profile.data()?['accountActive'] == false ||
+        doctor.data()?['role'] != 'doctor' ||
+        doctor.data()?['isApproved'] == false ||
+        doctor.data()?['accountActive'] == false ||
+        (senderRole == 'patient'
+            ? user.uid != patientId
+            : senderRole != 'doctor' || user.uid != doctorId)) {
+      throw StateError(
+        'You can only message your assigned clinician or patient.',
+      );
+    }
+    final batch = _firestore.batch();
     final conversationId = getConversationId(patientId, doctorId);
     final isPatient = senderRole == 'patient';
     final receiverId = isPatient ? doctorId : patientId;
@@ -142,7 +162,27 @@ class ClinicalDataService {
       messagePayload['sessionContext'] = sessionContext;
     }
 
-    await _conversationMessages(conversationId).add(messagePayload);
+    final messageRef = _conversationMessages(conversationId).doc();
+    batch.set(messageRef, messagePayload);
+    batch.set(
+      _users
+          .doc(receiverId)
+          .collection('notifications')
+          .doc('message_${conversationId}_${messageRef.id}'),
+      {
+        'senderId': user.uid,
+        'read': false,
+        'title': 'New message',
+        'body': 'You have a new message. Open the app to read it.',
+        'createdAt': FieldValue.serverTimestamp(),
+        'data': {
+          'type': 'new_message',
+          'patientId': patientId,
+          'doctorId': doctorId,
+          'conversationId': conversationId,
+        },
+      },
+    );
 
     // 2. Upsert conversation parent document with latest preview and increment unread for receiver
     final convDoc = <String, dynamic>{
@@ -167,20 +207,84 @@ class ClinicalDataService {
       convDoc['unreadCountPatient'] = FieldValue.increment(1);
     }
 
-    await _conversations.doc(conversationId).set(
+    batch.set(
+      _conversations.doc(conversationId),
       convDoc,
       SetOptions(merge: true),
     );
+    await batch.commit();
   }
 
   /// Streams active assessment sessions for this doctor's patients.
-  Stream<QuerySnapshot<Map<String, dynamic>>> watchActiveDoctorSessions(
-    String doctorId,
-  ) {
-    return _firestore
-        .collection('assessmentSessions')
-        .where('doctorId', isEqualTo: doctorId)
-        .snapshots();
+  Stream<List<QueryDocumentSnapshot<Map<String, dynamic>>>>
+  watchActiveDoctorSessions(String doctorId) {
+    // Subscribe by current patient ownership. Historical doctorId values can
+    // briefly lag a transfer, so they cannot authorize the live query.
+    final subscriptions =
+        <String, StreamSubscription<QuerySnapshot<Map<String, dynamic>>>>{};
+    final records =
+        <String, List<QueryDocumentSnapshot<Map<String, dynamic>>>>{};
+    var ownedPatientIds = <String>{};
+    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? patients;
+    late StreamController<List<QueryDocumentSnapshot<Map<String, dynamic>>>>
+    controller;
+    void emit() {
+      if (!controller.isClosed) {
+        controller.add(records.values.expand((value) => value).toList());
+      }
+    }
+
+    controller = StreamController(
+      onListen: () {
+        patients = _users
+            .where('role', isEqualTo: 'patient')
+            .where('doctorId', isEqualTo: doctorId)
+            .snapshots()
+            .listen(
+              (snapshot) {
+                final ids = snapshot.docs.map((doc) => doc.id).toSet();
+                ownedPatientIds = ids;
+                for (final id
+                    in subscriptions.keys
+                        .where((id) => !ids.contains(id))
+                        .toList()) {
+                  subscriptions.remove(id)?.cancel();
+                  records.remove(id);
+                }
+                emit();
+                for (final id in ids) {
+                  subscriptions.putIfAbsent(
+                    id,
+                    () => _firestore
+                        .collection('assessmentSessions')
+                        .where('patientId', isEqualTo: id)
+                        .snapshots()
+                        .listen(
+                          (snapshot) {
+                            if (!ownedPatientIds.contains(id)) return;
+                            records[id] = snapshot.docs;
+                            emit();
+                          },
+                          onError: (Object e) {
+                            if (!controller.isClosed) controller.addError(e);
+                          },
+                        ),
+                  );
+                }
+              },
+              onError: (Object e) {
+                if (!controller.isClosed) controller.addError(e);
+              },
+            );
+      },
+      onCancel: () async {
+        await patients?.cancel();
+        for (final subscription in subscriptions.values) {
+          await subscription.cancel();
+        }
+      },
+    );
+    return controller.stream;
   }
 
   /// Marks unread messages as read in a conversation for the viewing role.
@@ -194,13 +298,9 @@ class ClinicalDataService {
       if (!docSnap.exists) return;
 
       if (userRole == 'patient') {
-        await docRef.update({
-          'unreadCountPatient': 0,
-        });
+        await docRef.update({'unreadCountPatient': 0});
       } else if (userRole == 'doctor') {
-        await docRef.update({
-          'unreadCountDoctor': 0,
-        });
+        await docRef.update({'unreadCountDoctor': 0});
       }
     } catch (e) {
       // Best-effort read marker
@@ -215,8 +315,9 @@ class ClinicalDataService {
   ) async {
     try {
       final conversationId = getConversationId(patientId, doctorId);
-      final existing =
-          await _conversationMessages(conversationId).limit(1).get();
+      final existing = await _conversationMessages(conversationId)
+          .limit(1)
+          .get();
       if (existing.docs.isNotEmpty) {
         return;
       }
@@ -269,21 +370,17 @@ class ClinicalDataService {
 
       if (lastText != null) {
         final convRef = _conversations.doc(conversationId);
-        batch.set(
-          convRef,
-          {
-            'patientId': patientId,
-            'doctorId': doctorId,
-            'lastMessage': lastText,
-            'lastMessageAt': lastTime ?? Timestamp.now(),
-            'lastSenderId': lastSender ?? '',
-            'lastSenderRole': lastRole ?? 'patient',
-            'unreadCountPatient': 0,
-            'unreadCountDoctor': 0,
-            'updatedAt': lastTime ?? Timestamp.now(),
-          },
-          SetOptions(merge: true),
-        );
+        batch.set(convRef, {
+          'patientId': patientId,
+          'doctorId': doctorId,
+          'lastMessage': lastText,
+          'lastMessageAt': lastTime ?? Timestamp.now(),
+          'lastSenderId': lastSender ?? '',
+          'lastSenderRole': lastRole ?? 'patient',
+          'unreadCountPatient': 0,
+          'unreadCountDoctor': 0,
+          'updatedAt': lastTime ?? Timestamp.now(),
+        }, SetOptions(merge: true));
 
         await batch.commit();
       }
@@ -315,7 +412,13 @@ class ClinicalDataService {
 
   Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>> getDoctors() async {
     final snapshot = await _users.where('role', isEqualTo: 'doctor').get();
-    return snapshot.docs;
+    return snapshot.docs
+        .where(
+          (doc) =>
+              doc.data()['accountActive'] != false &&
+              doc.data()['isApproved'] != false,
+        )
+        .toList();
   }
 
   Future<void> updateUserRole({
@@ -329,8 +432,6 @@ class ClinicalDataService {
     required String patientId,
     required String? doctorId,
   }) async {
-    await _users.doc(patientId).update({
-      'doctorId': doctorId,
-    });
+    await _users.doc(patientId).update({'doctorId': doctorId});
   }
 }

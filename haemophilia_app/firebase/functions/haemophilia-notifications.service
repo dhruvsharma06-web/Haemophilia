@@ -1,0 +1,28 @@
+[Unit]
+Description=Somaiya HemoPhysio messages and scheduled-session notifications
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=masterdhruvsharma
+WorkingDirectory=/opt/haemophilia-notifications
+ExecStart=/opt/haemophilia-notifications/venv/bin/python vm_worker.py
+Environment=PYTHONUNBUFFERED=1
+Environment=HEMO_FIREBASE_PROJECT=haemophilia-physiotherapy-ai
+Environment=HEMO_WORKER_STATE=/var/lib/haemophilia-notifications
+StateDirectory=haemophilia-notifications
+StateDirectoryMode=0700
+Restart=always
+RestartSec=10
+TimeoutStopSec=45
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/haemophilia-notifications
+MemoryMax=512M
+
+[Install]
+WantedBy=multi-user.target

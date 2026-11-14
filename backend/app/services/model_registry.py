@@ -25,7 +25,7 @@ class ModelRegistry:
             model_path = (
                 Path(__file__).resolve().parents[3]
                 / "models"
-                / "elbow_lstm.pth"
+                / "elbow_lstm_v4.pth"
             )
 
             if not model_path.exists():
@@ -39,11 +39,11 @@ class ModelRegistry:
                 else "cpu"
             )
 
-            from src.models.elbow_lstm import ElbowLSTM
+            from src.models.elbow_lstm_v4 import ElbowLSTM
 
             model = ElbowLSTM(
-                input_size=8,
-                hidden_size=128,
+                input_size=22,
+                hidden_size=64,
                 num_layers=2,
             )
 
@@ -93,9 +93,19 @@ class ModelRegistry:
             self._assisted_elbow_device_human_verified,
         )
 
+    def get_assisted_elbow_v5(self):
+        """Frozen V5 export used by all assisted elbow prescriptions."""
+        if not hasattr(self, '_assisted_elbow_v5'):
+            from src.models.assisted_elbow_v5 import AssistedElbowV5Model
+            self._assisted_elbow_v5 = AssistedElbowV5Model()
+        return self._assisted_elbow_v5, None
+
     def get_assisted_elbow_flexion(self):
-        """Return the authoritative assisted elbow flexion LSTM model."""
-        return self.get_assisted_elbow_flexion_human_verified()
+        """Return the frozen V2 SVM; its margin is not a probability."""
+        if not hasattr(self, '_assisted_elbow_v2'):
+            from src.models.assisted_elbow_v2 import BalancedSVMDeploymentAdapter
+            self._assisted_elbow_v2 = BalancedSVMDeploymentAdapter()
+        return self._assisted_elbow_v2, None
 
     def get_assisted_flexion(self):
         """Return the shared assisted shoulder flexion LSTM model."""

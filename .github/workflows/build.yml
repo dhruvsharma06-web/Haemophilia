@@ -1,0 +1,180 @@
+name: Build and test
+
+on:
+  push:
+    branches: ['claude/**', 'codex/**', 'main']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  workflow-tests:
+    name: Server workflow tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pytest
+      - run: python -m pytest haemophilia_app/firebase/functions/test_workflow.py -q
+
+  rules-tests:
+    name: Firestore security rules tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: haemophilia_app/firebase/tests
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: npm ci
+      - run: npx --yes firebase-tools@latest emulators:exec --project demo-hemo-workflow --only firestore --config ../../firebase.json "npm test"
+
+  checks:
+    name: Analyze and test app
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: haemophilia_app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter --version
+      - run: flutter pub get
+      - name: Analyze
+        shell: bash
+        run: |
+          set +e
+          flutter analyze lib test --no-fatal-infos > analyze.txt 2>&1
+          code=$?
+          cat analyze.txt
+          # Publish each issue as an annotation: "  error • message • lib/x.dart:1:2 • code"
+          grep -E '^ *(error|warning|info) •' analyze.txt | head -50 | while IFS= read -r line; do
+            level=$(echo "$line" | sed -E 's/^ *(error|warning|info) .*/\1/')
+            [ "$level" = info ] && level=notice
+            echo "::$level::$(echo "$line" | sed -E 's/^ *//')"
+          done
+          exit $code
+      - name: Unit and widget tests
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          flutter test --concurrency=1 --reporter expanded > test.txt 2>&1
+          code=$?
+          cat test.txt
+          # One annotation per failing test, with the first lines of its error.
+          python3 - <<'PY'
+          import re
+          lines = open('test.txt', encoding='utf-8', errors='replace').read().splitlines()
+          for i, line in enumerate(lines):
+              if line.rstrip().endswith('[E]'):
+                  name = re.sub(r'^\S+ \+\d+( ~\d+)?( -\d+)?: ', '', line).replace(' [E]', '')
+                  detail = ' | '.join(l.strip() for l in lines[i + 1:i + 12] if l.strip())[:900]
+                  print(f'::error::FAILED {name} :: {detail}')
+          PY
+          exit $code
+
+  build:
+    # Independent of the checks so an APK is always produced for device testing;
+    # the checks job above must also be green before release.
+    name: Build APK and admin portal
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: haemophilia_app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Build Android APK
+        shell: bash
+        run: |
+          set -o pipefail
+          # The 8 GB heap in gradle.properties gets the build killed on 16 GB
+          # runners (exit 143); use a smaller heap here only.
+          sed -i 's/-Xmx8G/-Xmx4G/; s/MaxMetaspaceSize=4G/MaxMetaspaceSize=1G/' android/gradle.properties
+          echo 'kotlin.daemon.jvmargs=-Xmx2G' >> android/gradle.properties
+          flutter build apk --release 2>&1 | tee build_apk.txt || {
+            python3 - <<'PY'
+          lines = open('build_apk.txt', encoding='utf-8', errors='replace').read().splitlines()
+          keep = []
+          for i, line in enumerate(lines):
+              if 'What went wrong' in line:
+                  keep += lines[i:i + 30]
+              elif line.startswith('e: ') or ': error:' in line or 'ERROR:' in line or 'Missing class' in line:
+                  keep.append(line)
+          for line in keep[:60]:
+              if line.strip():
+                  print('::error::' + line.strip()[:900])
+          PY
+            exit 1
+          }
+      - name: Build web admin portal
+        shell: bash
+        run: |
+          set -o pipefail
+          flutter build web --release -t lib/main_admin.dart --output build/admin_web 2>&1 | tee build_web.txt || {
+            grep -E 'Error|error' build_web.txt | head -40 | sed 's/^/::error::/'
+            exit 1
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: somaiya-hemophysio-apk
+          path: haemophilia_app/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: admin-portal-web
+          path: haemophilia_app/build/admin_web
+          if-no-files-found: error
+
+  deploy-admin:
+    # Runs only when a FIREBASE_SERVICE_ACCOUNT repository secret exists.
+    name: Deploy admin portal to Firebase Hosting
+    needs: build
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    env:
+      FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+    steps:
+      - uses: actions/checkout@v4
+        if: env.FIREBASE_SERVICE_ACCOUNT != ''
+      - uses: actions/download-artifact@v4
+        if: env.FIREBASE_SERVICE_ACCOUNT != ''
+        with:
+          name: admin-portal-web
+          path: haemophilia_app/build/admin_web
+      - name: Deploy
+        if: env.FIREBASE_SERVICE_ACCOUNT != ''
+        working-directory: haemophilia_app
+        run: |
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          npx --yes firebase-tools@latest deploy --only hosting:admin --project haemophilia-physiotherapy-ai --non-interactive
+      - name: Skipped
+        if: env.FIREBASE_SERVICE_ACCOUNT == ''
+        run: echo "Add the FIREBASE_SERVICE_ACCOUNT secret to deploy the admin portal automatically."

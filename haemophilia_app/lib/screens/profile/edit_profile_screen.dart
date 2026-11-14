@@ -1,3 +1,6 @@
+import '../../utils/firebase_errors.dart';
+import '../../utils/account_validation.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -41,8 +44,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _ageController = TextEditingController(
       text: widget.user.age != null ? widget.user.age.toString() : '',
     );
-    _phoneController =
-        TextEditingController(text: widget.user.phoneNumber ?? '');
+    _phoneController = TextEditingController(
+      text: widget.user.phoneNumber ?? '',
+    );
 
     if (widget.user.gender != null &&
         _genderOptions.contains(widget.user.gender)) {
@@ -90,7 +94,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not update profile: $e')),
+        SnackBar(
+          content: Text(
+            firebaseErrorMessage(
+              e,
+              fallback: 'Could not update profile. Please try again.',
+            ),
+          ),
+        ),
       );
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -101,13 +112,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Widget build(BuildContext context) {
     AppLocaleScope.of(context);
     final primary = Theme.of(context).colorScheme.primary;
-    final initial =
-        widget.user.name.isNotEmpty ? widget.user.name[0].toUpperCase() : 'U';
+    final initial = widget.user.name.isNotEmpty
+        ? widget.user.name[0].toUpperCase()
+        : 'U';
     final roleLabel = widget.user.role == 'doctor'
         ? tr('Doctor')
         : widget.user.role == 'admin'
-            ? tr('Admin')
-            : tr('Patient');
+        ? tr('Admin')
+        : tr('Patient');
 
     return Scaffold(
       appBar: AppBar(
@@ -115,9 +127,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           tr('Edit Profile'),
           style: const TextStyle(fontWeight: FontWeight.w800),
         ),
-        actions: const [
-          LanguageToggleButton(),
-        ],
+        actions: const [LanguageToggleButton()],
       ),
       body: SafeArea(
         child: Form(
@@ -195,9 +205,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   labelText: tr('Email Address'),
                   prefixIcon: const Icon(Icons.email_outlined),
                   suffixIcon: const Icon(Icons.lock_outline, size: 18),
-                  helperText:
-                      tr('Managed by Authentication and cannot be changed directly.'),
-                  helperStyle: TextStyle(color: Colors.grey.shade600, fontSize: 11),
+                  helperText: tr(
+                    'Managed by Authentication and cannot be changed directly.',
+                  ),
+                  helperStyle: TextStyle(
+                    color: Colors.grey.shade600,
+                    fontSize: 11,
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -255,11 +269,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               // Phone Number
               TextFormField(
                 controller: _phoneController,
+                validator: (value) => mobileValidation(value) == null
+                    ? null
+                    : tr(mobileValidation(value)!),
                 keyboardType: TextInputType.phone,
                 textInputAction: TextInputAction.done,
                 decoration: InputDecoration(
                   labelText: tr('Phone Number'),
-                  hintText: 'e.g. +1 555-0199',
+                  hintText: '+91 9876543210',
                   prefixIcon: const Icon(Icons.phone_outlined),
                 ),
               ),
@@ -295,7 +312,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               ),
                             )
                           : const Icon(Icons.check_rounded),
-                      label: Text(_saving ? tr('Saving...') : tr('Save Changes')),
+                      label: Text(
+                        _saving ? tr('Saving...') : tr('Save Changes'),
+                      ),
                     ),
                   ),
                 ],

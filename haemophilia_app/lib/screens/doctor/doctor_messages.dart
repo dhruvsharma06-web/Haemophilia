@@ -1,10 +1,12 @@
+import '../../services/local_test_config.dart';
+import '../../utils/firebase_errors.dart';
+import '../../widgets/app_text.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/user_model.dart';
 import '../../services/clinical_data_service.dart';
-import '../../services/notification_service.dart';
 import '../../utils/app_localizations.dart';
 import '../patient/patient_history.dart';
 
@@ -31,7 +33,7 @@ class _DoctorMessagesState extends State<DoctorMessages> {
   bool _sending = false;
   AssessmentSession? _sessionContext;
 
-  String get _doctorId => FirebaseAuth.instance.currentUser?.uid ?? '';
+  String get _doctorId => LocalTestConfig.auth.currentUser?.uid ?? '';
   String get _conversationId =>
       _service.getConversationId(widget.patientId, _doctorId);
 
@@ -43,14 +45,18 @@ class _DoctorMessagesState extends State<DoctorMessages> {
   }
 
   Future<void> _initConversation() async {
-    if (_doctorId.isEmpty) return;
-    // 1. Migrate any legacy unthreaded messages for this patient & doctor pair
-    await _service.migrateLegacyMessagesIfAny(widget.patientId, _doctorId);
-    // 2. Mark unread messages as read by doctor
-    await _service.markConversationAsRead(
-      conversationId: _conversationId,
-      userRole: 'doctor',
-    );
+    try {
+      if (_doctorId.isEmpty) return;
+      // 1. Migrate any legacy unthreaded messages for this patient & doctor pair
+      await _service.migrateLegacyMessagesIfAny(widget.patientId, _doctorId);
+      // 2. Mark unread messages as read by doctor
+      await _service.markConversationAsRead(
+        conversationId: _conversationId,
+        userRole: 'doctor',
+      );
+    } catch (e) {
+      debugPrint('Chat initialization: $e');
+    }
   }
 
   @override
@@ -67,7 +73,7 @@ class _DoctorMessagesState extends State<DoctorMessages> {
     setState(() => _sending = true);
 
     try {
-      final doctorUser = FirebaseAuth.instance.currentUser;
+      final doctorUser = LocalTestConfig.auth.currentUser;
       final doctorName = doctorUser?.displayName ?? 'Doctor';
 
       final sessionCtx = _sessionContext != null
@@ -95,24 +101,17 @@ class _DoctorMessagesState extends State<DoctorMessages> {
       if (_sessionContext != null) {
         setState(() => _sessionContext = null);
       }
-
-      final preview =
-          text.length > 60 ? '${text.substring(0, 57)}...' : text;
-      await NotificationService().sendNotification(
-        targetUserId: widget.patientId,
-        title: 'New message from $doctorName',
-        body: preview,
-        data: {
-          'type': 'new_message',
-          'patientId': widget.patientId,
-          'doctorId': _doctorId,
-          'conversationId': _conversationId,
-        },
-      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not send message: $e')),
+        SnackBar(
+          content: Text(
+            firebaseErrorMessage(
+              e,
+              fallback: 'Could not send message. Please try again.',
+            ),
+          ),
+        ),
       );
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -122,7 +121,7 @@ class _DoctorMessagesState extends State<DoctorMessages> {
   String _time(dynamic value) {
     if (value is Timestamp) {
       final date = value.toDate().toLocal();
-      return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+      return '${date.day}/${date.month}/${date.year}  ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
     }
     return '';
   }
@@ -151,9 +150,7 @@ class _DoctorMessagesState extends State<DoctorMessages> {
             ),
           ],
         ),
-        actions: const [
-          LanguageToggleButton(),
-        ],
+        actions: const [LanguageToggleButton()],
       ),
       body: Column(
         children: [
@@ -167,7 +164,10 @@ class _DoctorMessagesState extends State<DoctorMessages> {
                     child: Padding(
                       padding: const EdgeInsets.all(24),
                       child: Text(
-                        'Could not load messages.\n\n${snapshot.error}',
+                        firebaseErrorMessage(
+                          snapshot.error,
+                          fallback: 'Could not load messages.',
+                        ),
                         textAlign: TextAlign.center,
                       ),
                     ),
@@ -178,7 +178,7 @@ class _DoctorMessagesState extends State<DoctorMessages> {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                final docs = snapshot.data!.docs;
+                final docs = snapshot.data!.docs.reversed.toList();
 
                 // Whenever new messages arrive while this screen is active, mark read
                 if (docs.isNotEmpty) {
@@ -209,7 +209,7 @@ class _DoctorMessagesState extends State<DoctorMessages> {
                             ),
                           ),
                           const SizedBox(height: 6),
-                          Text(
+                          AppText(
                             '${tr('Messages here are private between you and')} ${widget.patient.name}.',
                             textAlign: TextAlign.center,
                             style: TextStyle(color: Colors.grey.shade600),
@@ -254,12 +254,14 @@ class _DoctorMessagesState extends State<DoctorMessages> {
                             if (data['sessionContext'] != null)
                               _SessionReferenceCard(
                                 sessionContext: Map<String, dynamic>.from(
-                                    data['sessionContext'] as Map),
+                                  data['sessionContext'] as Map,
+                                ),
                                 onTap: () => _openSessionFromContext(
                                   context,
                                   widget.patientId,
                                   Map<String, dynamic>.from(
-                                      data['sessionContext'] as Map),
+                                    data['sessionContext'] as Map,
+                                  ),
                                 ),
                               ),
                             Text(
@@ -297,14 +299,17 @@ class _DoctorMessagesState extends State<DoctorMessages> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.attach_file_rounded,
-                      size: 16, color: Color(0xFF1D4ED8)),
+                  const Icon(
+                    Icons.attach_file_rounded,
+                    size: 16,
+                    color: Color(0xFF1D4ED8),
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
+                        AppText(
                           '${tr('Discussing Session')}: ${_sessionContext!.sessionName}',
                           style: const TextStyle(
                             fontSize: 12,
@@ -312,7 +317,7 @@ class _DoctorMessagesState extends State<DoctorMessages> {
                             color: Color(0xFF1E3A8A),
                           ),
                         ),
-                        Text(
+                        AppText(
                           '${tr('Score')}: ${_sessionContext!.averageScore.toStringAsFixed(0)}/100 • ${_sessionContext!.correctReps}/${_sessionContext!.reps} ${tr('reps')}',
                           style: const TextStyle(
                             fontSize: 11,
@@ -323,8 +328,11 @@ class _DoctorMessagesState extends State<DoctorMessages> {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close_rounded,
-                        size: 18, color: Color(0xFF1D4ED8)),
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      size: 18,
+                      color: Color(0xFF1D4ED8),
+                    ),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                     onPressed: () => setState(() => _sessionContext = null),
@@ -373,14 +381,13 @@ class _SessionReferenceCard extends StatelessWidget {
   final Map<String, dynamic> sessionContext;
   final VoidCallback? onTap;
 
-  const _SessionReferenceCard({
-    required this.sessionContext,
-    this.onTap,
-  });
+  const _SessionReferenceCard({required this.sessionContext, this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final exercise = sessionContext['sessionName']?.toString() ??
+    AppLocaleScope.of(context);
+    final exercise =
+        sessionContext['sessionName']?.toString() ??
         sessionContext['exercise']?.toString() ??
         'Physiotherapy Session';
     final score = (sessionContext['score'] as num?)?.toDouble() ?? 0.0;
@@ -431,13 +438,15 @@ class _SessionReferenceCard extends StatelessWidget {
                   ),
                 ),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: scoreColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: Text(
+                  child: AppText(
                     '${score.toStringAsFixed(0)}/100',
                     style: TextStyle(
                       color: scoreColor,
@@ -455,7 +464,7 @@ class _SessionReferenceCard extends StatelessWidget {
               spacing: 6,
               runSpacing: 2,
               children: [
-                Text(
+                AppText(
                   '$correctReps/$reps ${tr('correct reps')}${dt != null ? ' • ${dt.day}/${dt.month}/${dt.year}' : ''}',
                   style: const TextStyle(
                     fontSize: 11,
@@ -485,48 +494,49 @@ void _openSessionFromContext(
   Map<String, dynamic> sessionContext,
 ) {
   final sessionId = sessionContext['sessionId']?.toString() ?? '';
-  FirebaseFirestore.instance
+  LocalTestConfig.database
       .collection('users')
       .doc(patientId)
       .collection('assessments')
       .where('sessionId', isEqualTo: sessionId)
       .get()
       .then((snap) {
-    if (!context.mounted) return;
-    if (snap.docs.isNotEmpty) {
-      final sessions = groupAssessmentSessions(snap.docs);
-      if (sessions.isNotEmpty) {
+        if (!context.mounted) return;
+        if (snap.docs.isNotEmpty) {
+          final sessions = groupAssessmentSessions(snap.docs);
+          if (sessions.isNotEmpty) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => SessionDetails(session: sessions.first),
+              ),
+            );
+            return;
+          }
+        }
+
+        final dateStr = sessionContext['date']?.toString();
+        final dt = dateStr != null
+            ? DateTime.tryParse(dateStr) ?? DateTime.now()
+            : DateTime.now();
+        final score = (sessionContext['score'] as num?)?.toDouble() ?? 0.0;
+        final fallbackSession = AssessmentSession(
+          id: sessionId,
+          exercise: sessionContext['exercise']?.toString() ?? '',
+          sessionName: sessionContext['sessionName']?.toString() ?? 'Session',
+          date: dt,
+          repsData: [
+            {'score': score, 'form': 'Correct', 'repNumber': 1},
+          ],
+        );
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => SessionDetails(session: sessions.first),
+            builder: (_) => SessionDetails(session: fallbackSession),
           ),
         );
-        return;
-      }
-    }
-
-    final dateStr = sessionContext['date']?.toString();
-    final dt = dateStr != null
-        ? DateTime.tryParse(dateStr) ?? DateTime.now()
-        : DateTime.now();
-    final score = (sessionContext['score'] as num?)?.toDouble() ?? 0.0;
-    final fallbackSession = AssessmentSession(
-      id: sessionId,
-      exercise: sessionContext['exercise']?.toString() ?? '',
-      sessionName: sessionContext['sessionName']?.toString() ?? 'Session',
-      date: dt,
-      repsData: [
-        {'score': score, 'form': 'Correct', 'repNumber': 1}
-      ],
-    );
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => SessionDetails(session: fallbackSession),
-      ),
-    );
-  }).catchError((e) {
-    debugPrint('Could not load session details: $e');
-  });
+      })
+      .catchError((e) {
+        debugPrint('Could not load session details: $e');
+      });
 }

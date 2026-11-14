@@ -1,4 +1,7 @@
+import '../app_text.dart';
+
 import 'package:flutter/material.dart';
+
 import '../../utils/app_localizations.dart';
 import '../../utils/exercise_utils.dart';
 import 'exercise_demo_model.dart';
@@ -33,6 +36,18 @@ class _ExerciseDemoState extends State<ExerciseDemo>
   late ExerciseDemoConfig _config;
 
   double _playbackSpeed = 1.0;
+  int _lastPhase = -1;
+  Widget _animatedCanvas() => RepaintBoundary(
+    child: AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) => CustomPaint(
+        painter: _config.painterBuilder(
+          _controller.value,
+          isDark: widget.isDark,
+        ),
+      ),
+    ),
+  );
 
   @override
   void initState() {
@@ -45,7 +60,11 @@ class _ExerciseDemoState extends State<ExerciseDemo>
     );
 
     _controller.addListener(() {
-      if (mounted) setState(() {});
+      final phase = _config.getPhaseForProgress(_controller.value).phaseNumber;
+      if (mounted && phase != _lastPhase) {
+        _lastPhase = phase;
+        setState(() {});
+      }
     });
 
     if (widget.autoPlay) {
@@ -75,11 +94,13 @@ class _ExerciseDemoState extends State<ExerciseDemo>
     } else {
       _controller.repeat();
     }
+    setState(() {});
   }
 
   void _replay() {
     _controller.reset();
     _controller.repeat();
+    setState(() {});
   }
 
   void _toggleSpeed() {
@@ -105,6 +126,7 @@ class _ExerciseDemoState extends State<ExerciseDemo>
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     if (widget.compact) {
       return _buildCompactView();
     }
@@ -134,12 +156,7 @@ class _ExerciseDemoState extends State<ExerciseDemo>
         ),
       ),
       clipBehavior: Clip.antiAlias,
-      child: CustomPaint(
-        painter: _config.painterBuilder(
-          _controller.value,
-          isDark: widget.isDark,
-        ),
-      ),
+      child: _animatedCanvas(),
     );
   }
 
@@ -180,14 +197,7 @@ class _ExerciseDemoState extends State<ExerciseDemo>
           child: Stack(
             children: [
               // Custom Painter Canvas
-              Positioned.fill(
-                child: CustomPaint(
-                  painter: _config.painterBuilder(
-                    _controller.value,
-                    isDark: widget.isDark,
-                  ),
-                ),
-              ),
+              Positioned.fill(child: _animatedCanvas()),
 
               // Active Phase Chip (Top Left)
               Positioned(
@@ -218,7 +228,7 @@ class _ExerciseDemoState extends State<ExerciseDemo>
                         ),
                       ),
                       const SizedBox(width: 6),
-                      Text(
+                      AppText(
                         '${tr('Step')} ${activePhase.phaseNumber}: ${tr(activePhase.title)}',
                         style: TextStyle(
                           color: widget.isDark ? Colors.white : Colors.black87,
@@ -244,13 +254,16 @@ class _ExerciseDemoState extends State<ExerciseDemo>
                 bottom: 0,
                 left: 0,
                 right: 0,
-                child: LinearProgressIndicator(
-                  value: _controller.value,
-                  backgroundColor: Colors.white.withValues(alpha: 0.1),
-                  valueColor: const AlwaysStoppedAnimation<Color>(
-                    Color(0xFF38BDF8),
+                child: AnimatedBuilder(
+                  animation: _controller,
+                  builder: (context, _) => LinearProgressIndicator(
+                    value: _controller.value,
+                    backgroundColor: Colors.white.withValues(alpha: 0.1),
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      Color(0xFF38BDF8),
+                    ),
+                    minHeight: 3,
                   ),
-                  minHeight: 3,
                 ),
               ),
             ],
@@ -260,8 +273,10 @@ class _ExerciseDemoState extends State<ExerciseDemo>
         const SizedBox(height: 12),
 
         // 2. Interactive Playback Controls
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          spacing: 12,
+          runSpacing: 8,
           children: [
             Row(
               children: [
@@ -287,7 +302,7 @@ class _ExerciseDemoState extends State<ExerciseDemo>
                   style: TextButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 10),
                   ),
-                  child: Text(
+                  child: AppText(
                     '${_playbackSpeed}x',
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
@@ -301,11 +316,7 @@ class _ExerciseDemoState extends State<ExerciseDemo>
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  Icons.loop_rounded,
-                  size: 14,
-                  color: Colors.grey.shade500,
-                ),
+                Icon(Icons.loop_rounded, size: 14, color: Colors.grey.shade500),
                 const SizedBox(width: 4),
                 Text(
                   tr('Auto-looping'),
@@ -321,6 +332,18 @@ class _ExerciseDemoState extends State<ExerciseDemo>
         ),
 
         const SizedBox(height: 10),
+        AnimatedBuilder(
+          animation: _controller,
+          builder: (context, _) => Slider(
+            value: _controller.value,
+            label: '${(_controller.value * 100).round()}%',
+            onChanged: (value) {
+              _controller.stop();
+              _controller.value = value;
+              setState(() {});
+            },
+          ),
+        ),
 
         // 3. Step Phase Pills (Clickable to jump)
         SingleChildScrollView(
@@ -343,8 +366,8 @@ class _ExerciseDemoState extends State<ExerciseDemo>
                       color: isCurrent
                           ? const Color(0xFF0284C7)
                           : (widget.isDark
-                              ? Colors.white.withValues(alpha: 0.08)
-                              : Colors.grey.shade100),
+                                ? Colors.white.withValues(alpha: 0.08)
+                                : Colors.grey.shade100),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                         color: isCurrent
@@ -352,14 +375,16 @@ class _ExerciseDemoState extends State<ExerciseDemo>
                             : Colors.transparent,
                       ),
                     ),
-                    child: Text(
-                      '${phase.phaseNumber}. ${phase.title}',
+                    child: AppText(
+                      '${phase.phaseNumber}. ${tr(phase.title)}',
                       style: TextStyle(
                         color: isCurrent
                             ? Colors.white
                             : (widget.isDark ? Colors.white70 : Colors.black87),
                         fontSize: 11.5,
-                        fontWeight: isCurrent ? FontWeight.bold : FontWeight.w500,
+                        fontWeight: isCurrent
+                            ? FontWeight.bold
+                            : FontWeight.w500,
                       ),
                     ),
                   ),
@@ -375,10 +400,11 @@ class _ExerciseDemoState extends State<ExerciseDemo>
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: (widget.isDark
-                    ? const Color(0xFF1E293B)
-                    : const Color(0xFFF1F5F9))
-                .withValues(alpha: 0.8),
+            color:
+                (widget.isDark
+                        ? const Color(0xFF1E293B)
+                        : const Color(0xFFF1F5F9))
+                    .withValues(alpha: 0.8),
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: const Color(0xFF0284C7).withValues(alpha: 0.25),
@@ -406,7 +432,7 @@ class _ExerciseDemoState extends State<ExerciseDemo>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      activePhase.title,
+                      tr(activePhase.title),
                       style: const TextStyle(
                         fontSize: 13.5,
                         fontWeight: FontWeight.w800,
@@ -414,7 +440,7 @@ class _ExerciseDemoState extends State<ExerciseDemo>
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      activePhase.description,
+                      tr(activePhase.description),
                       style: TextStyle(
                         fontSize: 12.5,
                         height: 1.4,

@@ -1,0 +1,11 @@
+{
+  "source": "https://github.com/arvindshekhawat-techie/haemophilia-final/tree/ai-elbow-model-v1",
+  "commit": "0c37549fe26015f0ddfc25e9e3876b7e21616714",
+  "checkpoint": "elbow_lstm_v4.pth",
+  "normalization": ["elbow_v4_mean.npy", "elbow_v4_std.npy"],
+  "input": {"frames": 30, "features": 22, "arm": "right", "coordinates": "normalized image XY", "padding": "zero at end before normalization"},
+  "adapter": "src/exercises/elbow_v4_assessment.py",
+  "changes": ["timestamp based cycle timing", "stable starting calibration", "reject lost or offscreen joints", "bounded recording buffer", "app telemetry and review images"],
+  "clinically_validated": false,
+  "unseen_participant_accuracy": null
+}

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Release: HTTPS only, except the existing screening backend, which is still
+     served over plain HTTP. Move it behind HTTPS and delete that entry. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">34.173.173.123</domain>
+    </domain-config>
+</network-security-config>

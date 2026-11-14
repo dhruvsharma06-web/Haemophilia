@@ -1,15 +1,24 @@
+import '../../services/local_test_config.dart';
+import '../../widgets/app_text.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/user_model.dart';
 import '../../services/clinical_data_service.dart';
 import '../patient/patient_history.dart';
+import '../patient/session_reports_screen.dart';
 import 'doctor_messages.dart';
 import 'doctor_session_detail.dart';
 import 'assign_exercises_screen.dart';
 import '../../utils/app_localizations.dart';
 import '../../utils/exercise_utils.dart';
 import '../../widgets/session_analytics_chart.dart';
+import '../../widgets/patient_screening_card.dart';
+import '../../widgets/patient_calibration_card.dart';
+import '../../widgets/exercise_snapshot_gallery.dart';
+import '../../utils/firebase_errors.dart';
+import '../../utils/schedule_utils.dart';
 
 class DoctorPatientDetail extends StatelessWidget {
   final String patientId;
@@ -30,9 +39,19 @@ class DoctorPatientDetail extends StatelessWidget {
           patient.name.isEmpty ? tr('Patient') : patient.name,
           style: const TextStyle(fontWeight: FontWeight.w800),
         ),
-        actions: const [
-          LanguageToggleButton(),
-          SizedBox(width: 8),
+        actions: [
+          IconButton(
+            tooltip: tr('Session reports'),
+            icon: const Icon(Icons.description_outlined),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => SessionReportsScreen(patientId: patientId),
+              ),
+            ),
+          ),
+          const LanguageToggleButton(),
+          const SizedBox(width: 8),
         ],
       ),
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
@@ -43,7 +62,10 @@ class DoctorPatientDetail extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Text(
-                  'Could not load patient data.\n\n${snapshot.error}',
+                  firebaseErrorMessage(
+                    snapshot.error,
+                    fallback: 'Could not load patient data.',
+                  ),
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -59,20 +81,44 @@ class DoctorPatientDetail extends StatelessWidget {
           final sessions = groupAssessmentSessions(docs);
 
           final totalRepsAll = sessions.fold<int>(0, (acc, s) => acc + s.reps);
-          final totalCorrectAll = sessions.fold<int>(0, (acc, s) => acc + s.correctReps);
-          final accuracyPct = totalRepsAll > 0 ? (totalCorrectAll / totalRepsAll * 100) : 0.0;
+          final totalCorrectAll = sessions.fold<int>(
+            0,
+            (acc, s) => acc + s.correctReps,
+          );
+          final accuracyPct = totalRepsAll > 0
+              ? (totalCorrectAll / totalRepsAll * 100)
+              : 0.0;
 
           final avg = sessions.isEmpty
               ? 0.0
               : sessions
-                      .map((session) => session.averageScore)
-                      .reduce((a, b) => a + b) /
-                  sessions.length;
+                        .map((session) => session.averageScore)
+                        .reduce((a, b) => a + b) /
+                    sessions.length;
 
           return ListView(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
             children: [
               _ProfileCard(patient: patient),
+              const SizedBox(height: 12),
+              StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                stream: LocalTestConfig.database
+                    .collection('users')
+                    .doc(patientId)
+                    .snapshots(),
+                builder: (context, profile) {
+                  if (profile.hasError) {
+                    return Text(
+                      firebaseErrorMessage(
+                        profile.error,
+                        fallback: 'Could not load patient screening.',
+                      ),
+                    );
+                  }
+                  if (!profile.hasData) return const LinearProgressIndicator();
+                  return PatientScreeningCard(data: profile.data!.data() ?? {});
+                },
+              ),
               const SizedBox(height: 12),
               FilledButton.icon(
                 onPressed: () {
@@ -91,27 +137,23 @@ class DoctorPatientDetail extends StatelessWidget {
               ),
               const SizedBox(height: 10),
 
-OutlinedButton.icon(
-  onPressed: () {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => AssignExercisesScreen(
-          patientId: patientId,
-          patient: patient,
-        ),
-      ),
-    );
-  },
-  icon: const Icon(
-    Icons.assignment_outlined,
-  ),
-  label: Text(
-    tr('Assign Exercises'),
-  ),
-),
+              OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => AssignExercisesScreen(
+                        patientId: patientId,
+                        patient: patient,
+                      ),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.assignment_outlined),
+                label: Text(tr('Assign Exercises')),
+              ),
               StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-                stream: FirebaseFirestore.instance
+                stream: LocalTestConfig.database
                     .collection('exerciseAssignments')
                     .doc(patientId)
                     .snapshots(),
@@ -123,8 +165,12 @@ OutlinedButton.icon(
                   }
 
                   final data = assignmentSnap.data!.data()!;
-                  final status = data['status']?.toString().toLowerCase() ?? 'assigned';
-                  final sessionName = data['sessionName']?.toString().trim() ?? 'Physiotherapy Session';
+                  final status = sessionExpired(data, DateTime.now())
+                      ? 'expired'
+                      : data['status']?.toString().toLowerCase() ?? 'assigned';
+                  final sessionName =
+                      data['sessionName']?.toString().trim() ??
+                      'Physiotherapy Session';
                   final rawExercises = data['exercises'];
                   final exercises = rawExercises is List ? rawExercises : [];
                   final totalExercises = exercises.length;
@@ -135,11 +181,19 @@ OutlinedButton.icon(
                   int completedExCount = 0;
                   int totalCorrect = 0;
                   int totalTarget = 0;
-                  int totalAttempted = int.tryParse(data['totalCompletedReps']?.toString() ?? '0') ?? 0;
+                  int totalAttempted =
+                      int.tryParse(
+                        data['totalCompletedReps']?.toString() ?? '0',
+                      ) ??
+                      0;
 
                   for (final ex in exercises) {
                     if (ex is Map) {
-                      totalTarget += int.tryParse(ex['targetCorrectReps']?.toString() ?? '0') ?? 0;
+                      totalTarget +=
+                          int.tryParse(
+                            ex['targetCorrectReps']?.toString() ?? '0',
+                          ) ??
+                          0;
                     }
                   }
 
@@ -147,22 +201,44 @@ OutlinedButton.icon(
                     for (final p in progressList) {
                       if (p is Map) {
                         if (p['status'] == 'completed') completedExCount++;
-                        totalCorrect += int.tryParse(p['completedCorrectReps']?.toString() ?? '0') ?? 0;
-                        final exAttempted = int.tryParse(p['completedTotalReps']?.toString() ?? '0') ?? 0;
+                        totalCorrect +=
+                            int.tryParse(
+                              p['completedCorrectReps']?.toString() ?? '0',
+                            ) ??
+                            0;
+                        final exAttempted =
+                            int.tryParse(
+                              p['completedTotalReps']?.toString() ?? '0',
+                            ) ??
+                            0;
                         if (exAttempted > 0 && totalAttempted == 0) {
                           totalAttempted += exAttempted;
                         }
                       }
                     }
                   } else {
-                    totalCorrect = int.tryParse(data['completedCorrectReps']?.toString() ?? '0') ?? 0;
-                    final curIdx = int.tryParse(data['currentExerciseIndex']?.toString() ?? '0') ?? 0;
-                    completedExCount = status == 'completed' ? totalExercises : curIdx;
+                    totalCorrect =
+                        int.tryParse(
+                          data['completedCorrectReps']?.toString() ?? '0',
+                        ) ??
+                        0;
+                    final curIdx =
+                        int.tryParse(
+                          data['currentExerciseIndex']?.toString() ?? '0',
+                        ) ??
+                        0;
+                    completedExCount = status == 'completed'
+                        ? totalExercises
+                        : curIdx;
                   }
 
-                  final currentExercise = data['currentExercise']?.toString() ?? '';
+                  final currentExercise =
+                      data['currentExercise']?.toString() ?? '';
 
-                  final lastUpdated = data['lastUpdatedAt'] ?? data['updatedAt'] ?? data['createdAt'];
+                  final lastUpdated =
+                      data['lastUpdatedAt'] ??
+                      data['updatedAt'] ??
+                      data['createdAt'];
                   DateTime? activityTime;
                   if (lastUpdated is Timestamp) {
                     activityTime = lastUpdated.toDate().toLocal();
@@ -211,14 +287,14 @@ OutlinedButton.icon(
               const SizedBox(height: 26),
               Text(
                 tr('Progress analytics'),
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
               const SizedBox(height: 12),
 
-              SessionAnalyticsChart(
-                sessions: sessions,
-                isDoctorView: true,
-              ),
+              SessionAnalyticsChart(sessions: sessions, isDoctorView: true),
 
               const SizedBox(height: 26),
 
@@ -242,7 +318,9 @@ OutlinedButton.icon(
                             Expanded(
                               child: Text(
                                 session.sessionName,
-                                style: const TextStyle(fontWeight: FontWeight.w800),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                ),
                               ),
                             ),
                             if (isWorkInProgressExercise(session.exercise)) ...[
@@ -251,10 +329,10 @@ OutlinedButton.icon(
                             ],
                           ],
                         ),
-                        subtitle: Text(
+                        subtitle: AppText(
                           '${session.reps} ${tr('reps')} • ${session.correctReps}/${session.reps} ${tr('correct')}',
                         ),
-                        trailing: Text(
+                        trailing: AppText(
                           '${session.averageScore.toStringAsFixed(0)}/100',
                           style: const TextStyle(fontWeight: FontWeight.w800),
                         ),
@@ -274,6 +352,13 @@ OutlinedButton.icon(
                     ),
                   ),
                 ),
+              const SizedBox(height: 26),
+              PatientCalibrationCard(
+                patientId: patientId,
+                history: [for (final doc in docs) doc.data()],
+              ),
+              const SizedBox(height: 12),
+              ExerciseSnapshotGallery(patientId: patientId),
             ],
           );
         },
@@ -289,6 +374,7 @@ class _ProfileCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     final primary = Theme.of(context).colorScheme.primary;
 
     final details = <String>[];
@@ -310,9 +396,7 @@ class _ProfileCard extends StatelessWidget {
               radius: 27,
               backgroundColor: primary.withValues(alpha: .1),
               child: Text(
-                patient.name.isEmpty
-                    ? 'P'
-                    : patient.name[0].toUpperCase(),
+                patient.name.isEmpty ? 'P' : patient.name[0].toUpperCase(),
                 style: TextStyle(
                   color: primary,
                   fontWeight: FontWeight.w800,
@@ -335,10 +419,7 @@ class _ProfileCard extends StatelessWidget {
                   const SizedBox(height: 3),
                   Text(
                     patient.email,
-                    style: TextStyle(
-                      color: Colors.grey.shade600,
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
                   ),
                   if (details.isNotEmpty) ...[
                     const SizedBox(height: 6),
@@ -369,6 +450,7 @@ class _Stat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -377,20 +459,14 @@ class _Stat extends StatelessWidget {
           children: [
             Text(
               value,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-              ),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 3),
             Text(
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 10,
-                color: Colors.grey.shade600,
-              ),
+              style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
             ),
           ],
         ),
@@ -404,6 +480,7 @@ class _Empty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(25),
@@ -417,16 +494,15 @@ class _Empty extends StatelessWidget {
     );
   }
 }
+
 class PatientProgressChart extends StatelessWidget {
   final List<double> scores;
 
-  const PatientProgressChart({
-    super.key,
-    required this.scores,
-  });
+  const PatientProgressChart({super.key, required this.scores});
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     if (scores.isEmpty) {
       return Card(
         elevation: 0,
@@ -449,10 +525,7 @@ class PatientProgressChart extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 tr('Assessment score across completed sessions'),
-                style: const TextStyle(
-                  color: Colors.grey,
-                  fontSize: 13,
-                ),
+                style: const TextStyle(color: Colors.grey, fontSize: 13),
               ),
               const SizedBox(height: 25),
               Center(
@@ -466,9 +539,7 @@ class PatientProgressChart extends StatelessWidget {
                     const SizedBox(height: 10),
                     Text(
                       tr('No progress data yet'),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                      ),
+                      style: const TextStyle(fontWeight: FontWeight.w700),
                     ),
                   ],
                 ),
@@ -492,18 +563,12 @@ class PatientProgressChart extends StatelessWidget {
           children: [
             Text(
               tr('Patient Progress'),
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-              ),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 5),
             Text(
               tr('Assessment score across completed sessions'),
-              style: const TextStyle(
-                color: Colors.grey,
-                fontSize: 13,
-              ),
+              style: const TextStyle(color: Colors.grey, fontSize: 13),
             ),
             const SizedBox(height: 22),
 
@@ -523,19 +588,13 @@ class PatientProgressChart extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
+                AppText(
                   'Session 1',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey.shade600,
-                  ),
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                 ),
-                Text(
+                AppText(
                   'Session ${scores.length}',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey.shade600,
-                  ),
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                 ),
               ],
             ),
@@ -550,10 +609,7 @@ class _ProgressChartPainter extends CustomPainter {
   final List<double> scores;
   final Color lineColor;
 
-  _ProgressChartPainter({
-    required this.scores,
-    required this.lineColor,
-  });
+  _ProgressChartPainter({required this.scores, required this.lineColor});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -564,11 +620,9 @@ class _ProgressChartPainter extends CustomPainter {
     const topPadding = 12.0;
     const bottomPadding = 28.0;
 
-    final chartWidth =
-        size.width - leftPadding - rightPadding;
+    final chartWidth = size.width - leftPadding - rightPadding;
 
-    final chartHeight =
-        size.height - topPadding - bottomPadding;
+    final chartHeight = size.height - topPadding - bottomPadding;
 
     final gridPaint = Paint()
       ..color = Colors.grey.withValues(alpha: 0.18)
@@ -589,15 +643,10 @@ class _ProgressChartPainter extends CustomPainter {
       ..color = lineColor
       ..style = PaintingStyle.fill;
 
-    final textStyle = TextStyle(
-      color: Colors.grey.shade600,
-      fontSize: 10,
-    );
+    final textStyle = TextStyle(color: Colors.grey.shade600, fontSize: 10);
 
     for (int value = 0; value <= 100; value += 25) {
-      final y = topPadding +
-          chartHeight -
-          (value / 100) * chartHeight;
+      final y = topPadding + chartHeight - (value / 100) * chartHeight;
 
       canvas.drawLine(
         Offset(leftPadding, y),
@@ -606,10 +655,7 @@ class _ProgressChartPainter extends CustomPainter {
       );
 
       final textPainter = TextPainter(
-        text: TextSpan(
-          text: '$value',
-          style: textStyle,
-        ),
+        text: TextSpan(text: '$value', style: textStyle),
         textDirection: TextDirection.ltr,
       );
 
@@ -617,10 +663,7 @@ class _ProgressChartPainter extends CustomPainter {
 
       textPainter.paint(
         canvas,
-        Offset(
-          leftPadding - textPainter.width - 8,
-          y - textPainter.height / 2,
-        ),
+        Offset(leftPadding - textPainter.width - 8, y - textPainter.height / 2),
       );
     }
 
@@ -632,10 +675,7 @@ class _ProgressChartPainter extends CustomPainter {
 
     canvas.drawLine(
       Offset(leftPadding, topPadding + chartHeight),
-      Offset(
-        size.width - rightPadding,
-        topPadding + chartHeight,
-      ),
+      Offset(size.width - rightPadding, topPadding + chartHeight),
       axisPaint,
     );
 
@@ -646,12 +686,9 @@ class _ProgressChartPainter extends CustomPainter {
 
       final x = scores.length == 1
           ? leftPadding + chartWidth / 2
-          : leftPadding +
-              (i / (scores.length - 1)) * chartWidth;
+          : leftPadding + (i / (scores.length - 1)) * chartWidth;
 
-      final y = topPadding +
-          chartHeight -
-          (score / 100.0) * chartHeight;
+      final y = topPadding + chartHeight - (score / 100.0) * chartHeight;
 
       if (i == 0) {
         path.moveTo(x, y);
@@ -667,18 +704,11 @@ class _ProgressChartPainter extends CustomPainter {
 
       final x = scores.length == 1
           ? leftPadding + chartWidth / 2
-          : leftPadding +
-              (i / (scores.length - 1)) * chartWidth;
+          : leftPadding + (i / (scores.length - 1)) * chartWidth;
 
-      final y = topPadding +
-          chartHeight -
-          (score / 100.0) * chartHeight;
+      final y = topPadding + chartHeight - (score / 100.0) * chartHeight;
 
-      canvas.drawCircle(
-        Offset(x, y),
-        5,
-        pointPaint,
-      );
+      canvas.drawCircle(Offset(x, y), 5, pointPaint);
 
       final scorePainter = TextPainter(
         text: TextSpan(
@@ -696,20 +726,14 @@ class _ProgressChartPainter extends CustomPainter {
 
       scorePainter.paint(
         canvas,
-        Offset(
-          x - scorePainter.width / 2,
-          y - scorePainter.height - 8,
-        ),
+        Offset(x - scorePainter.width / 2, y - scorePainter.height - 8),
       );
     }
   }
 
   @override
-  bool shouldRepaint(
-    covariant _ProgressChartPainter oldDelegate,
-  ) {
-    return oldDelegate.scores != scores ||
-        oldDelegate.lineColor != lineColor;
+  bool shouldRepaint(covariant _ProgressChartPainter oldDelegate) {
+    return oldDelegate.scores != scores || oldDelegate.lineColor != lineColor;
   }
 }
 
@@ -746,8 +770,18 @@ class _DoctorAssignmentStatusCard extends StatelessWidget {
 
   String _formatDateTime(DateTime dt) {
     final months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     final m = months[dt.month - 1];
     final hr = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
@@ -758,6 +792,7 @@ class _DoctorAssignmentStatusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppLocaleScope.of(context);
     Color statusBg;
     Color statusFg;
     String statusLabel;
@@ -789,6 +824,13 @@ class _DoctorAssignmentStatusCard extends StatelessWidget {
         statusLabel = 'DISCARDED';
         statusIcon = Icons.cancel_rounded;
         break;
+      case 'expired':
+      case 'missed':
+        statusBg = Colors.grey.shade200;
+        statusFg = Colors.grey.shade800;
+        statusLabel = 'EXPIRED';
+        statusIcon = Icons.timer_off_outlined;
+        break;
       case 'assigned':
       default:
         statusBg = Colors.teal.shade100;
@@ -800,7 +842,9 @@ class _DoctorAssignmentStatusCard extends StatelessWidget {
 
     final double completionFraction = targetReps > 0
         ? (correctReps / targetReps).clamp(0.0, 1.0)
-        : (totalExercises > 0 ? (completedExercises / totalExercises).clamp(0.0, 1.0) : 0.0);
+        : (totalExercises > 0
+              ? (completedExercises / totalExercises).clamp(0.0, 1.0)
+              : 0.0);
     final int completionPct = (completionFraction * 100).toInt();
 
     final int accuracyPct = totalAttemptedReps > 0
@@ -811,10 +855,7 @@ class _DoctorAssignmentStatusCard extends StatelessWidget {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
-        side: BorderSide(
-          color: statusFg.withValues(alpha: 0.25),
-          width: 1.2,
-        ),
+        side: BorderSide(color: statusFg.withValues(alpha: 0.25), width: 1.2),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -848,7 +889,10 @@ class _DoctorAssignmentStatusCard extends StatelessWidget {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: statusBg,
                     borderRadius: BorderRadius.circular(8),
@@ -876,7 +920,10 @@ class _DoctorAssignmentStatusCard extends StatelessWidget {
               const SizedBox(height: 10),
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.blue.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(8),
@@ -884,13 +931,15 @@ class _DoctorAssignmentStatusCard extends StatelessWidget {
                 child: Row(
                   children: [
                     Icon(
-                      status == 'paused' ? Icons.pause_circle_outline : Icons.play_circle_outline,
+                      status == 'paused'
+                          ? Icons.pause_circle_outline
+                          : Icons.play_circle_outline,
                       size: 16,
                       color: Colors.blue.shade800,
                     ),
                     const SizedBox(width: 6),
                     Expanded(
-                      child: Text(
+                      child: AppText(
                         '${tr('Current')}: ${getExerciseDisplayName(currentExercise)}',
                         style: TextStyle(
                           fontSize: 12,
@@ -919,7 +968,7 @@ class _DoctorAssignmentStatusCard extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: Text(
+                  child: AppText(
                     '$completionPct% ${tr('Completed')}',
                     style: TextStyle(
                       fontSize: 11.5,
@@ -929,12 +978,9 @@ class _DoctorAssignmentStatusCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Text(
+                AppText(
                   '$completedExercises ${tr('of')} $totalExercises ${tr('exercises finished')}',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey.shade600,
-                  ),
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                 ),
               ],
             ),
@@ -963,7 +1009,9 @@ class _DoctorAssignmentStatusCard extends StatelessWidget {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              targetReps > 0 ? '$correctReps / $targetReps' : '$correctReps',
+                              targetReps > 0
+                                  ? '$correctReps / $targetReps'
+                                  : '$correctReps',
                               style: const TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w800,
@@ -991,7 +1039,7 @@ class _DoctorAssignmentStatusCard extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(height: 2),
-                            Text(
+                            AppText(
                               '$totalAttemptedReps',
                               style: const TextStyle(
                                 fontSize: 14,
@@ -1053,21 +1101,30 @@ class _DoctorAssignmentStatusCard extends StatelessWidget {
                 if (ex is! Map) return const SizedBox.shrink();
 
                 final exName = ex['exercise']?.toString() ?? '';
-                final exTarget = int.tryParse(ex['targetCorrectReps']?.toString() ?? '0') ?? 0;
+                final exTarget =
+                    int.tryParse(ex['targetCorrectReps']?.toString() ?? '0') ??
+                    0;
 
                 int exCorrect = 0;
                 String exStatus = 'pending';
-                if (idx < exerciseProgress.length && exerciseProgress[idx] is Map) {
+                if (idx < exerciseProgress.length &&
+                    exerciseProgress[idx] is Map) {
                   final prog = exerciseProgress[idx] as Map;
-                  exCorrect = int.tryParse(prog['completedCorrectReps']?.toString() ?? '0') ?? 0;
-                  exStatus = prog['status']?.toString().toLowerCase() ?? 'pending';
+                  exCorrect =
+                      int.tryParse(
+                        prog['completedCorrectReps']?.toString() ?? '0',
+                      ) ??
+                      0;
+                  exStatus =
+                      prog['status']?.toString().toLowerCase() ?? 'pending';
                 } else if (status == 'completed') {
                   exCorrect = exTarget;
                   exStatus = 'completed';
                 }
 
                 final isExCompleted = exStatus == 'completed';
-                final isExCurrent = (exName == currentExercise || exStatus == 'in_progress');
+                final isExCurrent =
+                    (exName == currentExercise || exStatus == 'in_progress');
 
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 3.5),
@@ -1076,11 +1133,15 @@ class _DoctorAssignmentStatusCard extends StatelessWidget {
                       Icon(
                         isExCompleted
                             ? Icons.check_circle_rounded
-                            : (isExCurrent ? Icons.play_circle_filled_rounded : Icons.radio_button_unchecked),
+                            : (isExCurrent
+                                  ? Icons.play_circle_filled_rounded
+                                  : Icons.radio_button_unchecked),
                         size: 15,
                         color: isExCompleted
                             ? Colors.green
-                            : (isExCurrent ? Colors.blueAccent : Colors.grey.shade400),
+                            : (isExCurrent
+                                  ? Colors.blueAccent
+                                  : Colors.grey.shade400),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
@@ -1088,17 +1149,23 @@ class _DoctorAssignmentStatusCard extends StatelessWidget {
                           getExerciseDisplayName(exName),
                           style: TextStyle(
                             fontSize: 12.5,
-                            fontWeight: isExCurrent ? FontWeight.w700 : FontWeight.w500,
-                            color: isExCompleted ? Colors.grey.shade700 : Colors.black87,
+                            fontWeight: isExCurrent
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                            color: isExCompleted
+                                ? Colors.grey.shade700
+                                : Colors.black87,
                           ),
                         ),
                       ),
-                      Text(
+                      AppText(
                         '$exCorrect / $exTarget ${tr('correct reps')}',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: isExCompleted ? Colors.green.shade800 : Colors.grey.shade700,
+                          color: isExCompleted
+                              ? Colors.green.shade800
+                              : Colors.grey.shade700,
                         ),
                       ),
                     ],
@@ -1110,10 +1177,14 @@ class _DoctorAssignmentStatusCard extends StatelessWidget {
               const SizedBox(height: 10),
               Row(
                 children: [
-                  Icon(Icons.access_time_rounded, size: 13, color: Colors.grey.shade600),
+                  Icon(
+                    Icons.access_time_rounded,
+                    size: 13,
+                    color: Colors.grey.shade600,
+                  ),
                   const SizedBox(width: 5),
                   Expanded(
-                    child: Text(
+                    child: AppText(
                       '${tr('Last activity')}: ${_formatDateTime(lastActivity!)}',
                       style: TextStyle(
                         fontSize: 11.5,

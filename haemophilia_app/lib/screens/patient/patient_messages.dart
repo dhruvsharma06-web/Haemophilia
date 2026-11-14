@@ -1,3 +1,7 @@
+import '../../services/local_test_config.dart';
+import '../../utils/firebase_errors.dart';
+import '../../widgets/app_text.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
@@ -5,6 +9,7 @@ import '../../models/user_model.dart';
 import '../../services/clinical_data_service.dart';
 import '../../utils/app_localizations.dart';
 import 'patient_doctor_chat_screen.dart';
+import '../support/help_screen.dart';
 
 class PatientMessages extends StatefulWidget {
   final UserModel user;
@@ -30,7 +35,7 @@ class _PatientMessagesState extends State<PatientMessages> {
       final minute = date.minute.toString().padLeft(2, '0');
       return '$hour:$minute';
     } else {
-      return '${date.day}/${date.month}';
+      return '${date.day}/${date.month}/${date.year}';
     }
   }
 
@@ -45,23 +50,64 @@ class _PatientMessagesState extends State<PatientMessages> {
           tr('Messages'),
           style: const TextStyle(fontWeight: FontWeight.w800),
         ),
-        actions: const [
-          LanguageToggleButton(),
+        actions: [
+          const LanguageToggleButton(),
+          IconButton(
+            tooltip: tr('Contact admin'),
+            icon: const Icon(Icons.support_agent),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const HelpScreen()),
+            ),
+          ),
         ],
       ),
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
         // Stream all doctors from the users collection
-        stream: FirebaseFirestore.instance
-            .collection('users')
-            .where('role', isEqualTo: 'doctor')
-            .snapshots(),
+        stream: widget.user.doctorId?.isNotEmpty == true
+            ? LocalTestConfig.database
+                  .collection('users')
+                  .where(FieldPath.documentId, isEqualTo: widget.user.doctorId)
+                  .snapshots()
+            : null,
         builder: (context, doctorSnap) {
+          if (widget.user.doctorId?.isNotEmpty != true) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.person_search_outlined, size: 40),
+                    const SizedBox(height: 16),
+                    Text(
+                      tr(
+                        'Your doctor will appear here once assigned. You can contact the administrator from Help.',
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    OutlinedButton.icon(
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const HelpScreen()),
+                      ),
+                      icon: const Icon(Icons.support_agent),
+                      label: Text(tr('Contact admin')),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
           if (doctorSnap.hasError) {
             return Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Text(
-                  'Could not load doctors.\n\n${doctorSnap.error}',
+                  firebaseErrorMessage(
+                    doctorSnap.error,
+                    fallback: 'Could not load doctors.',
+                  ),
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -96,7 +142,9 @@ class _PatientMessagesState extends State<PatientMessages> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      tr('Your clinician team will appear here once registered.'),
+                      tr(
+                        'Your assigned doctor will appear here after administrator assignment.',
+                      ),
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Colors.grey.shade600),
                     ),
@@ -125,8 +173,9 @@ class _PatientMessagesState extends State<PatientMessages> {
                 final docData = dDoc.data();
                 final doctorId = dDoc.id;
                 final rawName = docData['name']?.toString() ?? 'Doctor';
-                final displayName =
-                    rawName.startsWith('Dr.') ? rawName : 'Dr. $rawName';
+                final displayName = rawName.startsWith('Dr.')
+                    ? rawName
+                    : 'Dr. $rawName';
                 final conv = convMap[doctorId];
                 final lastMessage = conv?['lastMessage']?.toString();
                 final lastMessageAt = conv?['lastMessageAt'] as Timestamp?;
@@ -184,10 +233,12 @@ class _PatientMessagesState extends State<PatientMessages> {
                             radius: 24,
                             backgroundColor: primary.withValues(alpha: .10),
                             child: Text(
-                              item.doctorName.replaceFirst('Dr. ', '').isNotEmpty
+                              item.doctorName
+                                      .replaceFirst('Dr. ', '')
+                                      .isNotEmpty
                                   ? item.doctorName
-                                      .replaceFirst('Dr. ', '')[0]
-                                      .toUpperCase()
+                                        .replaceFirst('Dr. ', '')[0]
+                                        .toUpperCase()
                                   : 'D',
                               style: TextStyle(
                                 color: primary,
@@ -299,7 +350,7 @@ class _PatientMessagesState extends State<PatientMessages> {
                                   color: primary,
                                   borderRadius: BorderRadius.circular(10),
                                 ),
-                                child: Text(
+                                child: AppText(
                                   '${item.unreadCount}',
                                   style: const TextStyle(
                                     color: Colors.white,

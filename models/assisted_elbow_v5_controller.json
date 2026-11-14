@@ -1,0 +1,16 @@
+{
+  "angle_channel": 0,
+  "onset_delta": 10.0,
+  "reversal_delta": 6.0,
+  "minimum_excursion": 15.0,
+  "minimum_duration": 0.8,
+  "return_fraction": 0.6,
+  "plateau_hold": 0.2,
+  "onset_hold": 0.1,
+  "reversal_hold": 0.1,
+  "maximum_gap": 0.3,
+  "maximum_duration": 10.0,
+  "pre_roll": 0.15,
+  "rearm_delay": 0.2,
+  "median_seconds": 0.13
+}

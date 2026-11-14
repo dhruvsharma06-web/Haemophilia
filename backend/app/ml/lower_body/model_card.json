@@ -1,0 +1,140 @@
+{
+  "training_date": "2026-08-20T20:18:31.019147+00:00",
+  "exercises": {
+    "mini_squat_rf": {
+      "model_kind": "rf",
+      "labels": [
+        "heel_lifting",
+        "knee_varus",
+        "knee_past_toes",
+        "ankles_close_together",
+        "back_slouching"
+      ],
+      "n_clips_final_fit": 45,
+      "n_groups": 8,
+      "group_source": "source_recording_id (subject_id had 1 group(s), below MIN_GROUPS=4)",
+      "sklearn_version": "1.9.0",
+      "trained_at": "2026-08-20T20:08:10.521025+00:00",
+      "cv_scores_per_label": [
+        {
+          "label": "heel_lifting",
+          "support": 7,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        {
+          "label": "knee_varus",
+          "support": 7,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        {
+          "label": "knee_past_toes",
+          "support": 5,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        {
+          "label": "ankles_close_together",
+          "support": 10,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        {
+          "label": "back_slouching",
+          "support": 5,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        }
+      ],
+      "model_path": "backend/ml/trained_models/mini_squat_rf.pkl"
+    },
+    "seated_knee_extensions_rf": {
+      "model_kind": "rf",
+      "labels": [
+        "hip_lifting",
+        "back_slouching",
+        "back_rocking"
+      ],
+      "n_clips_final_fit": 22,
+      "n_groups": 4,
+      "group_source": "source_recording_id (subject_id had 1 group(s), below MIN_GROUPS=4)",
+      "sklearn_version": "1.9.0",
+      "trained_at": "2026-08-20T20:08:28.088369+00:00",
+      "cv_scores_per_label": [
+        {
+          "label": "hip_lifting",
+          "support": 5,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        {
+          "label": "back_slouching",
+          "support": 5,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        },
+        {
+          "label": "back_rocking",
+          "support": 7,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0
+        }
+      ],
+      "model_path": "backend/ml/trained_models/seated_knee_extensions_rf.pkl"
+    },
+    "straight_leg_raise_rf": {
+      "model_kind": "rf",
+      "labels": [
+        "hip_lifting",
+        "knee_flexion_high",
+        "head_lifting"
+      ],
+      "n_clips_final_fit": 64,
+      "n_groups": 12,
+      "group_source": "source_recording_id (subject_id had 1 group(s), below MIN_GROUPS=4)",
+      "sklearn_version": "1.9.0",
+      "trained_at": "2026-08-20T20:08:43.193798+00:00",
+      "cv_scores_per_label": [
+        {
+          "label": "hip_lifting",
+          "support": 17,
+          "precision": 0.545,
+          "recall": 0.353,
+          "f1": 0.429
+        },
+        {
+          "label": "knee_flexion_high",
+          "support": 20,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0
+        },
+        {
+          "label": "head_lifting",
+          "support": 17,
+          "precision": 1.0,
+          "recall": 0.941,
+          "f1": 0.97
+        }
+      ],
+      "model_path": "backend/ml/trained_models/straight_leg_raise_rf.pkl"
+    }
+  },
+  "caveats": [
+    "Model v1 is pose-only. No paired pose+EMG training data exists yet (see MASTER_BUILD_PLAN_v3.md \u00a79 'Known gaps'). EMG stays a live display and a rep-validity pre-filter joined on timestamp_ms -- never a fused model feature -- until paired data lands.",
+    "Every recording in this dataset shares a single subject_id (one actor). GroupKFold below is therefore recording-level, not subject-level. Nothing here estimates cross-patient generalization.",
+    "Dataset is small (11-64 clips per exercise). RandomForest is deliberately shallow (max_depth=4) and XGBoost deliberately regularized for this reason; both still risk coincidental splits.",
+    "Rep segmentation for live sessions is unbuilt (I3). This model was trained on hand-cut clips; production gets continuous video.",
+    "Isometric exercises (seated_knee_extension) have no trained error model that clears the CV gate -- all positives concentrate in one recording group. Rule-based only until more recordings exist.",
+    "See docs/06_ml_pipeline.md for the full E8 label-circularity audit. Two labels (mini_squat's derivative of path_deviation, and straight_leg_raise's knee_flexion_high) were found to be thresholded directly from a feature-derived signal; treat any near-1.000 score on those labels as evidence of leakage, not of quality."
+  ]
+}

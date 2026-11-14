@@ -44,7 +44,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Patient Login'), findsOneWidget);
-        expect(find.text('Somaiya HaemoPhysio'), findsOneWidget);
+        expect(find.text('Somaiya HemoPhysio'), findsOneWidget);
         expect(find.text('Sign In'), findsOneWidget);
         expect(find.text('Continue with Google'), findsOneWidget);
         expect(tester.takeException(), isNull);
@@ -157,8 +157,8 @@ void main() {
         await tester.enterText(find.byType(TextField).at(1), 'doctor@somaiya.edu');
         await tester.enterText(find.byType(TextField).at(2), '9876543210');
         await tester.enterText(find.byType(TextField).at(3), 'Mumbai');
-        await tester.enterText(find.byType(TextField).at(6), 'Password123');
-        await tester.enterText(find.byType(TextField).at(7), 'Password123');
+        await tester.enterText(find.byType(TextField).at(6), 'Mango#47Rq');
+        await tester.enterText(find.byType(TextField).at(7), 'Mango#47Rq');
 
         await tester.ensureVisible(find.text('Next'));
         await tester.tap(find.text('Next'));
@@ -207,7 +207,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Application Under Review'), findsOneWidget);
-        expect(find.text('Somaiya HaemoPhysio'), findsOneWidget);
+        expect(find.text('Somaiya HemoPhysio'), findsOneWidget);
         expect(find.text('Dr. Jane Doe'), findsOneWidget);
         expect(find.text('MMC/2021/999'), findsOneWidget);
         expect(tester.takeException(), isNull);

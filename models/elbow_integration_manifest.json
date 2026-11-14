@@ -1,0 +1,20 @@
+{
+  "release": "2026-10-05-elbow-v2-v3",
+  "assisted_elbow": {
+    "repository": "https://github.com/dhruvsharma06-web/Haemophilia",
+    "branch": "feature/assisted-elbow-flexion-model-v2",
+    "commit": "b4b86de",
+    "model": "BalancedSVM_Final_V2",
+    "features": 34,
+    "output": "Uncalibrated signed SVM margin; no confidence percentage"
+  },
+  "elbow_flexion_extension": {
+    "repository": "https://github.com/arvindshekhawat-techie/haemophilia-final",
+    "branch": "realtime-integration-v1",
+    "commit": "a252160",
+    "model": "elbow_lstm_v3.pth",
+    "features": 14,
+    "sequence_length": 25
+  },
+  "validation_scope": "Software and synthetic movement checks; no clinical validation claimed."
+}

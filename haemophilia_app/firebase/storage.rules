@@ -2,33 +2,59 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    match /assessment_errors/{patientId}/{sessionId}/{fileName} {
-      function signedIn() {
-        return request.auth != null;
-      }
+    function signedIn() {
+      return request.auth != null;
+    }
 
-      function myUser() {
-        return firestore.get(/databases/(default)/documents/users/$(request.auth.uid));
-      }
+    function myUser() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid));
+    }
 
-      function isAdmin() {
-        return signedIn() && myUser().data.role == 'admin';
-      }
+    // Mirrors firestore.rules: only the account's latest sign-in may act.
+    function current() {
+      return signedIn()
+        && myUser().data.get('accountActive', true)
+        && request.auth.token.get('auth_time', 0) >= myUser().data.get('sessionValidAfter', 0);
+    }
 
-      function isAssignedDoctor() {
-        return signedIn()
-          && myUser().data.role == 'doctor'
-          && firestore.get(/databases/(default)/documents/users/$(patientId)).data.doctorId == request.auth.uid;
-      }
+    function isAdmin() {
+      return current() && myUser().data.role == 'admin';
+    }
 
-      // Patients upload their own error evidence. Assigned doctors and admins
-      // can review it. Images are JPEGs produced by the assessment backend.
-      allow write: if signedIn() && request.auth.uid == patientId
-        && request.resource.contentType == 'image/jpeg'
+    function isAssignedDoctor(patientId) {
+      return current()
+        && myUser().data.role == 'doctor'
+        && myUser().data.get('isApproved', true)
+        && firestore.get(/databases/(default)/documents/users/$(patientId)).data.get('doctorId', '') == request.auth.uid;
+    }
+
+    function consentedPatient(patientId) {
+      return current() && request.auth.uid == patientId
+        && myUser().data.role == 'patient'
+        && myUser().data.get('consentVersion', '') == '2026-10-02-v1';
+    }
+
+    function smallJpeg() {
+      return request.resource.contentType == 'image/jpeg'
         && request.resource.size < 5 * 1024 * 1024;
+    }
 
-      allow read: if signedIn()
-        && (request.auth.uid == patientId || isAssignedDoctor() || isAdmin());
+    // Patients upload their own error evidence. Assigned doctors and admins
+    // can review it. Images are JPEGs produced on the device.
+    match /assessment_errors/{patientId}/{sessionId}/{fileName} {
+      allow write: if consentedPatient(patientId) && smallJpeg();
+      allow read: if (current() && request.auth.uid == patientId) || isAssignedDoctor(patientId) || isAdmin();
+    }
+
+    // Representative exercise snapshots, at most a few per day, selected on the
+    // device after the session. Files are never overwritten; a replaced
+    // selection deletes its old file.
+    match /exercise_snapshots/{patientId}/{day}/{fileName} {
+      allow create: if consentedPatient(patientId) && smallJpeg()
+        && day.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && fileName.matches('^[A-Za-z0-9_-]{1,80}[.]jpg$');
+      allow delete: if consentedPatient(patientId) || isAdmin();
+      allow read: if (current() && request.auth.uid == patientId) || isAssignedDoctor(patientId) || isAdmin();
     }
   }
 }

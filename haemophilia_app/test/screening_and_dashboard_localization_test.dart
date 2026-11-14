@@ -40,8 +40,8 @@ void main() {
         await tester.pumpWidget(createTestApp(const LoginScreen(), 'en'));
         await tester.pumpAndSettle();
 
-        expect(find.text('Health Risk Screening'), findsOneWidget);
-        expect(find.text('Start ›'), findsOneWidget);
+        expect(find.text('Health Risk Screening'), findsNothing);
+        expect(find.text('Start ›'), findsNothing);
         expect(tester.takeException(), isNull);
 
         // Instant Switch to Hindi
@@ -49,8 +49,8 @@ void main() {
         await tester.pump();
         await tester.pumpAndSettle();
 
-        expect(find.text('स्वास्थ्य जोखिम जाँच'), findsOneWidget);
-        expect(find.text('शुरू करें ›'), findsOneWidget);
+        expect(find.text('स्वास्थ्य जोखिम जाँच'), findsNothing);
+        expect(find.text('शुरू करें ›'), findsNothing);
         expect(tester.takeException(), isNull);
 
         // Instant Switch back to English
@@ -58,7 +58,7 @@ void main() {
         await tester.pump();
         await tester.pumpAndSettle();
 
-        expect(find.text('Health Risk Screening'), findsOneWidget);
+        expect(find.text('Health Risk Screening'), findsNothing);
         expect(tester.takeException(), isNull);
       });
     }

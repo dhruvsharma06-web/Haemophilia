@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+
 import '../../utils/app_localizations.dart';
 import '../../utils/exercise_utils.dart';
 import 'exercise_demo.dart';
 import 'exercise_demo_model.dart';
+import '../exercise_thresholds.dart';
+import '../exercise_tutorial_button.dart';
 
 /// Shows an interactive, full-featured demonstration dialog explaining how to
 /// perform the specified exercise with animated movement, phases, and clinical tips.
@@ -109,16 +112,24 @@ Future<void> showExerciseDemoDialog(
                         isDark: isDark,
                       ),
 
+                      const SizedBox(height: 10),
+                      ExerciseThresholds(
+                        exercise: exerciseName,
+                        dark: isDark,
+                        compact: true,
+                      ),
+                      ExerciseTutorialButton(exercise: exerciseName),
                       const SizedBox(height: 18),
 
                       // Key Clinical Tips Card
                       Container(
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: (isDark
-                                  ? const Color(0xFF1E293B)
-                                  : const Color(0xFFF8FAFC))
-                              .withValues(alpha: 0.9),
+                          color:
+                              (isDark
+                                      ? const Color(0xFF1E293B)
+                                      : const Color(0xFFF8FAFC))
+                                  .withValues(alpha: 0.9),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
                             color: isDark
@@ -137,7 +148,7 @@ Future<void> showExerciseDemoDialog(
                                   color: Color(0xFF0284C7),
                                 ),
                                 const SizedBox(width: 8),
-                                 Text(
+                                Text(
                                   tr('Key Guidance for Safe Performance'),
                                   style: const TextStyle(
                                     fontSize: 13,

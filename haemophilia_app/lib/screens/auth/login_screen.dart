@@ -1,10 +1,12 @@
+import '../../widgets/app_text.dart';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../services/auth_service.dart';
+import '../../utils/firebase_errors.dart';
 import '../../utils/app_localizations.dart';
 import 'doctor_login_screen.dart';
-import 'health_screening_screen.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -46,10 +48,8 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _loading = true);
 
     try {
-      await _authService.login(
-        email: email,
-        password: password,
-      );
+      await _authService.login(email: email, password: password);
+      AuthService.signedOutReason.value = null;
 
       if (!mounted) return;
 
@@ -59,9 +59,7 @@ class _LoginScreenState extends State<LoginScreen> {
     } on FirebaseAuthException catch (e) {
       _showError(_firebaseAuthError(e));
     } catch (e) {
-      _showError(
-        e.toString().replaceFirst('Exception: ', ''),
-      );
+      _showError(e.toString().replaceFirst('Exception: ', ''));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -114,13 +112,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    tr('Enter your registered email address to receive password reset instructions.'),
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: emailController,
@@ -169,7 +160,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                 SnackBar(
                                   behavior: SnackBarBehavior.floating,
                                   content: Text(
-                                    tr('Password reset link sent to your email.'),
+                                    tr(
+                                      'If an account exists for this email, a password reset link has been sent.',
+                                    ),
                                   ),
                                 ),
                               );
@@ -179,9 +172,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text(
-                                    '${tr('Could not send reset email:')} $e',
-                                  ),
+                                  content: Text(authErrorMessage(e)),
                                 ),
                               );
                             }
@@ -206,33 +197,14 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  String _firebaseAuthError(FirebaseAuthException e) {
-    switch (e.code) {
-      case 'invalid-credential':
-        return tr('Invalid email or password.');
-      case 'user-not-found':
-        return tr('No account exists with this email.');
-      case 'wrong-password':
-        return tr('Incorrect password.');
-      case 'invalid-email':
-        return tr('Please enter a valid email address.');
-      case 'user-disabled':
-        return tr('This account has been disabled.');
-      case 'too-many-requests':
-        return tr('Too many attempts. Please try again later.');
-      default:
-        return e.message ?? tr('Login failed. Please try again.');
-    }
-  }
+  String _firebaseAuthError(FirebaseAuthException e) => authErrorMessage(e);
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         behavior: SnackBarBehavior.floating,
         margin: const EdgeInsets.all(16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         content: Text(message),
       ),
     );
@@ -248,10 +220,7 @@ class _LoginScreenState extends State<LoginScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        actions: const [
-          LanguageToggleButton(),
-          SizedBox(width: 8),
-        ],
+        actions: const [LanguageToggleButton(), SizedBox(width: 8)],
       ),
       body: SafeArea(
         top: false,
@@ -271,8 +240,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     fit: BoxFit.contain,
                   ),
                   const SizedBox(height: 16),
-                  Text(
-                    'Somaiya HaemoPhysio',
+                  AppText(
+                    'Somaiya HemoPhysio',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: compact ? 26 : 30,
@@ -281,16 +250,30 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    tr('Smart Physiotherapy Assistant'),
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.grey.shade600,
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  ValueListenableBuilder<String?>(
+                    valueListenable: AuthService.signedOutReason,
+                    builder: (context, reason, _) => reason == null
+                        ? const SizedBox.shrink()
+                        : Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Card(
+                              color: const Color(0xFFFFF4E5),
+                              child: ListTile(
+                                leading: const Icon(
+                                  Icons.devices_other_outlined,
+                                ),
+                                title: Text(tr('Signed out on this device')),
+                                subtitle: Text(tr(reason)),
+                                trailing: IconButton(
+                                  tooltip: tr('OK'),
+                                  icon: const Icon(Icons.close),
+                                  onPressed: () =>
+                                      AuthService.signedOutReason.value = null,
+                                ),
+                              ),
+                            ),
+                          ),
                   ),
-                  const SizedBox(height: 24),
                   Card(
                     elevation: 0,
                     shape: RoundedRectangleBorder(
@@ -309,16 +292,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               fontWeight: FontWeight.w800,
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            tr('Sign in to continue your physiotherapy journey and track rehabilitation.'),
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontSize: 13,
-                              height: 1.35,
-                            ),
-                          ),
-                          const SizedBox(height: 22),
+                          const SizedBox(height: 18),
                           TextField(
                             controller: _emailController,
                             keyboardType: TextInputType.emailAddress,
@@ -425,8 +399,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           const SizedBox(height: 14),
                           OutlinedButton.icon(
-                            onPressed:
-                                _googleLoading ? null : _continueWithGoogle,
+                            onPressed: _googleLoading
+                                ? null
+                                : _continueWithGoogle,
                             icon: _googleLoading
                                 ? const SizedBox(
                                     width: 18,
@@ -452,13 +427,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             alignment: WrapAlignment.center,
                             crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
-                              Text(
-                                tr("Don't have an account?"),
-                                style: TextStyle(
-                                  color: Colors.grey.shade700,
-                                  fontSize: 13,
-                                ),
-                              ),
                               TextButton(
                                 onPressed: _loading
                                     ? null
@@ -480,93 +448,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 14),
-
-                  // Health Risk Screening Widget (Physio-Project ML screening)
-                  Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const HealthScreeningScreen(),
-                          ),
-                        );
-                      },
-                      borderRadius: BorderRadius.circular(16),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF0FDF4),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: const Color(0xFF86EFAC),
-                            width: 1.2,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 36,
-                              height: 36,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFDCFCE7),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Icon(
-                                Icons.health_and_safety_outlined,
-                                size: 20,
-                                color: Color(0xFF15803D),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          tr('Health Risk Screening'),
-                                          style: const TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w700,
-                                            color: Color(0xFF14532D),
-                                          ),
-                                        ),
-                                      ),
-                                      Text(
-                                        '${tr('Start')} ›',
-                                        style: const TextStyle(
-                                          fontSize: 12.5,
-                                          fontWeight: FontWeight.w800,
-                                          color: Color(0xFF15803D),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    tr('Check your symptoms and understand possible health risks.'),
-                                    style: TextStyle(
-                                      fontSize: 11.5,
-                                      color: Colors.grey.shade700,
-                                      height: 1.25,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
 
                   // Dedicated Clinician Switch Card
                   Container(
@@ -598,22 +479,13 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                tr('Are you a Doctor / Physiotherapist?'),
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.grey.shade800,
-                                ),
-                              ),
                               const SizedBox(height: 1),
                               InkWell(
                                 onTap: () {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (_) =>
-                                          const DoctorLoginScreen(),
+                                      builder: (_) => const DoctorLoginScreen(),
                                     ),
                                   );
                                 },
