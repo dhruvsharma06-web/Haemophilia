@@ -115,3 +115,17 @@ Normal builds omit `POSE_DIAGNOSTICS`; the opt-in device diagnostic entry point 
 Outputs: `haemophilia_app/build/app/outputs/flutter-apk/app-debug.apk` and
 `haemophilia_app/build/admin_web`. Builds are ignored by Git. This review does
 not deploy the website or Firebase services.
+
+## CI follow-up
+
+GitHub Actions run 12 passed server, rules and Flutter checks, but its APK job
+failed before compilation: the floating stable Flutter SDK required AGP 9.1.1
+and the repository specified 9.1.0. The earlier local debug build used Flutter
+3.47.9, which accepted that older patch. The admin build was skipped because it
+followed the failed Android step.
+
+AGP is now 9.1.1, and both CI Flutter jobs pin 3.47.9 to match the verified local
+SDK. This follow-up also checks an Android release build, including shrinking,
+which the earlier local debug build did not cover. No exercise rules changed.
+The local release build passed with AGP 9.1.1 and produced
+`haemophilia_app/build/app/outputs/flutter-apk/app-release.apk` (132.7 MB).

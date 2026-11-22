@@ -12,6 +12,7 @@ Do not apply it blindly over the newer app.
 ## Environments
 
 - Flutter 3.47.9 / Dart 3.13.7; Flutter Doctor reports no issues.
+- CI pins Flutter 3.47.9; Android Gradle Plugin is 9.1.1 with Gradle 9.3.1.
 - Backend: Python 3.11 environment at `.venv`, requirements installed.
 - Firebase Functions: Python 3.12.15 environment at `.venv-functions`, pinned requirements installed.
 - Firebase rules tests: npm dependencies installed under `haemophilia_app/firebase/tests`.
