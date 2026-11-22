@@ -85,6 +85,54 @@ class _Driver {
 }
 
 void main() {
+  test('repeated cycles count once each and idle jitter does not add reps', () {
+    final driver = _Driver();
+    for (var rep = 0; rep < 10; rep++) {
+      driver.cycle();
+      expect(driver.engine.repCount, rep + 1);
+      expect(driver.engine.correctCount, rep + 1);
+    }
+    for (var frame = 0; frame < 300; frame++) {
+      driver.sample(170 + math.sin(frame) * 2, 170 + math.cos(frame) * 2);
+    }
+    expect(driver.engine.repCount, 10);
+    expect(driver.completed.length, 10);
+    expect(
+      driver.completed.map((rep) => rep['rep_index']),
+      orderedEquals(List.generate(10, (i) => i + 1)),
+    );
+    expect(() => jsonEncode(driver.completed), returnsNormally);
+  });
+
+  test(
+    'world angles are invariant under rigid rotation translation and scale',
+    () {
+      for (final rotation in [0.0, .6, 1.5, 3.0]) {
+        final points = _world(65, 85);
+        for (final point in points.where((point) => point.containsKey('x'))) {
+          final x = point['x'] as double;
+          final y = point['y'] as double;
+          point['x'] =
+              2.5 * (x * math.cos(rotation) - y * math.sin(rotation)) + 10;
+          point['y'] =
+              2.5 * (x * math.sin(rotation) + y * math.cos(rotation)) - 4;
+          point['z'] = 2.5 * (point['z'] as double) + 2;
+        }
+        final state = ElbowWorldAssessment().update(
+          [],
+          640,
+          480,
+          0,
+          worldLandmarks: points,
+          angleSource: ElbowWorldAssessment.source,
+        );
+        expect(state['tracking_valid'], true);
+        expect(state['left_angle'], closeTo(65, 1e-8));
+        expect(state['right_angle'], closeTo(85, 1e-8));
+      }
+    },
+  );
+
   test('exact candidate thresholds and public summary', () {
     expect(ElbowWorldAssessment.thresholds, {
       'left': {

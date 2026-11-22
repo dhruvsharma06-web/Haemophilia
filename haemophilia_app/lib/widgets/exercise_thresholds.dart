@@ -8,7 +8,32 @@ import '../utils/app_localizations.dart';
 
 String localizedThresholds(ExerciseRule rule) {
   if (rule.id == kElbowFlexionExtension ||
-      rule.id == kShoulderRotation) {
+      rule.id == kShoulderRotation ||
+      rule.id == kAssistedElbowFlexionV5) {
+    if (AppLocaleService.isHindi) {
+      if (rule.id == kAssistedElbowFlexionV5) {
+        return 'आरामदायक शुरुआती स्थिति में स्थिर रहें। सहारे से कोहनी को दिखाए लक्ष्य '
+            '(≤${rule.target.toStringAsFixed(0)}°) तक मोड़ें और फिर अपने शुरुआती कोण से '
+            '${rule.returnBand.toStringAsFixed(0)}° के भीतर वापस लाएं।';
+      }
+      if (rule.id == kShoulderRotation) {
+        return 'कोहनियां 60–120° के बीच मोड़कर शुरुआती स्थिति में स्थिर रहें। दोनों अग्रबाहुओं को '
+            '${ShoulderRotationAssessment.extremeDegrees.toStringAsFixed(0)}° तक साथ हिलाएं '
+            'और ${ShoulderRotationAssessment.extremeHoldSeconds} सेकंड रुकें। फिर शुरुआत से '
+            '${ShoulderRotationAssessment.appReturnBandDegrees.toStringAsFixed(0)}° के भीतर लौटें '
+            'और ${ShoulderRotationAssessment.appReturnHoldSeconds} सेकंड रुकें। '
+            'गति और वापसी से एक दोहराव पूरा होता है। कैमरे के माप अनुमान हैं।';
+      }
+      return 'दोनों बांहों के लक्ष्य अलग हैं। बाईं: शुरुआत ≥${ElbowWorldAssessment.leftExtensionMin.toStringAsFixed(2)}°, '
+          'मोड़ ≤${ElbowWorldAssessment.leftFlexionMax.toStringAsFixed(2)}°, '
+          'गति की सीमा ≥${ElbowWorldAssessment.leftRomMin.toStringAsFixed(2)}°। '
+          'दाईं: शुरुआत ≥${ElbowWorldAssessment.rightExtensionMin.toStringAsFixed(2)}°, '
+          'मोड़ ≤${ElbowWorldAssessment.rightFlexionMax.toStringAsFixed(2)}°, '
+          'गति की सीमा ≥${ElbowWorldAssessment.rightRomMin.toStringAsFixed(2)}°। '
+          'लक्ष्य और वापसी पर ${ElbowWorldAssessment.targetHoldSeconds} सेकंड रुकें। '
+          'वापसी बाईं ओर ${ElbowWorldAssessment.leftReturnErrorMax.toStringAsFixed(2)}° और '
+          'दाईं ओर ${ElbowWorldAssessment.rightReturnErrorMax.toStringAsFixed(2)}° के भीतर हो।';
+    }
     return rule.thresholdSummary;
   }
   final both = rule.usesBothArms ? '${tr('Both arms')}: ' : '';
@@ -27,16 +52,19 @@ class ExerciseThresholds extends StatelessWidget {
   final String exercise;
   final bool dark;
   final bool compact;
+  final ExerciseRule? ruleOverride;
   const ExerciseThresholds({
     super.key,
     required this.exercise,
     this.dark = false,
     this.compact = false,
+    this.ruleOverride,
   });
   @override
   Widget build(BuildContext context) {
     AppLocaleScope.of(context);
-    final rule = ExerciseRule.forExercise(exercise);
+    final standard = ExerciseRule.forExercise(exercise);
+    final rule = ruleOverride?.id == standard.id ? ruleOverride! : standard;
     final color = dark ? Colors.white : Theme.of(context).colorScheme.onSurface;
     if (rule.id == kElbowFlexionExtension) {
       return Container(
@@ -54,15 +82,18 @@ class ExerciseThresholds extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              ElbowWorldAssessment.thresholdSummary,
+              localizedThresholds(rule),
               style: TextStyle(color: color, fontSize: compact ? 11.5 : 12.5),
             ),
             const SizedBox(height: 6),
             Text(
-              'Person-specific candidate reference, not a clinical prescription. '
-              'MediaPipe world-coordinate tracking; no additional angle margin. '
-              'Follow your prescribed comfortable range; stop if painful.',
-              style: TextStyle(color: color.withValues(alpha: .75), fontSize: 11),
+              tr(
+                'Camera measurements are estimates. Follow your prescribed comfortable range; stop if painful.',
+              ),
+              style: TextStyle(
+                color: color.withValues(alpha: .75),
+                fontSize: 11,
+              ),
             ),
           ],
         ),
@@ -84,18 +115,18 @@ class ExerciseThresholds extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              ShoulderRotationAssessment.thresholdSummary,
+              localizedThresholds(rule),
               style: TextStyle(color: color, fontSize: compact ? 11.5 : 12.5),
             ),
             const SizedBox(height: 6),
             Text(
-              'Proposed engineering settings, not clinical targets. Only the '
-              'elbow bend and sideways torso lean values are carried over from '
-              'the previous version. MediaPipe world-coordinate tracking; the '
-              'rotation signal is a forearm-orientation proxy, not measured '
-              'anatomical rotation. Follow your prescribed range; stop if '
-              'painful.',
-              style: TextStyle(color: color.withValues(alpha: .75), fontSize: 11),
+              tr(
+                'Camera measurements are estimates. Follow your prescribed comfortable range; stop if painful.',
+              ),
+              style: TextStyle(
+                color: color.withValues(alpha: .75),
+                fontSize: 11,
+              ),
             ),
           ],
         ),
@@ -134,7 +165,9 @@ class ExerciseThresholds extends StatelessWidget {
     final restSign = rule.increasing ? '≤' : '≥';
     final targetSign = rule.increasing ? '≥' : '≤';
     final both = rule.usesBothArms ? '${tr('Both arms')}: ' : '';
-    final start = rule.relative
+    final start = rule.id == kAssistedElbowFlexionV5
+        ? tr('Your comfortable, steady starting position')
+        : rule.relative
         ? '${tr('Neutral position')}; ${tr('Return within')} ${rule.start.toStringAsFixed(0)}°'
         : '$both${tr(rule.joint)} $restSign${rule.start.toStringAsFixed(0)}°';
     final target = rule.relative

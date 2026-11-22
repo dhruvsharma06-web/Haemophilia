@@ -17,6 +17,8 @@ List<Map<String, dynamic>> _world({
   double upperArmOffset = 0,
   double sidewaysLean = 0,
   bool rightArmFollows = true,
+  bool bilateralExternal = false,
+  double rightRotationScale = 1,
 }) {
   final points = List.generate(
     33,
@@ -59,15 +61,20 @@ List<Map<String, dynamic>> _world({
     final ex = sx + side * math.sin(arm) * .30;
     final ey = sy + math.cos(arm) * .30;
     put(elbow, ex, ey, 0);
-    final angle = side == 1 && !rightArmFollows ? rotation : rotation;
+    final angle = side == 1 && !rightArmFollows
+        ? 0.0
+        : bilateralExternal && side < 0
+        ? -rotation
+        : rotation;
+    final scaledAngle = angle * (side == 1 ? rightRotationScale : 1);
     // Forearm length grows from the elbow, pointing forward (-z) at neutral
     // and swinging in the horizontal plane as the wand rotates.
     final fore = math.sin(bend) * .28;
     put(
       wrist,
-      ex + math.sin(angle) * fore,
+      ex + math.sin(scaledAngle) * fore,
       ey + math.cos(bend) * .28,
-      -math.cos(angle) * fore,
+      -math.cos(scaledAngle) * fore,
     );
   }
   return points;
@@ -79,6 +86,8 @@ List<Map<String, dynamic>> _image({
   double rotationDegrees = 0,
   double sidewaysLean = 0,
   double wandTilt = 0,
+  double upperArmOffset = 0,
+  double shoulderScale = 1,
 }) {
   final points = List.generate(
     33,
@@ -100,19 +109,31 @@ List<Map<String, dynamic>> _image({
   final dx = math.tan(leanRadians) * dy;
   final shoulderMidX = .50 + dx / 480;
   points[11] = {
-    'x': shoulderMidX - .10,
+    'x': shoulderMidX - .10 * shoulderScale,
     'y': .35,
     'z': 0.0,
     'visibility': .99,
   };
   points[12] = {
-    'x': shoulderMidX + .10,
+    'x': shoulderMidX + .10 * shoulderScale,
     'y': .35,
     'z': 0.0,
     'visibility': .99,
   };
   points[13] = {'x': .38, 'y': .55, 'z': 0.0, 'visibility': .99};
   points[14] = {'x': .62, 'y': .55, 'z': 0.0, 'visibility': .99};
+  if (upperArmOffset != 0) {
+    final r = upperArmOffset * math.pi / 180;
+    for (final pair in [(11, 13, -1), (12, 14, 1)]) {
+      points[pair.$2] = {
+        ...points[pair.$2],
+        'x':
+            (points[pair.$1]['x'] as double) +
+            pair.$3 * math.sin(r) * 128 / 480,
+        'y': .35 + math.cos(r) * .2,
+      };
+    }
+  }
   final shift = rotationDegrees / 1000;
   final tilt = wandTilt / 1000;
   points[15] = {'x': .40 + shift, 'y': .62 + tilt, 'z': 0.0, 'visibility': .99};
@@ -121,14 +142,25 @@ List<Map<String, dynamic>> _image({
 }
 
 class _Driver {
-  final engine = ShoulderRotationAssessment();
+  final ShoulderRotationAssessment engine;
+  final bool bilateralExternal;
+  final bool autoProtocol;
+  final bool reflectWorldX;
   final double cadence;
   double time = 0;
   double rotation = 0;
   Map<String, dynamic> state = {};
   final List<Map<String, dynamic>> completed = [];
 
-  _Driver({this.cadence = .05});
+  _Driver({
+    this.cadence = .05,
+    this.bilateralExternal = false,
+    this.autoProtocol = false,
+    this.reflectWorldX = false,
+  }) : engine = ShoulderRotationAssessment(
+         bilateralExternal: bilateralExternal || autoProtocol,
+         autoProtocol: autoProtocol,
+       );
 
   Map<String, dynamic> sample(
     double nextRotation, {
@@ -137,24 +169,77 @@ class _Driver {
     double wandTilt = 0,
     double elbowBend = 90,
     double upperArmOffset = 0,
+    double? imageUpperArmOffset,
+    double depthYaw = 0,
+    double shoulderScale = 1,
+    bool? externalPose,
+    double rightRotationScale = 1,
   }) {
     time += cadence;
     rotation = nextRotation;
-    state = engine.update(
-      _image(
-        rotationDegrees: image ? nextRotation / 40 : 0,
+    var imagePoints = _image(
+      rotationDegrees: image ? nextRotation / 40 : 0,
+      sidewaysLean: sidewaysLean,
+      wandTilt: wandTilt,
+      upperArmOffset: imageUpperArmOffset ?? upperArmOffset,
+      shoulderScale: shoulderScale,
+    );
+    if (autoProtocol) {
+      final projected = _world(
+        rotationDegrees: image ? nextRotation : 0,
+        elbowBend: elbowBend,
+        upperArmOffset: imageUpperArmOffset ?? upperArmOffset,
         sidewaysLean: sidewaysLean,
-        wandTilt: wandTilt,
-      ),
+        bilateralExternal: externalPose ?? bilateralExternal,
+        rightRotationScale: rightRotationScale,
+      );
+      imagePoints = projected
+          .map(
+            (p) => <String, dynamic>{
+              'x': .5 + (p['x'] as num) * 600 / 480,
+              'y': .1 + (p['y'] as num) * 600 / 640,
+              'z': 0.0,
+              'visibility': .99,
+            },
+          )
+          .toList();
+      for (final i in [11, 12]) {
+        imagePoints[i]['x'] =
+            .5 + ((imagePoints[i]['x'] as num) - .5) * shoulderScale;
+      }
+    }
+    state = engine.update(
+      imagePoints,
       480,
       640,
       time,
-      worldLandmarks: _world(
-        rotationDegrees: nextRotation,
-        elbowBend: elbowBend,
-        upperArmOffset: upperArmOffset,
-        sidewaysLean: sidewaysLean,
-      ),
+      worldLandmarks:
+          _world(
+                rotationDegrees: nextRotation,
+                elbowBend: elbowBend,
+                upperArmOffset: upperArmOffset,
+                sidewaysLean: sidewaysLean,
+                bilateralExternal: externalPose ?? bilateralExternal,
+                rightRotationScale: rightRotationScale,
+              )
+              .map(
+                (point) => reflectWorldX
+                    ? {...point, 'x': -(point['x'] as num).toDouble()}
+                    : point,
+              )
+              .map((p) {
+                final a = depthYaw * math.pi / 180;
+                return {
+                  ...p,
+                  'x':
+                      (p['x'] as num) * math.cos(a) +
+                      (p['z'] as num) * math.sin(a),
+                  'z':
+                      -(p['x'] as num) * math.sin(a) +
+                      (p['z'] as num) * math.cos(a),
+                };
+              })
+              .toList(),
       angleSource: ShoulderRotationAssessment.source,
     );
     if (state['completed_rep'] case final Map<String, dynamic> rep) {
@@ -199,6 +284,412 @@ class _Driver {
 }
 
 void main() {
+  test('paired shoulder targets tolerate unequal camera amplitudes without a false coordination failure', () {
+    final d = _Driver(bilateralExternal: true, autoProtocol: true);
+    d.hold(1, 0);
+    for (final a in [
+      for (var i = 1; i <= 45; i++) i.toDouble(),
+      ...List.filled(10, 45.0),
+      for (var i = 44; i >= 0; i--) i.toDouble(),
+      ...List.filled(12, 0.0),
+    ]) {
+      d.sample(a, rightRotationScale: .6);
+    }
+    expect(d.engine.repCount, 1);
+    expect(d.completed.single['form'], 'correct');
+  });
+  test('sequential shoulder starts still fail coordination despite reaching both targets', () {
+    final d = _Driver(bilateralExternal: true, autoProtocol: true);
+    d.hold(1, 0);
+    for (var i = 1; i <= 30; i++) {
+      d.sample(i.toDouble(), rightRotationScale: 0);
+    }
+    for (var i = 0; i < 12; i++) {
+      d.sample(30, rightRotationScale: 0);
+    }
+    for (var i = 1; i <= 20; i++) {
+      d.sample(30, rightRotationScale: i / 20);
+    }
+    d.hold(.4, 30);
+    d.move(1, 0);
+    d.hold(.5, 0);
+    expect(d.engine.repCount, 1);
+    expect(
+      d.completed.single['error_codes'],
+      contains('BILATERAL_COORDINATION'),
+    );
+  });
+
+  test('calibration freezes arm scale and computes neutral in the same coordinate scale', () {
+    final e = ShoulderRotationAssessment(
+      bilateralExternal: true,
+      autoProtocol: true,
+    );
+    Map<String, dynamic> state = {};
+    for (var frame = 0; frame < 40; frame++) {
+      final w = _world(rotationDegrees: 30, bilateralExternal: true);
+      final image = w
+          .map(
+            (p) => <String, dynamic>{
+              'x': .5 + (p['x'] as num) * 600 / 480,
+              'y': .1 + (p['y'] as num) * 600 / 640,
+              'z': 0.0,
+              'visibility': .99,
+            },
+          )
+          .toList();
+      final scale = frame.isEven ? .7 : 1.3;
+      for (final pair in [(13, 15), (14, 16)]) {
+        for (final key in ['x', 'y', 'z']) {
+          w[pair.$2][key] =
+              (w[pair.$1][key] as num) +
+              ((w[pair.$2][key] as num) - (w[pair.$1][key] as num)) * scale;
+        }
+      }
+      state = e.update(
+        image,
+        480,
+        640,
+        frame * .05,
+        worldLandmarks: w,
+        angleSource: ShoulderRotationAssessment.source,
+      );
+    }
+    expect(e.calibrated, true);
+    expect(e.repCount, 0);
+    expect((state['left_angle'] as num).abs(), lessThan(2));
+    expect((state['right_angle'] as num).abs(), lessThan(2));
+  });
+
+  test(
+    'both app movement patterns expose live target hold before the return',
+    () {
+      for (final external in [false, true]) {
+        final driver = _Driver(bilateralExternal: external, autoProtocol: true);
+        driver.hold(1, 0);
+        driver.move(1, 30);
+        driver.hold(.4, 30);
+        expect(driver.state['target_reached'], true);
+        expect(driver.state['target_hold_progress'], 1.0);
+        expect(driver.engine.repCount, 0);
+        driver.move(1, 0);
+        driver.hold(.5, 0);
+        expect(driver.engine.repCount, 1);
+        expect(driver.completed.single['form'], 'correct');
+      }
+    },
+  );
+
+  test(
+    'app neutral calibration accepts still hands despite model depth jitter',
+    () {
+      final driver = _Driver(bilateralExternal: true, autoProtocol: true);
+      for (var i = 0; i < 30; i++) {
+        driver.sample(i.isEven ? 20 : -20, image: false);
+      }
+      expect(driver.engine.calibrated, true);
+      expect(driver.engine.repCount, 0);
+      for (var i = 0; i < 60; i++) {
+        driver.sample(i.isEven ? 35 : -35, image: false);
+      }
+      expect(driver.engine.repCount, 0);
+    },
+  );
+  for (final external in [false, true]) {
+    test(
+      'app counts a movement and return from a held non-central start, external=$external',
+      () {
+        final driver = _Driver(bilateralExternal: external, autoProtocol: true);
+        final start = external ? 30.0 : -25.0, target = external ? 0.0 : 25.0;
+        driver.hold(1, start);
+        driver.move(1, target);
+        driver.hold(.4, target);
+        driver.move(1, start);
+        driver.hold(.5, start);
+        expect(driver.engine.repCount, 1);
+        expect(driver.completed.single['form'], 'correct');
+        expect(
+          driver.completed.single['angle_source'],
+          'image_lateral_with_world_scale',
+        );
+      },
+    );
+  }
+
+  for (final confirmed in [false, true]) {
+    test(
+      'world shoulder-depth noise needs frontal evidence to grade torso twist, evidence=$confirmed',
+      () {
+        final driver = _Driver(bilateralExternal: true, autoProtocol: true);
+        driver.hold(1, 0);
+        for (final r in [
+          for (var i = 1; i <= 30; i++) i.toDouble(),
+          ...List.filled(12, 30.0),
+          for (var i = 29; i >= 0; i--) i.toDouble(),
+          ...List.filled(12, 0.0),
+        ]) {
+          driver.sample(r, depthYaw: 30, shoulderScale: confirmed ? .7 : 1);
+        }
+        expect(driver.completed, hasLength(1));
+        expect(
+          driver.completed.single['error_codes'],
+          confirmed ? contains('TORSO_TWIST') : isNot(contains('TORSO_TWIST')),
+        );
+      },
+    );
+  }
+  test('outward-return relative motion works with either calibrated sign', () {
+    final driver = _Driver(bilateralExternal: true, autoProtocol: true);
+    driver.hold(1, 0);
+    driver.move(1, -30);
+    driver.hold(.4, -30);
+    driver.move(1, 0);
+    driver.hold(.5, 0);
+    expect(driver.engine.repCount, 1);
+    expect(driver.completed.single['form'], 'correct');
+  });
+  test(
+    'brief paired tremor is not recorded as an incorrect shoulder repetition',
+    () {
+      final driver = _Driver(bilateralExternal: true, autoProtocol: true);
+      driver.hold(1, 0);
+      driver.move(.1, 9);
+      driver.hold(.15, 9);
+      driver.move(.1, 0);
+      driver.hold(.5, 0);
+      expect(driver.engine.repCount, 0);
+    },
+  );
+  test('a different shoulder pattern can be chosen after a completed neutral return', () {
+    final driver = _Driver(bilateralExternal: true, autoProtocol: true);
+    driver.hold(1, 0);
+    driver.move(1, 30);
+    driver.hold(.4, 30);
+    driver.move(1, 0);
+    driver.hold(.5, 0);
+    for (final r in [
+      for (var i = 1; i <= 30; i++) i.toDouble(),
+      ...List.filled(10, 30.0),
+      for (var i = 29; i >= -30; i--) i.toDouble(),
+      ...List.filled(10, -30.0),
+      for (var i = -29; i <= 0; i++) i.toDouble(),
+      ...List.filled(10, 0.0),
+    ]) {
+      driver.sample(r, externalPose: false);
+    }
+    expect(driver.engine.repCount, 3);
+    expect(
+      driver.completed.last['movement_protocol'],
+      'bilateral_sweep_return',
+    );
+  });
+
+  test('neutral model-depth offset does not grade straight visible upper arms incorrect', () {
+    final driver = _Driver(bilateralExternal: true, autoProtocol: true);
+    for (final rotation in [
+      ...List.filled(20, 0.0),
+      for (var i = 1; i <= 30; i++) i.toDouble(),
+      ...List.filled(10, 30.0),
+      for (var i = 29; i >= 0; i--) i.toDouble(),
+      ...List.filled(12, 0.0),
+    ]) {
+      driver.sample(rotation, upperArmOffset: 30, imageUpperArmOffset: 0);
+    }
+    expect(driver.engine.repCount, 1);
+    expect(driver.completed.single['form'], 'correct');
+  });
+  test(
+    'shoulder live form warns before sustained errors and resets after a cycle',
+    () {
+      final driver = _Driver(bilateralExternal: true, autoProtocol: true);
+      driver.hold(1, 0);
+      driver.move(1, 30);
+      driver.hold(.3, 30);
+      expect(driver.sample(30, upperArmOffset: 30)['form'], 'Adjusting');
+      for (var i = 0; i < 24; i++) {
+        driver.sample(30, upperArmOffset: 30);
+      }
+      expect(driver.state['form'], 'incorrect');
+      driver.move(1, 0);
+      driver.hold(.5, 0);
+      expect(driver.completed.single['form'], 'incorrect');
+      driver.hold(.5, 0);
+      expect(driver.state['form'], 'correct');
+    },
+  );
+
+  test('auto pattern requires bilateral movement and rejects idle jitter', () {
+    final engine = ShoulderRotationAssessment(
+      bilateralExternal: true,
+      autoProtocol: true,
+    );
+    for (var frame = 0; frame < 100; frame++) {
+      engine.update(
+        _image(),
+        480,
+        640,
+        frame * .05,
+        worldLandmarks: _world(
+          rotationDegrees: frame < 20 ? 0 : 30,
+          rightArmFollows: false,
+        ),
+        angleSource: ShoulderRotationAssessment.source,
+      );
+    }
+    expect(engine.repCount, 0);
+  });
+  test('repeated outward-return cycles do not double count or survive tracking loss', () {
+    final driver = _Driver(bilateralExternal: true, autoProtocol: true);
+    driver.hold(1, 0);
+    for (var i = 0; i < 3; i++) {
+      driver.move(.8, 30);
+      driver.hold(.4, 30);
+      driver.move(.8, 0);
+      driver.hold(.4, 0);
+      expect(driver.engine.repCount, i + 1);
+    }
+    driver.move(.8, 30);
+    driver.hold(.4, 30);
+    driver.engine.update(
+      [],
+      480,
+      640,
+      driver.time + .05,
+      worldLandmarks: [],
+      angleSource: ShoulderRotationAssessment.source,
+    );
+    driver.move(.8, 0);
+    driver.hold(1, 0);
+    expect(driver.engine.repCount, 3);
+  });
+
+  test('app recognizes same-direction shoulder sweep independently', () {
+    final driver = _Driver(autoProtocol: true);
+    driver.cycle();
+    expect(driver.engine.repCount, 1);
+    expect(driver.completed.single['form'], 'correct');
+    expect(
+      driver.completed.single['movement_protocol'],
+      'bilateral_sweep_return',
+    );
+  });
+  for (final mirrored in [false, true]) {
+    test(
+      'external protocol follows anatomical sides with world x reflection=$mirrored',
+      () {
+        final driver = _Driver(
+          bilateralExternal: true,
+          autoProtocol: true,
+          reflectWorldX: mirrored,
+        );
+        driver.hold(1, 0);
+        driver.move(1, 30);
+        driver.hold(.5, 30);
+        driver.move(1, 0);
+        driver.hold(.5, 0);
+        expect(driver.engine.repCount, 1);
+        expect(driver.completed.single['form'], 'correct');
+        expect(
+          driver.completed.single['movement_protocol'],
+          'bilateral_outward_return',
+        );
+      },
+    );
+  }
+
+  test('app tutorial outward rotation and return counts once, without a wand sweep', () {
+    final driver = _Driver(bilateralExternal: true);
+    driver.hold(1, 0);
+    driver.move(1, 30);
+    driver.hold(.5, 30);
+    expect(driver.engine.repCount, 0);
+    driver.move(1, 0);
+    driver.hold(.5, 0);
+    expect(driver.engine.repCount, 1);
+    expect(driver.completed.single['form'], 'correct');
+    expect(
+      driver.completed.single['movement_protocol'],
+      'bilateral_outward_return',
+    );
+    driver.hold(2, 0);
+    expect(driver.engine.repCount, 1);
+  });
+
+  test('visible non-ideal upper arms count with form feedback rather than never starting', () {
+    final driver = _Driver(bilateralExternal: true);
+    for (var i = 0; i < 20; i++) {
+      driver.sample(0, upperArmOffset: 30);
+    }
+    expect(driver.engine.calibrated, true);
+    for (final rotation in [
+      for (var i = 1; i <= 30; i++) i.toDouble(),
+      ...List.filled(12, 30.0),
+      for (var i = 29; i >= 0; i--) i.toDouble(),
+      ...List.filled(12, 0.0),
+    ]) {
+      driver.sample(rotation, upperArmOffset: 30);
+    }
+    expect(driver.engine.repCount, 1);
+    expect(driver.completed.single['form'], 'incorrect');
+    expect(
+      driver.completed.single['error_codes'],
+      contains('UPPER_ARM_POSITION'),
+    );
+  });
+  test('visible wrists at phone-measured confidence can calibrate', () {
+    final engine = ShoulderRotationAssessment();
+    for (var frame = 0; frame < 20; frame++) {
+      final points = _world();
+      points[13]['visibility'] = .64;
+      points[15]['visibility'] = .65;
+      final state = engine.update(
+        _image(),
+        480,
+        640,
+        frame * .05,
+        worldLandmarks: points,
+        angleSource: ShoulderRotationAssessment.source,
+      );
+      expect(state['tracking_valid'], true);
+    }
+    expect(engine.calibrated, true);
+  });
+  test('a smooth centre crossing between camera samples completes a cycle', () {
+    final driver = _Driver(cadence: .2);
+    driver.hold(1, 0);
+    driver.move(1, 30);
+    driver.hold(.6, 30);
+    driver.move(.6, -30);
+    driver.hold(.8, -30);
+    expect(driver.engine.repCount, 1);
+    expect(driver.completed.single['form'], 'correct');
+    expect((driver.state['left_angle'] as num).abs(), closeTo(30, .1));
+  });
+  test('holding the completed extreme cannot arm the next repetition', () {
+    final driver = _Driver()..cycle();
+    driver.hold(2, -25);
+    expect(driver.engine.repCount, 1);
+    expect(driver.engine.stage, 'NEED_CENTRE');
+    driver.move(.8, 0);
+    driver.hold(.7, 0);
+    expect(driver.engine.stage, 'CENTRE');
+    driver.cycle();
+    expect(driver.engine.repCount, 2);
+  });
+
+  test(
+    'moving forearms cannot be accepted as a steady neutral calibration',
+    () {
+      final driver = _Driver();
+      for (var frame = 0; frame < 25; frame++) {
+        driver.sample(frame * 3.0);
+      }
+      expect(driver.engine.calibrated, false);
+      driver.hold(.8, 0);
+      expect(driver.engine.calibrated, true);
+    },
+  );
+
   test('thresholds match the supplied report exactly', () {
     expect(ShoulderRotationAssessment.elbowBendMin, 60);
     expect(ShoulderRotationAssessment.elbowBendMax, 120);
@@ -215,35 +706,41 @@ void main() {
     expect(ShoulderRotationAssessment.extremeHoldSeconds, .15);
     expect(ShoulderRotationAssessment.bilateralMaxDifference, 15);
     expect(ShoulderRotationAssessment.fullExcursionDegrees, 40);
-    expect(ShoulderRotationAssessment.visibilityMin, .7);
+    expect(ShoulderRotationAssessment.visibilityMin, .5);
     expect(
       ShoulderRotationAssessment.provenance,
       'proposed_engineering_settings',
     );
-    expect(ShoulderRotationAssessment.thresholds['elbow_bend']['status'], 'existing');
+    expect(
+      ShoulderRotationAssessment.thresholds['elbow_bend']['status'],
+      'existing',
+    );
     expect(
       ShoulderRotationAssessment.thresholds['torso_sideways_lean']['status'],
       'existing',
     );
-    expect(ShoulderRotationAssessment.thresholds['torso_twist']['status'], 'proposed');
+    expect(
+      ShoulderRotationAssessment.thresholds['torso_twist']['status'],
+      'proposed',
+    );
     expect(
       ShoulderRotationAssessment.thresholdSummary,
       allOf(contains('60-120'), contains('Proposed engineering settings')),
     );
-    expect(() => jsonEncode(ShoulderRotationAssessment.thresholds), returnsNormally);
+    expect(
+      () => jsonEncode(ShoulderRotationAssessment.thresholds),
+      returnsNormally,
+    );
   });
 
   test('bundled calibration file matches the engine constants', () {
-    final reference =
-        jsonDecode(File('../docs/calibration/shoulder-rotation.json').readAsStringSync())
-            as Map;
+    final reference = jsonDecode(
+      File('../docs/calibration/shoulder-rotation.json').readAsStringSync(),
+    ) as Map;
     expect(ShoulderRotationAssessment.thresholds, reference['thresholds']);
     expect(ShoulderRotationAssessment.provenance, reference['status']);
     expect(ShoulderRotationAssessment.source, reference['angle_source']);
-    expect(
-      reference['provenance_notes'],
-      contains('not degrees'),
-    );
+    expect(reference['provenance_notes'], contains('not degrees'));
   });
 
   test('a full centre-extreme-centre-opposite cycle counts once', () {
@@ -433,7 +930,9 @@ void main() {
     expect(rep['error_codes'], contains('TORSO_SIDEWAYS_LEAN'));
     expect(
       rep['form_failures']['TORSO_SIDEWAYS_LEAN'],
-      greaterThanOrEqualTo(ShoulderRotationAssessment.failurePersistenceFraction),
+      greaterThanOrEqualTo(
+        ShoulderRotationAssessment.failurePersistenceFraction,
+      ),
     );
     expect(rep['incorrect_step'], 'ROTATING');
     expect(rep['score'], lessThanOrEqualTo(60));
@@ -472,7 +971,7 @@ void main() {
         cases.add(points);
       }
     }
-    for (final value in [.0, .3, .69]) {
+    for (final value in [.0, .3, .49]) {
       final points = _world();
       points[12]['visibility'] = value;
       cases.add(points);
@@ -611,7 +1110,10 @@ void main() {
     expect(rep['score_kind'], 'descriptive_movement_quality');
     expect(rep['clinically_validated'], false);
     expect(rep['experimental'], true);
-    expect(rep['limitations'], contains('not direct anatomical shoulder rotation'));
+    expect(
+      rep['limitations'],
+      contains('not direct anatomical shoulder rotation'),
+    );
     expect(rep['score'], inInclusiveRange(0, 100));
   });
 }

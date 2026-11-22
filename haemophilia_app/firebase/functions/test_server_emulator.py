@@ -111,8 +111,8 @@ class ServerEmulatorTests(unittest.TestCase):
 
     def test_admin_doctor_creation_is_idempotent_and_stores_no_password(self):
         self.patient_ref.update({'role':'admin'})
-        data={'name':'Doctor Example','email':'doctor@example.com','phoneNumber':'9876543210','registrationNumber':'REG-123','qualification':'MPT','specialization':'Physiotherapy','hospital':'Example hospital','password':'example-only-password-123','requestId':self.suffix}
-        request=SimpleNamespace(auth=SimpleNamespace(uid=self.patient),data=data)
+        data={'name':'Doctor Example','email':'doctor@example.com','phoneNumber':'9876543210','registrationNumber':'REG-123','qualification':'MPT','specialization':'Physiotherapy','hospital':'Example hospital','password':'River!Cloud72#Quartz','requestId':self.suffix}
+        request=SimpleNamespace(auth=SimpleNamespace(uid=self.patient,token={'auth_time':int(self.now.timestamp())}),data=data)
         with patch.object(main.auth,'create_user') as create:
             first=unwrap(main.create_doctor_account)(request)
             second=unwrap(main.create_doctor_account)(request)

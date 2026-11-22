@@ -55,7 +55,13 @@ class ExerciseRule {
       return ElbowWorldAssessment.thresholdSummary;
     }
     if (id == kShoulderRotation) {
-      return ShoulderRotationAssessment.thresholdSummary;
+      return ShoulderRotationAssessment.appThresholdSummary;
+    }
+    if (id == kAssistedElbowFlexionV5) {
+      return 'Hold a comfortable, steady starting position. Bend to the shown '
+          'target (<=${target.toStringAsFixed(0)} degrees), then return within '
+          '${returnBand.toStringAsFixed(0)} degrees of your own start. '
+          'Support the working forearm with the opposite hand.';
     }
     final startSign = increasing ? '≤' : '≥';
     final targetSign = increasing ? '≥' : '≤';
@@ -82,12 +88,12 @@ class ExerciseRule {
     ExerciseRule(
       kShoulderRotation,
       'Forearm rotation',
-      8,
-      10,
-      20,
+      ShoulderRotationAssessment.appReturnBandDegrees,
+      ShoulderRotationAssessment.appOnsetDegrees,
+      ShoulderRotationAssessment.extremeDegrees,
       increasing: true,
       relative: true,
-      returnBand: 4,
+      returnBand: ShoulderRotationAssessment.appReturnBandDegrees,
       outwardStage: 'ROTATING_OUT',
       returnStage: 'ROTATING_IN',
       cameraView: 'Front view',
@@ -240,7 +246,7 @@ class _Point {
 class ExerciseRulesAssessment {
   final ElbowWorldAssessment _elbowWorld = ElbowWorldAssessment();
   final ShoulderRotationAssessment _shoulderRotation =
-      ShoulderRotationAssessment();
+      ShoulderRotationAssessment(bilateralExternal: true, autoProtocol: true);
   final ExerciseRule rule;
   String hand;
   String _leg = 'Left';
@@ -269,6 +275,11 @@ class ExerciseRulesAssessment {
   bool _currentAlert = false;
   final List<(double, double)> _trace = [];
   final Map<String, double> _errorSince = {};
+  double? _supportDistanceRatio, _supportContactRatio, _lastRepTime;
+  bool _assistedWorld = false, _supportHeld = false;
+  double? _supportEnterSince, _supportExitSince, _roleSwapSince;
+  double _supportObservedSeconds = 0, _supportAssessedSeconds = 0;
+  final Map<String, double> _armRestAngles = {}, _armRestSince = {};
   final Set<String> _errors = {};
   final Map<String, Map<String, double>> _readyLegs = {};
   double? _frameWidth, _frameHeight;
@@ -277,8 +288,11 @@ class ExerciseRulesAssessment {
   /// Patient-specific target in use, or null for the standard rule.
   final CalibrationResult? calibration;
 
-  ExerciseRulesAssessment(String exercise, {this.hand = 'Left', this.calibration})
-    : rule = _calibrated(ExerciseRule.forExercise(exercise), calibration);
+  ExerciseRulesAssessment(
+    String exercise, {
+    this.hand = 'Left',
+    this.calibration,
+  }) : rule = _calibrated(ExerciseRule.forExercise(exercise), calibration);
 
   static ExerciseRule _calibrated(
     ExerciseRule base,
@@ -297,6 +311,12 @@ class ExerciseRulesAssessment {
     stage = 'POSITIONING';
     _armed = false;
     _currentAlert = false;
+    _supportDistanceRatio = _supportContactRatio = null;
+    _supportHeld = false;
+    _supportEnterSince = _supportExitSince = _roleSwapSince = null;
+    _supportObservedSeconds = _supportAssessedSeconds = 0;
+    _armRestAngles.clear();
+    _armRestSince.clear();
     _readySince = null;
     _onsetSince = null;
     _returnSince = null;
@@ -424,6 +444,41 @@ class ExerciseRulesAssessment {
         : null;
     double? elbowAngle(int a, int b, int c) {
       if (![a, b, c].every(visible)) return null;
+      if (rule.id == kAssistedElbowFlexionV5) {
+        if (!_assistedWorld) return joint(a, b, c);
+        final world = worldLandmarks;
+        if (world == null || [a, b, c].any((i) => i >= world.length)) {
+          return null;
+        }
+        for (final i in [a, b, c]) {
+          final p = world[i];
+          if ([
+                'x',
+                'y',
+                'z',
+                'visibility',
+              ].any((key) => p[key] is! num || !(p[key] as num).isFinite) ||
+              (p['visibility'] as num) < .4 ||
+              (p['presence'] is num && (p['presence'] as num) < .4)) {
+            return null;
+          }
+        }
+        final u = [
+          for (final key in ['x', 'y', 'z'])
+            (world[a][key] as num).toDouble() -
+                (world[b][key] as num).toDouble(),
+        ];
+        final v = [
+          for (final key in ['x', 'y', 'z'])
+            (world[c][key] as num).toDouble() -
+                (world[b][key] as num).toDouble(),
+        ];
+        final ul = math.sqrt(u.fold<double>(0, (s, x) => s + x * x)),
+            vl = math.sqrt(v.fold<double>(0, (s, x) => s + x * x));
+        if (ul < 1e-5 || vl < 1e-5) return null;
+        final dot = u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
+        return math.acos((dot / (ul * vl)).clamp(-1.0, 1.0)) * 180 / math.pi;
+      }
       final p = points[a], q = points[b], r = points[c];
       if (![p.z, q.z, r.z].every((v) => v.isFinite)) return null;
       final ux = p.x - q.x, uy = p.y - q.y, uz = p.z - q.z;
@@ -439,6 +494,12 @@ class ExerciseRulesAssessment {
           math.pi;
     }
 
+    _assistedWorld =
+        rule.id == kAssistedElbowFlexionV5 &&
+        angleSource == 'pose_world_landmarks';
+    final assistedReadyFloor = _assistedWorld
+        ? math.min(rule.start, rule.target + rule.minimumRom)
+        : rule.start;
     final upper = rule.isUpperBody;
     final bilateral = rule.usesBothArms;
     if (!upper && !_armed && _startedAt == null) {
@@ -481,6 +542,167 @@ class ExerciseRulesAssessment {
         _baselineThigh = ready['thigh'];
       }
     }
+    // A supporting palm may touch the wrist or elbow, not just the forearm
+    // midpoint. Use a scale-relative capsule around the segment. Finger points
+    // are optional and must remain anatomically close to their own wrist.
+    double supportContactRatio(bool right) {
+      final e = right ? 14 : 13, w = right ? 16 : 15;
+      final sh = right ? 12 : 11, hip = right ? 24 : 23;
+      final support = right ? 15 : 16;
+      if (![e, w, sh, hip, support].every(visible)) return double.infinity;
+      final length = points[e].distance(points[w]);
+      final torso = points[sh].distance(points[hip]);
+      if (torso < 20 || length < torso * .05) return double.infinity;
+      final tolerance = math.max(length * .3, torso * .15);
+      final dx = points[w].x - points[e].x, dy = points[w].y - points[e].y;
+      double distance(_Point p) {
+        final t =
+            (((p.x - points[e].x) * dx + (p.y - points[e].y) * dy) /
+                    (length * length))
+                .clamp(0.0, 1.0);
+        return p.distance(
+          _Point(points[e].x + t * dx, points[e].y + t * dy, 0, 1),
+        );
+      }
+
+      var nearest = distance(points[support]);
+      for (final tip in right ? [17, 19, 21] : [18, 20, 22]) {
+        if (visible(tip) &&
+            points[tip].distance(points[support]) <= torso * .25) {
+          nearest = math.min(nearest, distance(points[tip]));
+        }
+      }
+      return nearest / tolerance;
+    }
+
+    if (rule.id == kAssistedElbowFlexionV5 && _startedAt == null) {
+      for (final right in [false, true]) {
+        final label = right ? 'Right' : 'Left';
+        final bend = elbowAngle(
+          right ? 12 : 11,
+          right ? 14 : 13,
+          right ? 16 : 15,
+        );
+        if (bend != null &&
+            bend >= assistedReadyFloor - ExerciseRule.angleMargin) {
+          _armRestSince[label] ??= time;
+          _armRestAngles[label] = math.max(_armRestAngles[label] ?? bend, bend);
+        }
+      }
+    }
+    if (rule.id == kAssistedElbowFlexionV5 &&
+        (repCount == 0 ||
+            (_lastRepTime != null && time - _lastRepTime! >= .8)) &&
+        _startedAt == null &&
+        (!_armed || _baselineLeft != null)) {
+      bool supportedRest(bool right) {
+        final shoulder = right ? 12 : 11, elbow = right ? 14 : 13;
+        final wrist = right ? 16 : 15, hip = right ? 24 : 23;
+        final support = right ? 15 : 16;
+        if (![shoulder, elbow, wrist, hip, support].every(visible)) {
+          return false;
+        }
+        final bend = elbowAngle(shoulder, elbow, wrist);
+        final torso = points[shoulder].distance(points[hip]);
+        final length = points[elbow].distance(points[wrist]);
+        final baseline = right ? _baselineRight : _baselineLeft;
+        return bend != null &&
+            (bend >= assistedReadyFloor - ExerciseRule.angleMargin ||
+                (_armed && baseline != null && baseline - bend >= 8)) &&
+            torso >= 20 &&
+            length >= torso * .05 &&
+            supportContactRatio(right) <= 1 &&
+            (joint(hip, shoulder, elbow) ?? 180) <= 35;
+      }
+
+      final right = hand == 'Right';
+
+      if (supportedRest(!right) &&
+          (!supportedRest(right) ||
+              supportContactRatio(!right) + .15 < supportContactRatio(right))) {
+        if (_armed) {
+          _baseline = right ? _baselineLeft : _baselineRight;
+          _onsetSince = null;
+        } else {
+          resetTracking();
+        }
+        hand = right ? 'Left' : 'Right';
+      }
+    }
+    if (rule.id == kAssistedElbowFlexionV5 && _startedAt == null) {
+      final other = hand == 'Left' ? 'Right' : 'Left';
+      double motion(String label) {
+        final right = label == 'Right';
+        final bend = elbowAngle(
+          right ? 12 : 11,
+          right ? 14 : 13,
+          right ? 16 : 15,
+        );
+        return bend == null || !_armRestAngles.containsKey(label)
+            ? 0
+            : _armRestAngles[label]! - bend;
+      }
+
+      if (supportContactRatio(other == 'Right') <=
+              supportContactRatio(hand == 'Right') + .15 &&
+          motion(other) >= 8 &&
+          motion(other) > motion(hand) + 6 &&
+          _armRestSince[other] != null &&
+          time - _armRestSince[other]! >= ExerciseRule.readyHoldSeconds) {
+        hand = other;
+        _armed = true;
+        _baseline = _armRestAngles[other];
+        _baselineLeft = _armRestAngles['Left'];
+        _baselineRight = _armRestAngles['Right'];
+        _onsetSince = null;
+      }
+    }
+    // An opposite hand crossing the torso often bends before the working arm.
+    // Correct that provisional role using torso-relative geometry, preserving
+    // completed repetitions and each arm's measured resting angle.
+    if (rule.id == kAssistedElbowFlexionV5) {
+      final current = hand == 'Right', other = !current;
+      double crossing(bool right) {
+        if (![11, 12, right ? 14 : 13, right ? 16 : 15].every(visible)) {
+          return 0;
+        }
+        final dx = points[11].x - points[12].x,
+            dy = points[11].y - points[12].y;
+        final span2 = dx * dx + dy * dy;
+        if (span2 < 100) return 0;
+        final e = points[right ? 14 : 13], w = points[right ? 16 : 15];
+        return -(right ? -1 : 1) *
+            ((w.x - e.x) * dx + (w.y - e.y) * dy) /
+            span2;
+      }
+
+      final mistaken =
+          !(_targetReached && _supportHeld) &&
+          crossing(current) > .4 &&
+          crossing(other) < .25 &&
+          supportContactRatio(other) <= 1.25 &&
+          supportContactRatio(other) + .3 < supportContactRatio(current);
+      if (mistaken) {
+        _roleSwapSince ??= time;
+        if (time - _roleSwapSince! >= .15) {
+          final rest = Map<String, double>.from(_armRestAngles);
+          final since = Map<String, double>.from(_armRestSince);
+          final next = current ? 'Left' : 'Right';
+          resetTracking();
+          hand = next;
+          _armRestAngles.addAll(rest);
+          _armRestSince.addAll(since);
+          if (rest[next] != null) {
+            _armed = true;
+            _baseline = rest[next];
+            _baselineLeft = rest['Left'];
+            _baselineRight = rest['Right'];
+          }
+        }
+      } else {
+        _roleSwapSince = null;
+      }
+    }
     final activeRight = upper
         ? rule.id == kAssistedElbowFlexionV5 && hand == 'Right'
         : _leg == 'Right';
@@ -494,8 +716,14 @@ class ExerciseRulesAssessment {
     final required = upper
         ? <int>[sh, el, wr, hip]
         : <int>[sh, hip, knee, ankle];
-    if (bilateral || rule.id == kAssistedElbowFlexionV5) {
+    if (bilateral) {
       required.addAll([11, 12, 13, 14, 15, 16, 23, 24]);
+    }
+    if (rule.id == kAssistedElbowFlexionV5) {
+      // The supporting elbow is commonly hidden behind the working forearm.
+      // Only its wrist is needed for the support test; do not reset a valid
+      // working-arm cycle because unrelated supporting-side joints disappear.
+      required.add(activeRight ? 15 : 16);
     }
     if (rule.id == kHeelSlide || rule.id == kMiniSquat || rule.id == kSquat) {
       required.add(heel);
@@ -599,7 +827,13 @@ class ExerciseRulesAssessment {
         math.atan2(points[sh].x - points[hip].x, points[hip].y - points[sh].y) *
         180 /
         math.pi;
-    final atRest = rule.relative
+    final atRest = _assistedWorld
+        ? angleNow >=
+              (_armed && _baseline != null
+                      ? _baseline! - rule.returnBand
+                      : assistedReadyFloor) -
+                  ExerciseRule.angleMargin
+        : rule.relative
         ? math.max(leftAngle!.abs(), rightAngle!.abs()) <=
               rule.start + ExerciseRule.angleMargin
         : bilateral
@@ -676,7 +910,23 @@ class ExerciseRulesAssessment {
         0,
         1,
       );
-      if (forearm < 15 || support.distance(midpoint) > forearm * .8) {
+      _supportDistanceRatio = forearm > 0
+          ? support.distance(midpoint) / forearm
+          : null;
+      final contact = supportContactRatio(activeRight);
+      _supportContactRatio = contact.isFinite ? contact : null;
+      if (contact.isFinite && contact <= 1.25) {
+        _supportEnterSince ??= time;
+        _supportExitSince = null;
+        if (time - _supportEnterSince! >= .12) _supportHeld = true;
+      } else if (!contact.isFinite || contact > 1.75) {
+        _supportExitSince ??= time;
+        _supportEnterSince = null;
+        if (time - _supportExitSince! >= .25) _supportHeld = false;
+      } else {
+        _supportEnterSince = _supportExitSince = null;
+      }
+      if (!_supportHeld) {
         alerts.add('Support the working forearm with your opposite hand.');
       }
       if ((joint(hip, sh, el) ?? 180) > 35) {
@@ -737,7 +987,14 @@ class ExerciseRulesAssessment {
     _currentAlert = alerts.isNotEmpty;
     Map<String, dynamic>? completed;
     if (!active) {
-      if (!_armed && atRest && alerts.isEmpty) {
+      final canEstablishStart =
+          alerts.isEmpty ||
+          (rule.id == kAssistedElbowFlexionV5 &&
+              alerts.every(
+                (a) =>
+                    a == 'Support the working forearm with your opposite hand.',
+              ));
+      if (!_armed && atRest && canEstablishStart) {
         if (_lastAngle != null && (angleNow - _lastAngle!).abs() > 5) {
           _readySince = null;
         }
@@ -818,6 +1075,7 @@ class ExerciseRulesAssessment {
           _errors.clear();
           _errorSince.clear();
           _assessedSeconds = 0;
+          _supportObservedSeconds = _supportAssessedSeconds = 0;
           _postureErrorSeconds = 0;
           _incorrectStep = null;
           _targetSince = null;
@@ -833,13 +1091,21 @@ class ExerciseRulesAssessment {
       } else {
         _onsetSince = null;
         if (_armed) {
-          stage = atRest && alerts.isEmpty ? 'READY' : 'POSITIONING';
+          stage = atRest && canEstablishStart ? 'READY' : 'POSITIONING';
         }
       }
     } else {
       _trace.add((time, angleNow));
       _assessedSeconds += dt;
       if (alerts.isNotEmpty) _postureErrorSeconds += dt;
+      if (rule.id == kAssistedElbowFlexionV5 &&
+          _baseline != null &&
+          _baseline! - angleNow >= 20) {
+        _supportAssessedSeconds += dt;
+        if (_supportHeld) {
+          _supportObservedSeconds += dt;
+        }
+      }
       if (leftAngle != null) {
         _leftPeak = _leftPeak == null
             ? leftAngle
@@ -876,7 +1142,10 @@ class ExerciseRulesAssessment {
       for (final alert in alerts) {
         _errorSince[alert] ??= time;
         if (time - _errorSince[alert]! >= ExerciseRule.errorHoldSeconds) {
-          _recordError(alert);
+          if (rule.id != kAssistedElbowFlexionV5 ||
+              _errorCode(alert) != 'SUPPORT_MISSING') {
+            _recordError(alert);
+          }
         }
       }
       _errorSince.removeWhere((key, value) => !alerts.contains(key));
@@ -890,7 +1159,7 @@ class ExerciseRulesAssessment {
       }
       if (_returnSince != null &&
           time - _returnSince! >= ExerciseRule.reversalHoldSeconds) {
-        if (!_targetReached) {
+        if (!_targetReached && rule.id != kAssistedElbowFlexionV5) {
           _recordError(
             'Target angle was not held. Reach the shown target before returning.',
           );
@@ -931,7 +1200,25 @@ class ExerciseRulesAssessment {
           time - _finishSince! >= ExerciseRule.returnHoldSeconds) {
         final duration = time - _startedAt!;
         final rom = (_best! - baseline).abs();
-        if (duration >= .4 && rom >= 10 && _trace.length >= 6) {
+        if (duration >= .4 &&
+            rom >=
+                (rule.id == kAssistedElbowFlexionV5
+                    ? math.max(15, math.min(30, rule.minimumRom * .5))
+                    : 10) &&
+            _trace.length >= 6) {
+          if (rule.id == kAssistedElbowFlexionV5) {
+            if (!_targetReached) {
+              _recordError(
+                'Target angle was not held. Reach the shown target before returning.',
+              );
+            }
+            if (_supportAssessedSeconds >= .3 &&
+                _supportObservedSeconds / _supportAssessedSeconds < .6) {
+              _recordError(
+                'Support the working forearm with your opposite hand.',
+              );
+            }
+          }
           if (!_targetReached || rom < rule.minimumRom) {
             _recordError(
               'Target range not reached. Follow your prescribed comfortable range.',
@@ -990,6 +1277,7 @@ class ExerciseRulesAssessment {
           var score = .45 * formScore + .35 * rangeScore + .20 * paceScore;
           if (!good) score = math.min(score, _targetReached ? 55.0 : 50.0);
           repCount++;
+          _lastRepTime = time;
           if (good) correctCount++;
           final resultFeedback = good
               ? score >= 90
@@ -1038,7 +1326,19 @@ class ExerciseRulesAssessment {
                       : 'Left')
                 : _leg,
             'model_identity': 'On-device joint tracking + angle rules',
-            'model_version': 'OnDeviceRules_v3',
+            'model_version': rule.id == kAssistedElbowFlexionV5
+                ? 'AssistedElbowWorldRules_v7'
+                : 'OnDeviceRules_v3',
+            if (rule.id == kAssistedElbowFlexionV5)
+              'angle_source': _assistedWorld
+                  ? 'pose_world_landmarks'
+                  : 'normalized_image_xy',
+            if (rule.id == kAssistedElbowFlexionV5)
+              'support_contact_verified': false,
+            if (rule.id == kAssistedElbowFlexionV5)
+              'support_coverage': _supportAssessedSeconds > 0
+                  ? _supportObservedSeconds / _supportAssessedSeconds
+                  : null,
             'assessment_method': 'on_device_angle_rules',
             'experimental': true,
             'clinically_validated': false,
@@ -1046,12 +1346,32 @@ class ExerciseRulesAssessment {
               'start': rule.start,
               'movementOnsetDegrees': 8.0,
               'minimumRom': rule.minimumRom,
+              if (rule.id == kAssistedElbowFlexionV5)
+                'ready_available_rom': rule.minimumRom,
+              if (rule.id == kAssistedElbowFlexionV5)
+                'minimum_counted_excursion': math.max(
+                  15,
+                  math.min(30, rule.minimumRom * .5),
+                ),
               'angleMargin': ExerciseRule.angleMargin,
               'target': rule.target,
               'relative': rule.relative,
               'targetHoldSeconds': ExerciseRule.targetHoldSeconds,
               'returnHoldSeconds': ExerciseRule.returnHoldSeconds,
               'returnTolerance': rule.returnBand,
+              if (rule.id == kAssistedElbowFlexionV5)
+                'support_contact': {
+                  'measurement':
+                      'opposite wrist or nearby hand tip to forearm segment',
+                  'forearm_fraction': .3,
+                  'torso_fraction': .15,
+                  'hand_tip_max_wrist_distance_torso_fraction': .25,
+                  'contact_enter_ratio': 1.25,
+                  'contact_exit_ratio': 1.75,
+                  'contact_enter_hold_s': .12,
+                  'contact_exit_hold_s': .25,
+                  'required_bending_support_fraction': .6,
+                },
             },
             'angle_trace': [
               for (
@@ -1063,9 +1383,8 @@ class ExerciseRulesAssessment {
             ],
           };
           _lastResult = completed;
-          if (good && rule.id == kAssistedElbowFlexionV5) {
-            hand = hand == 'Left' ? 'Right' : 'Left';
-          }
+          // Keep the observed working arm. The next side is selected from
+          // support and movement, never from the previous repetition's label.
         }
         resetTracking();
       }
@@ -1127,8 +1446,7 @@ class ExerciseRulesAssessment {
     'Keep your hip on the support surface.' => 'HIP_LIFT',
     'Keep your heel on the surface.' => 'HEEL_LIFT',
     'Keep your knees aligned with your feet.' => 'KNEE_ALIGNMENT',
-    'Keep the mini squat controlled and shallow.' =>
-      'SQUAT_TOO_DEEP',
+    'Keep the mini squat controlled and shallow.' => 'SQUAT_TOO_DEEP',
     'Keep your thigh resting on the support.' => 'THIGH_MOVEMENT',
     _ => 'MOVEMENT_RULE',
   };
@@ -1184,6 +1502,15 @@ class ExerciseRulesAssessment {
     'return_completion': _lastResult['return_completion'],
     'speed': _lastResult['speed'] ?? 'Waiting',
     'tracking_valid': angle != null,
+    if (rule.id == kAssistedElbowFlexionV5)
+      'support_distance_ratio': _supportDistanceRatio,
+    if (rule.id == kAssistedElbowFlexionV5)
+      'support_contact_ratio': _supportContactRatio,
+    if (rule.id == kAssistedElbowFlexionV5) 'support_observed': _supportHeld,
+    if (rule.id == kAssistedElbowFlexionV5)
+      'angle_source': _assistedWorld
+          ? 'pose_world_landmarks'
+          : 'normalized_image_xy',
     'threshold_summary': rule.thresholdSummary,
     'camera_view': rule.cameraView,
     'assessment_method': 'on_device_angle_rules',

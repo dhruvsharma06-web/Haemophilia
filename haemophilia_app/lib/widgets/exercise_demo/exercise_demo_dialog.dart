@@ -6,12 +6,14 @@ import 'exercise_demo.dart';
 import 'exercise_demo_model.dart';
 import '../exercise_thresholds.dart';
 import '../exercise_tutorial_button.dart';
+import '../../services/exercise_rules.dart';
 
 /// Shows an interactive, full-featured demonstration dialog explaining how to
 /// perform the specified exercise with animated movement, phases, and clinical tips.
 Future<void> showExerciseDemoDialog(
   BuildContext context, {
   required String exerciseName,
+  ExerciseRule? ruleOverride,
 }) async {
   final config = ExerciseDemoRegistry.get(exerciseName);
 
@@ -115,6 +117,7 @@ Future<void> showExerciseDemoDialog(
                       const SizedBox(height: 10),
                       ExerciseThresholds(
                         exercise: exerciseName,
+                        ruleOverride: ruleOverride,
                         dark: isDark,
                         compact: true,
                       ),

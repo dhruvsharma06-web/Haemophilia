@@ -7,6 +7,14 @@ const userFilters = {
   'admin': 'Admins',
 };
 
+String managedRoleLabel(String role) => switch (role) {
+  'patient' => 'Patient',
+  'doctor' => 'Doctor',
+  'pending_doctor' => 'Pending doctor',
+  'admin' => 'Admin',
+  _ => role,
+};
+
 List<String> allowedManagedRoles(String role) => switch (role) {
   'doctor' || 'pending_doctor' => ['pending_doctor', 'doctor'],
   'patient' => ['patient'],

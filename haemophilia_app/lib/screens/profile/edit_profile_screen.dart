@@ -251,6 +251,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
               // Gender
               DropdownButtonFormField<String>(
+                isExpanded: true,
                 initialValue: _selectedGender,
                 decoration: InputDecoration(
                   labelText: tr('Gender'),

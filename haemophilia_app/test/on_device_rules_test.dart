@@ -159,6 +159,174 @@ extension WorldPoseFixture on ExerciseRulesAssessment {
 }
 
 void main() {
+  test(
+    'assisted elbow can repeat the supported arm after an accepted cycle',
+    () {
+      final engine = ExerciseRulesAssessment(kAssistedElbowFlexionV5);
+      expect(
+        cycle(engine, kAssistedElbowFlexionV5, 170, 80).single['form'],
+        'correct',
+      );
+      expect(
+        cycle(engine, kAssistedElbowFlexionV5, 170, 80, time: 5).single['form'],
+        'correct',
+      );
+      expect(engine.repCount, 2);
+      expect(engine.hand, 'Left');
+    },
+  );
+  test(
+    'assisted support uses a nearby palm contact beyond the working wrist',
+    () {
+      final engine = ExerciseRulesAssessment(kAssistedElbowFlexionV5);
+      Map<String, dynamic>? rep;
+      final values = [
+        ...List.filled(10, 170.0),
+        for (var i = 1; i <= 20; i++) 170 - 90 * i / 20,
+        ...List.filled(6, 80.0),
+        for (var i = 1; i <= 20; i++) 80 + 90 * i / 20,
+        ...List.filled(10, 170.0),
+      ];
+      for (var i = 0; i < values.length; i++) {
+        final p = pose(kAssistedElbowFlexionV5, values[i]);
+        final e = p[13], w = p[15];
+        final dx = (w['x'] as double) - (e['x'] as double);
+        final dy = (w['y'] as double) - (e['y'] as double);
+        final length = math.sqrt(dx * dx + dy * dy);
+        p[16] = {
+          ...w,
+          'x': w['x'] + dx / length * .06,
+          'y': w['y'] + dy / length * .06,
+        };
+        p[20] = {
+          ...w,
+          'x': w['x'] + dx / length * .01,
+          'y': w['y'] + dy / length * .01,
+        };
+        final s = engine.update(p, 1000, 1000, i * .08);
+        if (s['completed_rep'] is Map<String, dynamic>) {
+          rep = s['completed_rep'];
+        }
+      }
+      expect(rep, isNotNull);
+      expect(rep!['form'], 'correct');
+    },
+  );
+
+  test('assisted elbow ignores uncalibrated image-depth estimates', () {
+    final engine = ExerciseRulesAssessment(kAssistedElbowFlexionV5);
+    final reps = <Map>[];
+    final values = [
+      ...List.filled(8, 170.0),
+      for (var i = 1; i <= 20; i++) 170 - 90 * i / 20,
+      ...List.filled(8, 80.0),
+      for (var i = 1; i <= 20; i++) 80 + 90 * i / 20,
+      ...List.filled(8, 170.0),
+    ];
+    for (var i = 0; i < values.length; i++) {
+      final points = pose(kAssistedElbowFlexionV5, values[i]);
+      points[13]['z'] = .3;
+      points[15]['z'] = -.4;
+      final state = engine.update(points, 1000, 1000, i * .08);
+      if (state['completed_rep'] is Map) {
+        reps.add(state['completed_rep'] as Map);
+      }
+    }
+    expect(reps, hasLength(1));
+    expect(reps.single['form'], 'correct');
+  });
+
+  test(
+    'arm selection follows supported right-arm movement after a neutral start',
+    () {
+      final engine = ExerciseRulesAssessment(kAssistedElbowFlexionV5);
+      for (var i = 0; i < 10; i++) {
+        engine.update(
+          pose(kAssistedElbowFlexionV5, 180, support: false),
+          1000,
+          1000,
+          i * .08,
+        );
+      }
+      expect(engine.stage, 'READY');
+      final reps = cycle(
+        engine,
+        kAssistedElbowFlexionV5,
+        180,
+        80,
+        hand: 'Right',
+        time: 1,
+      );
+      expect(reps, hasLength(1));
+      expect(reps.single['hand'], 'Right');
+      expect(reps.single['form'], 'correct');
+    },
+  );
+  test('assisted elbow can begin with a visibly supported right arm', () {
+    final engine = ExerciseRulesAssessment(kAssistedElbowFlexionV5);
+    final reps = cycle(engine, kAssistedElbowFlexionV5, 150, 80, hand: 'Right');
+    expect(reps, hasLength(1));
+    expect(reps.single['hand'], 'Right');
+    expect(reps.single['form'], 'correct');
+  });
+  test(
+    'assisted elbow tracks each working arm with the supporting elbow occluded',
+    () {
+      for (final hand in ['Left', 'Right']) {
+        final engine = ExerciseRulesAssessment(
+          kAssistedElbowFlexionV5,
+          hand: hand,
+        );
+        final reps = <Map>[];
+        final values = [
+          ...List.filled(8, 150.0),
+          for (var i = 1; i <= 16; i++) 150 - 70 * i / 16,
+          ...List.filled(5, 80.0),
+          for (var i = 1; i <= 16; i++) 80 + 70 * i / 16,
+          ...List.filled(8, 150.0),
+        ];
+        for (var i = 0; i < values.length; i++) {
+          final points = pose(kAssistedElbowFlexionV5, values[i], hand: hand);
+          for (final index in hand == 'Left' ? [12, 14, 24] : [11, 13, 23]) {
+            points[index]['visibility'] = .1;
+          }
+          final state = engine.update(points, 1000, 1000, i * .08);
+          if (state['completed_rep'] is Map) {
+            reps.add(state['completed_rep'] as Map);
+          }
+        }
+        expect(reps, hasLength(1), reason: hand);
+        expect(reps.single['form'], 'correct', reason: hand);
+      }
+    },
+  );
+  test('supported assisted elbow works independently of frame resolution', () {
+    for (final size in [100.0, 480.0, 1000.0]) {
+      final engine = ExerciseRulesAssessment(kAssistedElbowFlexionV5);
+      final reps = <Map>[];
+      final values = [
+        ...List.filled(8, 150.0),
+        for (var i = 1; i <= 16; i++) 150 - 70 * i / 16,
+        ...List.filled(5, 80.0),
+        for (var i = 1; i <= 16; i++) 80 + 70 * i / 16,
+        ...List.filled(8, 150.0),
+      ];
+      for (var i = 0; i < values.length; i++) {
+        final state = engine.update(
+          pose(kAssistedElbowFlexionV5, values[i]),
+          size,
+          size,
+          i * .08,
+        );
+        if (state['completed_rep'] is Map) {
+          reps.add(state['completed_rep'] as Map);
+        }
+      }
+      expect(reps, hasLength(1), reason: 'frame size $size');
+      expect(reps.single['form'], 'correct', reason: 'frame size $size');
+    }
+  });
+
   // Elbow flexion/extension and shoulder rotation have their own threshold
   // engines and dedicated test files. This generic fixture drives the shared
   // rule path, so those two are exercised there instead.
@@ -185,7 +353,12 @@ void main() {
       final e = ExerciseRulesAssessment(item.$1);
       Map<String, dynamic>? state;
       for (var i = 0; i < 8; i++) {
-        state = e.updateWithWorldFixture(pose(item.$1, item.$2), 1000, 1000, i * .08);
+        state = e.updateWithWorldFixture(
+          pose(item.$1, item.$2),
+          1000,
+          1000,
+          i * .08,
+        );
       }
       expect(state!['state'], 'READY');
       expect(wireframeColor(state['form']), Colors.greenAccent);
@@ -221,16 +394,10 @@ void main() {
     final e = ExerciseRulesAssessment(kMiniSquat);
     expect(cycle(e, kMiniSquat, 178, 130).single['form'], 'correct');
   });
-  test(
-    'bilateral extension above both candidate thresholds completes',
-    () {
-      final e = ExerciseRulesAssessment(kElbowFlexionExtension);
-      expect(
-        cycle(e, kElbowFlexionExtension, 155, 65).single['form'],
-        'correct',
-      );
-    },
-  );
+  test('bilateral extension above both candidate thresholds completes', () {
+    final e = ExerciseRulesAssessment(kElbowFlexionExtension);
+    expect(cycle(e, kElbowFlexionExtension, 155, 65).single['form'], 'correct');
+  });
   for (final item in [
     (kHeelSlide, 178.0, 80.0),
     (kSeatedKneeExtension, 85.0, 175.0),
@@ -313,6 +480,11 @@ void main() {
       final peak = rule.increasing ? rest + 12 : rest - 12;
       final e = ExerciseRulesAssessment(rule.id);
       final r = cycle(e, rule.id, rest, peak);
+      if (rule.id == kAssistedElbowFlexionV5) {
+        expect(r, isEmpty);
+        expect(e.correctCount, 0);
+        continue;
+      }
       expect(r, hasLength(1), reason: rule.id);
       expect(r.single['form'], 'incorrect', reason: rule.id);
       expect(e.correctCount, 0, reason: rule.id);
@@ -335,7 +507,12 @@ void main() {
   test('incomplete cycles and noise cannot count', () {
     final e = ExerciseRulesAssessment(kHeelSlide);
     for (var i = 0; i < 100; i++) {
-      e.updateWithWorldFixture(pose(kHeelSlide, 177 + (i % 2)), 1000, 1000, i * .08);
+      e.updateWithWorldFixture(
+        pose(kHeelSlide, 177 + (i % 2)),
+        1000,
+        1000,
+        i * .08,
+      );
     }
     for (var i = 100; i < 120; i++) {
       e.updateWithWorldFixture(pose(kHeelSlide, 80), 1000, 1000, i * .08);
@@ -359,13 +536,13 @@ void main() {
     expect(e.repCount, 0);
     expect(cycle(e, kHeelSlide, 178, 80, time: 3), hasLength(1));
   });
-  test('assisted elbow alternates only after supported accepted cycles', () {
+  test('assisted elbow chooses the observed working arm instead of forcing alternation', () {
     final e = ExerciseRulesAssessment(kAssistedElbowFlexionV5);
     expect(
       cycle(e, kAssistedElbowFlexionV5, 150, 80).single['form'],
       'correct',
     );
-    expect(e.hand, 'Right');
+    expect(e.hand, 'Left');
     expect(
       cycle(
         e,
@@ -390,7 +567,7 @@ void main() {
       ).single['form'],
       'correct',
     );
-    expect(e.hand, 'Left');
+    expect(e.hand, 'Right');
   });
   test('shallow range produces an incorrect completed repetition', () {
     final e = ExerciseRulesAssessment(kHeelSlide);
@@ -471,7 +648,12 @@ void main() {
     final e = ExerciseRulesAssessment(kAssistedShoulderFlexion);
     var t = 0.0;
     for (var i = 0; i < 8; i++, t += .08) {
-      e.updateWithWorldFixture(pose(kAssistedShoulderFlexion, 20), 1000, 1000, t);
+      e.updateWithWorldFixture(
+        pose(kAssistedShoulderFlexion, 20),
+        1000,
+        1000,
+        t,
+      );
     }
     for (var i = 1; i <= 16; i++, t += .08) {
       final p = pose(kAssistedShoulderFlexion, 20 + 140 * i / 16);
@@ -553,7 +735,12 @@ void main() {
       ...List.filled(40, 6.0),
     ];
     for (var i = 0; i < values.length; i++) {
-      e.updateWithWorldFixture(pose(kShoulderRotation, values[i]), 1000, 1000, i * .08);
+      e.updateWithWorldFixture(
+        pose(kShoulderRotation, values[i]),
+        1000,
+        1000,
+        i * .08,
+      );
     }
     expect(e.repCount, 0);
     expect(e.correctCount, 0);

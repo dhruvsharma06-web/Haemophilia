@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 
-/// Bilateral wand-assisted shoulder rotation measured from MediaPipe world
+/// Bilateral shoulder rotation measured from MediaPipe world
 /// landmarks, following the supplied 15 October 2026 specification.
 ///
 /// Status of the numbers, as stated in that report: only the elbow bend range
@@ -13,6 +13,34 @@ import 'dart:math' as math;
 /// The rotation signal is a forearm-orientation proxy in a torso-relative
 /// horizontal plane. It is not direct anatomical shoulder rotation.
 class ShoulderRotationAssessment {
+  /// The app tutorial is bilateral external rotation and return. Keep the
+  /// legacy sweep available for old recordings. App auto mode locks a pattern
+  /// from observed movement instead of negating one arm for every exercise.
+  final bool bilateralExternal;
+  final bool autoProtocol;
+  bool _wandDetected = false, _protocolLocked = false;
+  bool? _protocolCandidate;
+  double? _protocolSince, _baselineShoulderRatio;
+  double _externalPolarity = 1;
+  double? _leftForearmScale, _rightForearmScale;
+  double? _leftOnsetAt, _rightOnsetAt, _leftReturnAt, _rightReturnAt;
+  bool get _external => bilateralExternal && !_wandDetected;
+  double get _returnBand =>
+      autoProtocol ? appReturnBandDegrees : centreBandDegrees;
+  static const appReturnBandDegrees = 10.0;
+  static const appOnsetDegrees = 12.0;
+  static const appReturnHoldSeconds = .2;
+  ShoulderRotationAssessment({
+    this.bilateralExternal = false,
+    this.autoProtocol = false,
+  });
+  bool _externalTargetHeld = false;
+  double? _centreSince;
+  List<double>? _neutralUpperArms, _neutralImageAnchor;
+  final List<double> _neutralSamplesLeft = [], _neutralSamplesRight = [];
+  String? _currentFailure;
+  final Map<String, double> _liveFailureSince = {};
+  final Set<String> _confirmedLiveFailures = {};
   // --- Section 1: joint and posture thresholds -----------------------------
   /// Elbow flexion range accepted while rotating. Retained from the previous
   /// implementation; the report labels this "Existing".
@@ -62,7 +90,9 @@ class ShoulderRotationAssessment {
   static const fullExcursionDegrees = 2 * extremeDegrees;
 
   // --- Section 4: tracking and timing --------------------------------------
-  static const visibilityMin = .7;
+  // Tracking confidence, not a movement target. Match the existing world-elbow
+  // confidence floor; .7 repeatedly rejected visible wrists on the test phone.
+  static const visibilityMin = .5;
   static const maximumFrameGapSeconds = .5;
 
   /// Causal low-pass constant for the deviation signal. The report asks for
@@ -131,6 +161,19 @@ class ShoulderRotationAssessment {
       '${bilateralMaxDifference.toStringAsFixed(0)} deg of each other. '
       'Proposed engineering settings, not clinical targets.';
 
+  static String get appThresholdSummary =>
+      'Hold a comfortable starting position with elbows bent 60-120 degrees (near 90). '
+      'Move both forearms through at least ${extremeDegrees.toStringAsFixed(0)} degrees together, hold ${extremeHoldSeconds.toStringAsFixed(2)} s, '
+      'then return within ${appReturnBandDegrees.toStringAsFixed(0)} degrees of the held start for ${appReturnHoldSeconds.toStringAsFixed(1)} s. '
+      'One completed outward-and-return or side-and-return movement is one repetition. '
+      'Proposed engineering settings. The camera movement estimate is not a clinical shoulder rotation measurement.';
+
+  static String get externalThresholdSummary =>
+      'Elbows bent 60-120 deg; both forearms rotate outward at least 20 deg, '
+      'hold 0.15 s, then return within 5 deg of the start and hold 0.2 s. '
+      'Upper-arm and torso deviations are assessed as form feedback, not '
+      'silently discarded repetitions. Proposed engineering settings, not clinical targets.';
+
   final _ArmSignal _left = _ArmSignal();
   final _ArmSignal _right = _ArmSignal();
 
@@ -141,9 +184,14 @@ class ShoulderRotationAssessment {
 
   double? _lastTime;
   double? _neutralSince;
+  double? _neutralLeft;
+  double? _neutralRight;
+  double? _previousLeft;
+  double? _previousRight;
   double? _startedAt;
   double? _extremeSince;
   Map<String, dynamic> _lastResult = {};
+  Map<String, dynamic> _trackingMetrics = {};
 
   /// Sign of the first extreme in the current cycle: +1, -1, or null.
   int? _firstSign;
@@ -164,8 +212,26 @@ class ShoulderRotationAssessment {
   void resetTracking() {
     stage = 'POSITIONING';
     calibrated = false;
+    _neutralUpperArms = _neutralImageAnchor = null;
+    _neutralSamplesLeft.clear();
+    _neutralSamplesRight.clear();
+    _currentFailure = null;
+    _liveFailureSince.clear();
+    _confirmedLiveFailures.clear();
+    _wandDetected = _protocolLocked = false;
+    _protocolCandidate = null;
+    _protocolSince = null;
+    _baselineShoulderRatio = null;
+    _externalPolarity = 1;
+    _leftForearmScale = _rightForearmScale = null;
+    _leftOnsetAt = _rightOnsetAt = _leftReturnAt = _rightReturnAt = null;
     _lastTime = null;
     _neutralSince = null;
+    _externalTargetHeld = false;
+    _centreSince = null;
+    _neutralLeft = null;
+    _neutralRight = null;
+    _previousLeft = _previousRight = null;
     _startedAt = null;
     _extremeSince = null;
     _firstSign = null;
@@ -173,6 +239,7 @@ class ShoulderRotationAssessment {
     _failureSamples.clear();
     _maximumBilateralDifference = 0;
     _trace.clear();
+    _trackingMetrics = {};
     _left.reset();
     _right.reset();
   }
@@ -185,7 +252,8 @@ class ShoulderRotationAssessment {
     List<Map<String, dynamic>>? worldLandmarks,
     String? angleSource,
   }) {
-    final invalid = !width.isFinite ||
+    final invalid =
+        !width.isFinite ||
         !height.isFinite ||
         width <= 0 ||
         height <= 0 ||
@@ -200,8 +268,8 @@ class ShoulderRotationAssessment {
       return _state(
         imageLandmarks,
         false,
-        'Show shoulders, elbows, wrists and hips clearly. World-coordinate '
-        'tracking is required; there is no image fallback.',
+        'Step back until both shoulders, elbows, wrists and hips are visible. '
+        'Keep your body facing the camera.',
       );
     }
     if (_lastTime != null && time <= _lastTime!) {
@@ -222,26 +290,146 @@ class ShoulderRotationAssessment {
     if (gap && !calibrated) resetTracking();
     if (gap && calibrated) _abandonSequence();
 
-    final posture = _Posture.from(worldLandmarks, imageLandmarks, width, height);
+    final posture = _Posture.from(
+      worldLandmarks,
+      imageLandmarks,
+      width,
+      height,
+      stableForward: bilateralExternal,
+      imageRotationProxy: autoProtocol,
+      forwardReference: calibrated ? _baselineForward : null,
+    );
+    _trackingMetrics = posture.measurements;
     // The rotation signal is each forearm's azimuth in the body frame built
     // for this frame. Calibration stores the neutral azimuth as the baseline.
-    _left.raw = posture.leftAzimuth;
-    _right.raw = posture.rightAzimuth;
+    double projectedAngle(String side, double? calibratedScale) {
+      final scale =
+          calibratedScale ??
+          posture.measurements['${side}_forearm_world_ratio']!;
+      return math.asin(
+            (posture.measurements['${side}_forearm_lateral']! /
+                    math.max(.1, scale))
+                .clamp(-.98, .98),
+          ) *
+          180 /
+          math.pi;
+    }
+
+    _left.raw = autoProtocol
+        ? projectedAngle('left', _leftForearmScale)
+        : posture.leftAzimuth;
+    _right.raw = autoProtocol
+        ? projectedAngle('right', _rightForearmScale)
+        : posture.rightAzimuth;
 
     if (!calibrated) {
-      final ready = posture.elbowOk &&
-          posture.upperArmOk &&
+      final ready =
+          posture.elbowOk &&
+          (bilateralExternal || posture.upperArmOk) &&
           posture.sidewaysLeanOk &&
-          posture.wandLevelOk;
-      _neutralSince = ready ? (_neutralSince ?? time) : null;
+          (bilateralExternal || posture.wandLevelOk);
+      // Hold against an anchored orientation, rather than accepting any
+      // continuously moving pose with correctly bent elbows as neutral.
+      double separation(double a, double b) =>
+          ((a - b + 540) % 360 - 180).abs();
+      final anchor = [
+        for (final key in [
+          'neutral_left_x',
+          'neutral_left_y',
+          'neutral_right_x',
+          'neutral_right_y',
+        ])
+          posture.measurements[key]!,
+      ];
+      final imageMoved =
+          _neutralImageAnchor == null ||
+          List.generate(
+            4,
+            (i) => (anchor[i] - _neutralImageAnchor![i]).abs(),
+          ).any((d) => d > .04);
+      if (!ready) {
+        _neutralSince = null;
+        _neutralLeft = _neutralRight = null;
+        _neutralImageAnchor = null;
+        _neutralSamplesLeft.clear();
+        _neutralSamplesRight.clear();
+      } else if (_neutralSince == null ||
+          (bilateralExternal
+              ? imageMoved
+              : separation(_left.raw, _neutralLeft!) > centreBandDegrees ||
+                    separation(_right.raw, _neutralRight!) >
+                        centreBandDegrees)) {
+        _neutralLeft = _left.raw;
+        _neutralRight = _right.raw;
+        _neutralImageAnchor = anchor;
+        _neutralSince = time;
+        _neutralSamplesLeft.clear();
+        _neutralSamplesRight.clear();
+      }
+      if (ready) {
+        _neutralSamplesLeft.add(
+          autoProtocol
+              ? posture.measurements['left_forearm_lateral']!
+              : _left.raw,
+        );
+        _neutralSamplesRight.add(
+          autoProtocol
+              ? posture.measurements['right_forearm_lateral']!
+              : _right.raw,
+        );
+        if (_neutralSamplesLeft.length > 40) {
+          _neutralSamplesLeft.removeAt(0);
+          _neutralSamplesRight.removeAt(0);
+        }
+      }
       if (_neutralSince != null &&
           time - _neutralSince! >= neutralHoldSeconds) {
         calibrated = true;
-        _baselineLeft = _left.raw;
-        _baselineRight = _right.raw;
+        if (autoProtocol) {
+          _leftForearmScale = posture.measurements['left_forearm_world_ratio'];
+          _rightForearmScale =
+              posture.measurements['right_forearm_world_ratio'];
+        }
+        double circularMean(List<double> values) =>
+            math.atan2(
+              values.fold<double>(0, (s, x) => s + math.sin(x * math.pi / 180)),
+              values.fold<double>(0, (s, x) => s + math.cos(x * math.pi / 180)),
+            ) *
+            180 /
+            math.pi;
+        double projectedNeutral(List<double> values, double scale) =>
+            math.asin(
+              (values.reduce((a, b) => a + b) /
+                      values.length /
+                      math.max(.1, scale))
+                  .clamp(-.98, .98),
+            ) *
+            180 /
+            math.pi;
+        if (autoProtocol) {
+          _left.raw = projectedAngle('left', _leftForearmScale);
+          _right.raw = projectedAngle('right', _rightForearmScale);
+        }
+        _baselineLeft = autoProtocol
+            ? projectedNeutral(_neutralSamplesLeft, _leftForearmScale!)
+            : bilateralExternal
+            ? circularMean(_neutralSamplesLeft)
+            : _left.raw;
+        _baselineRight = autoProtocol
+            ? projectedNeutral(_neutralSamplesRight, _rightForearmScale!)
+            : bilateralExternal
+            ? circularMean(_neutralSamplesRight)
+            : _right.raw;
         _baselineUp = posture.up;
         _baselineLateral = posture.lateral;
         _baselineForward = posture.forward;
+        if (bilateralExternal) {
+          _baselineShoulderRatio = posture.measurements['shoulder_width_ratio'];
+          _neutralUpperArms = [
+            posture.measurements['left_upper_arm']!,
+            posture.measurements['right_upper_arm']!,
+          ];
+        }
         stage = 'CENTRE';
         _neutralSince = null;
       }
@@ -254,7 +442,16 @@ class ShoulderRotationAssessment {
         true,
         calibrated
             ? _feedback()
-            : posture.failureText ??
+            : _message(
+                    (bilateralExternal
+                            ? !posture.elbowOk
+                                  ? 'ELBOW_BEND'
+                                  : !posture.sidewaysLeanOk
+                                  ? 'TORSO_SIDEWAYS_LEAN'
+                                  : null
+                            : posture.failureText) ??
+                        '',
+                  ) ??
                   'Hold a steady neutral posture with elbows bent near 90 '
                       'degrees to calibrate.',
       );
@@ -264,20 +461,93 @@ class ShoulderRotationAssessment {
       baselineUp: _baselineUp,
       baselineLateral: _baselineLateral,
       baselineForward: _baselineForward,
+      requireWandLevel: !bilateralExternal,
+      upperArmReference: _neutralUpperArms,
+      baselineShoulderRatio: _baselineShoulderRatio,
+      observableElbowChecks: autoProtocol,
     );
 
+    _currentFailure = failure;
     // Deviation from the calibrated neutral, unwrapped, then smoothed.
     final leftDeviation = _left.update(time, delta, _baselineLeft);
-    final rightDeviation = _right.update(time, delta, _baselineRight);
+    final rawRightDeviation = _right.update(time, delta, _baselineRight);
+    // Re-arm pattern selection only after a real neutral return. Select from
+    // sustained paired motion, not one noisy or asynchronous first sample.
+    if (autoProtocol &&
+        stage == 'CENTRE' &&
+        _startedAt == null &&
+        leftDeviation.abs() <= _returnBand &&
+        rawRightDeviation.abs() <= _returnBand) {
+      _protocolLocked = false;
+      _leftOnsetAt = _rightOnsetAt = null;
+      _protocolCandidate = null;
+      _protocolSince = null;
+    }
+    if (autoProtocol) {
+      if (leftDeviation.abs() >= 12) _leftOnsetAt ??= time;
+      if (rawRightDeviation.abs() >= 12) _rightOnsetAt ??= time;
+    }
+    if (autoProtocol &&
+        !_protocolLocked &&
+        leftDeviation.abs() >= 8 &&
+        rawRightDeviation.abs() >= 8) {
+      final wand = leftDeviation * rawRightDeviation > 0;
+      if (_protocolCandidate != wand) {
+        _protocolCandidate = wand;
+        _protocolSince = time;
+      }
+      if (_protocolSince != null && time - _protocolSince! >= .15) {
+        _wandDetected = wand;
+        _protocolLocked = true;
+        _externalPolarity = leftDeviation < 0 ? -1 : 1;
+        _stopSequence();
+        stage = 'CENTRE';
+      }
+    }
+    final left = autoProtocol || _external
+        ? leftDeviation * _externalPolarity
+        : leftDeviation;
+    final rightDeviation = _external
+        ? -rawRightDeviation * _externalPolarity
+        : autoProtocol
+        ? rawRightDeviation * _externalPolarity
+        : rawRightDeviation;
+    if (autoProtocol && !_protocolLocked) {
+      return _state(
+        imageLandmarks,
+        true,
+        'Move both forearms together from the neutral position.',
+      );
+    }
+    if (autoProtocol || _external) {
+      return _externalCycle(
+        imageLandmarks,
+        time,
+        posture,
+        failure,
+        left,
+        rightDeviation,
+      );
+    }
     final bilateral = (leftDeviation - rightDeviation).abs();
-    _maximumBilateralDifference = math.max(_maximumBilateralDifference, bilateral);
+    _maximumBilateralDifference = math.max(
+      _maximumBilateralDifference,
+      bilateral,
+    );
     final bilateralFail = bilateral > bilateralMaxDifference;
+    _updateLiveForm(failure, bilateralFail, time);
 
     Map<String, dynamic>? completed;
-    final left = leftDeviation;
     final right = rightDeviation;
+    final sampledCentre =
+        left.abs() <= _returnBand && right.abs() <= _returnBand;
+    // At camera cadence a smooth centre crossing can fall between frames.
+    // Accept it only when both arms occupy the centre band at an overlapping
+    // interpolated time, with no large jump or tracking gap.
     final inCentre =
-        left.abs() <= centreBandDegrees && right.abs() <= centreBandDegrees;
+        sampledCentre || (!gap && _crossedCentre(left, right, delta: delta));
+    _previousLeft = left;
+    _previousRight = right;
     final positive = left >= extremeDegrees && right >= extremeDegrees;
     final negative = left <= -extremeDegrees && right <= -extremeDegrees;
     final atExtreme = positive || negative;
@@ -341,7 +611,8 @@ class ShoulderRotationAssessment {
     final state = _state(
       imageLandmarks,
       true,
-      completed?['feedback'] as String? ?? _feedback(failure, bilateral, posture),
+      completed?['feedback'] as String? ??
+          _feedback(failure, bilateral, posture),
     );
     if (completed != null) {
       state.addAll({
@@ -352,8 +623,8 @@ class ShoulderRotationAssessment {
         'target_reached': completed['target_reached'],
         'target_hold_progress': 1.0,
         'angle': (left + right) / 2,
-        'left_angle': completed['left_excursion'],
-        'right_angle': completed['right_excursion'],
+        'left_angle': left,
+        'right_angle': right,
         'range_of_motion': completed['range_of_motion'],
         'left_range_of_motion': completed['left_excursion'],
         'right_range_of_motion': completed['right_excursion'],
@@ -361,6 +632,149 @@ class ShoulderRotationAssessment {
       });
     }
     return state;
+  }
+
+  bool _crossedCentre(double left, double right, {double? delta}) {
+    if (_previousLeft == null || _previousRight == null) return false;
+    List<double>? interval(double previous, double current) {
+      final change = current - previous;
+      final maximumStep = math.max(
+        extremeDegrees,
+        math.min(60, 240 * (delta ?? .08)),
+      );
+      if (change.abs() > maximumStep) return null;
+      if (change.abs() < 1e-9) {
+        return current.abs() <= centreBandDegrees ? [0, 1] : null;
+      }
+      final a = (-centreBandDegrees - previous) / change;
+      final b = (centreBandDegrees - previous) / change;
+      final start = math.max(0.0, math.min(a, b));
+      final end = math.min(1.0, math.max(a, b));
+      return start <= end ? [start, end] : null;
+    }
+
+    final l = interval(_previousLeft!, left);
+    final r = interval(_previousRight!, right);
+    return l != null &&
+        r != null &&
+        math.max(l[0], r[0]) <= math.min(l[1], r[1]);
+  }
+
+  Map<String, dynamic> _externalCycle(
+    List<Map<String, dynamic>> image,
+    double time,
+    _Posture posture,
+    String? failure,
+    double left,
+    double right,
+  ) {
+    final inCentre = left.abs() <= _returnBand && right.abs() <= _returnBand;
+    final difference = (left - right).abs();
+    final phaseMismatch =
+        left > _returnBand && right < -_returnBand ||
+        right > _returnBand && left < -_returnBand;
+    final onsetLag =
+        _leftOnsetAt != null &&
+        _rightOnsetAt != null &&
+        (_leftOnsetAt! - _rightOnsetAt!).abs() > .6;
+    final coordinationFail = autoProtocol
+        ? phaseMismatch || onsetLag
+        : difference > bilateralMaxDifference;
+    _updateLiveForm(failure, coordinationFail, time);
+    Map<String, dynamic>? completed;
+    if (stage == 'NEED_CENTRE' && inCentre) stage = 'CENTRE';
+    if (stage == 'CENTRE' && math.max(left, right) >= (autoProtocol ? 12 : 8)) {
+      _beginSequence(0, 0);
+      _startedAt = time;
+      _externalTargetHeld = false;
+      _centreSince = _extremeSince = null;
+      _leftReturnAt = _rightReturnAt = null;
+      stage = 'ROTATING_OUT';
+    }
+    if (_startedAt != null) {
+      _maximumBilateralDifference = math.max(
+        _maximumBilateralDifference,
+        difference,
+      );
+      _observe(failure, coordinationFail);
+      _trace.add({
+        'seconds': time - _startedAt!,
+        'left_angle': left,
+        'right_angle': right,
+        'angle': (left + right) / 2,
+      });
+      if (_trace.length > 240) _trace.removeAt(1);
+      final atTarget = left >= extremeDegrees && right >= extremeDegrees;
+      _extremeSince = atTarget ? (_extremeSince ?? time) : null;
+      if (_extremeSince != null &&
+          time - _extremeSince! >= extremeHoldSeconds) {
+        _externalTargetHeld = true;
+        stage = 'RETURNING';
+      }
+      if (autoProtocol && _externalTargetHeld) {
+        _leftReturnAt = left.abs() <= _returnBand
+            ? (_leftReturnAt ?? time)
+            : null;
+        _rightReturnAt = right.abs() <= _returnBand
+            ? (_rightReturnAt ?? time)
+            : null;
+      }
+      _centreSince = inCentre ? (_centreSince ?? time) : null;
+      if (_centreSince != null && time - _centreSince! >= .2) {
+        final meaningful =
+            _left.excursion >= (autoProtocol ? 15 : 8) &&
+            _right.excursion >= (autoProtocol ? 15 : 8) &&
+            time - _startedAt! >= .8;
+        if (meaningful) {
+          completed = _complete(
+            time,
+            posture,
+            difference,
+            targetReached: _externalTargetHeld,
+          );
+        }
+        if (completed != null) _lastResult = completed;
+        _stopSequence();
+        stage = 'CENTRE';
+      } else if (time - _startedAt! > 45) {
+        _abandonSequence();
+      }
+    }
+    final state = _state(
+      image,
+      true,
+      completed?['feedback'] as String? ??
+          _feedback(failure, difference, posture),
+    );
+    if (completed != null) {
+      state.addAll({
+        'completed_rep': completed,
+        'form': completed['form'],
+        'range_of_motion': completed['range_of_motion'],
+        'left_range_of_motion': completed['left_excursion'],
+        'right_range_of_motion': completed['right_excursion'],
+        'target_hold_progress': completed['target_reached'] == true ? 1.0 : 0.0,
+        'duration': completed['duration'],
+        'target_reached': completed['target_reached'],
+        'error_type': completed['error_type'],
+      });
+    }
+    return state;
+  }
+
+  void _updateLiveForm(String? failure, bool bilateralFail, double time) {
+    final current = <String>{
+      ?failure,
+      if (bilateralFail) 'BILATERAL_COORDINATION',
+    };
+    _currentFailure = current.isEmpty ? null : current.first;
+    _liveFailureSince.removeWhere((key, _) => !current.contains(key));
+    for (final code in current) {
+      _liveFailureSince[code] ??= time;
+      if (_startedAt != null && time - _liveFailureSince[code]! >= .3) {
+        _confirmedLiveFailures.add(code);
+      }
+    }
   }
 
   /// Records one valid sample against the repetition-level form decision.
@@ -378,6 +792,8 @@ class ShoulderRotationAssessment {
   void _beginSequence(double left, double right) {
     _validSamples = 0;
     _failureSamples.clear();
+    _confirmedLiveFailures.clear();
+    _liveFailureSince.clear();
     _maximumBilateralDifference = 0;
     _trace.clear();
     _left.beginExcursion(left);
@@ -388,22 +804,30 @@ class ShoulderRotationAssessment {
     stage = 'NEED_CENTRE';
     _startedAt = null;
     _firstSign = null;
-    _extremeSince = null;
+    _extremeSince = _centreSince = null;
+    _externalTargetHeld = false;
     _validSamples = 0;
     _failureSamples.clear();
     _trace.clear();
+    _confirmedLiveFailures.clear();
+    _liveFailureSince.clear();
     _left.endExcursion();
     _right.endExcursion();
   }
 
   void _stopSequence() {
-    stage = 'CENTRE';
+    // Completion occurs at the opposite extreme, not at centre. Require an
+    // actual centre return before another repetition can begin.
+    stage = 'NEED_CENTRE';
     _startedAt = null;
     _firstSign = null;
-    _extremeSince = null;
+    _extremeSince = _centreSince = null;
+    _externalTargetHeld = false;
     _validSamples = 0;
     _failureSamples.clear();
     _trace.clear();
+    _confirmedLiveFailures.clear();
+    _liveFailureSince.clear();
     _left.endExcursion();
     _right.endExcursion();
   }
@@ -411,15 +835,27 @@ class ShoulderRotationAssessment {
   Map<String, dynamic> _complete(
     double time,
     _Posture posture,
-    double bilateral,
-  ) {
+    double bilateral, {
+    bool targetReached = true,
+  }) {
     // A failure flags the repetition once it covers at least the persistence
     // fraction of valid samples in the cycle.
-    final required = math.max(1, (_validSamples * failurePersistenceFraction).ceil());
+    final required = math.max(
+      1,
+      (_validSamples * failurePersistenceFraction).ceil(),
+    );
     final codes = <String>[
       for (final entry in _failureSamples.entries)
         if (entry.value >= required) entry.key,
     ]..sort();
+    if (!targetReached) codes.add('TARGET_NOT_HELD');
+    if (autoProtocol &&
+        _leftReturnAt != null &&
+        _rightReturnAt != null &&
+        (_leftReturnAt! - _rightReturnAt!).abs() > .6 &&
+        !codes.contains('BILATERAL_COORDINATION')) {
+      codes.add('BILATERAL_COORDINATION');
+    }
     final good = codes.isEmpty;
     final duration = time - _startedAt!;
     final leftExcursion = _left.excursion;
@@ -427,7 +863,10 @@ class ShoulderRotationAssessment {
     final rangeScore =
         100 *
         math.min(
-          math.min(leftExcursion, rightExcursion) / fullExcursionDegrees,
+          math.min(leftExcursion, rightExcursion) /
+              ((autoProtocol || _external)
+                  ? extremeDegrees
+                  : fullExcursionDegrees),
           1.0,
         );
     final formScore = (100 - 20 * codes.length).clamp(0.0, 100.0);
@@ -435,9 +874,7 @@ class ShoulderRotationAssessment {
     // speed or duration pass/fail limit, so pace never raises an error code.
     final paceScore = duration <= 12 ? 100.0 : 80.0;
     final weighted = .45 * formScore + .35 * rangeScore + .20 * paceScore;
-    final score = good
-        ? math.min(100.0, weighted)
-        : math.min(60.0, weighted);
+    final score = good ? math.min(100.0, weighted) : math.min(60.0, weighted);
     repCount++;
     if (good) correctCount++;
     return {
@@ -468,7 +905,20 @@ class ShoulderRotationAssessment {
       'left_excursion': leftExcursion,
       'right_excursion': rightExcursion,
       'maximum_bilateral_difference': _maximumBilateralDifference,
-      'bilateral_difference_limit': bilateralMaxDifference,
+      'bilateral_difference_limit': autoProtocol
+          ? null
+          : bilateralMaxDifference,
+      if (autoProtocol)
+        'coordination': {
+          'maximum_onset_lag_s': .6,
+          'maximum_return_lag_s': .6,
+          'onset_lag_s': _leftOnsetAt != null && _rightOnsetAt != null
+              ? (_leftOnsetAt! - _rightOnsetAt!).abs()
+              : null,
+          'return_lag_s': _leftReturnAt != null && _rightReturnAt != null
+              ? (_leftReturnAt! - _rightReturnAt!).abs()
+              : null,
+        },
       // Every observed posture violation fraction, including those below the
       // persistence threshold, so the data is available for tuning. Only codes
       // at or above `form_failure_threshold` appear in `error_codes` and decide
@@ -481,7 +931,7 @@ class ShoulderRotationAssessment {
       'valid_samples': _validSamples,
       'angle_trace': List<Map<String, double>>.from(_trace),
       'smoothness': null,
-      'target_reached': true,
+      'target_reached': targetReached,
       'required_target': extremeDegrees,
       'required_left_target': extremeDegrees,
       'required_right_target': extremeDegrees,
@@ -498,23 +948,80 @@ class ShoulderRotationAssessment {
 
   Map<String, dynamic> get _metadata => {
     'exercise': 'shoulder_rotation',
-    'angle_source': source,
+    'angle_source': autoProtocol ? 'image_lateral_with_world_scale' : source,
+    if (autoProtocol) 'pose_coordinate_source': source,
     'assessment_method': 'on_device_angle_rules',
-    'model_identity': 'MediaPipe world shoulder-rotation candidate rules',
-    'model_version': 'ShoulderRotationRules_v1',
+    'model_identity': autoProtocol
+        ? 'MediaPipe full video + projected forearm candidate rules'
+        : 'MediaPipe world shoulder-rotation candidate rules',
+    'model_version': autoProtocol
+        ? 'ShoulderRotationApp_v4'
+        : _external
+        ? 'ShoulderRotationExternal_v2'
+        : 'ShoulderRotationRules_v1',
+    'movement_protocol': _external
+        ? 'bilateral_outward_return'
+        : autoProtocol
+        ? 'bilateral_sweep_return'
+        : 'legacy_wand_sweep',
+    if (bilateralExternal)
+      'posture_reference':
+          'image frontal upper-arm angle plus world change from held neutral',
     'calibration_status': provenance,
     'calibration_report': reportTitle,
     'calibration_report_date': reportDate,
     'limitations': limitations,
     'experimental': true,
     'clinically_validated': false,
-    'thresholds': thresholds,
+    'thresholds': autoProtocol
+        ? {
+            ...thresholds,
+            'app_rotation': {
+              'signal': 'image_lateral_with_world_scale',
+              'start_relative': true,
+              'target_deg': extremeDegrees,
+              'target_hold_s': extremeHoldSeconds,
+              'return_band_deg': 10,
+              'return_hold_s': .2,
+              'onset_deg': 12,
+              'minimum_counted_excursion_deg': 15,
+              'minimum_counted_duration_s': .8,
+              'maximum_bilateral_onset_lag_s': .6,
+              'maximum_bilateral_return_lag_s': .6,
+              'bilateral_comparison':
+                  'direction and timing; per-arm target and return',
+              'neutral_image_stability_torso_fraction': .04,
+            },
+          }
+        : thresholds,
   };
 
   String _feedback([String? failure, double? bilateral, _Posture? posture]) {
     if (failure != null) return _message(failure)!;
-    if (bilateral != null && bilateral > bilateralMaxDifference) {
+    if (autoProtocol && _currentFailure == 'BILATERAL_COORDINATION' ||
+        !autoProtocol &&
+            bilateral != null &&
+            bilateral > bilateralMaxDifference) {
       return _message('BILATERAL_COORDINATION')!;
+    }
+    if (autoProtocol) {
+      return switch (stage) {
+        'CENTRE' =>
+          'Move both forearms slowly, then return to the starting position.',
+        'ROTATING_OUT' =>
+          'Keep your elbows beside your torso as both forearms move.',
+        'RETURNING' =>
+          'Return both forearms to the position held at the start.',
+        _ => 'Hold the starting position briefly with both elbows bent.',
+      };
+    }
+    if (_external) {
+      return switch (stage) {
+        'CENTRE' => 'Rotate both forearms outward, then return to your starting position.',
+        'ROTATING_OUT' => 'Rotate both forearms outward together while keeping your elbows beside your torso.',
+        'RETURNING' => 'Return both forearms to your starting position.',
+        _ => 'Hold both forearms steady in the starting position.',
+      };
     }
     return switch (stage) {
       'CENTRE' => 'Rotate both forearms together to one side.',
@@ -526,6 +1033,10 @@ class ShoulderRotationAssessment {
   }
 
   String? _message(String code) => switch (code) {
+    'TARGET_NOT_HELD' =>
+      autoProtocol
+          ? 'Both forearms must reach and briefly hold the movement target before returning.'
+          : 'Both forearms must reach and briefly hold the outward target before returning.',
     'ELBOW_BEND' =>
       'Keep both elbows bent between ${elbowBendMin.toStringAsFixed(0)} and '
           '${elbowBendMax.toStringAsFixed(0)} degrees.',
@@ -545,8 +1056,10 @@ class ShoulderRotationAssessment {
       'Keep the wand level; it tilted more than '
           '${wandLevelMax.toStringAsFixed(0)} degrees.',
     'BILATERAL_COORDINATION' =>
-      'Move both arms together; they differed by more than '
-          '${bilateralMaxDifference.toStringAsFixed(0)} degrees.',
+      autoProtocol
+          ? 'Move both forearms together; start and return at the same time.'
+          : 'Move both arms together; they differed by more than '
+                '${bilateralMaxDifference.toStringAsFixed(0)} degrees.',
     _ => null,
   };
 
@@ -555,8 +1068,18 @@ class ShoulderRotationAssessment {
     bool valid,
     String feedback,
   ) {
-    final left = calibrated ? _left.value ?? 0 : 0.0;
-    final right = calibrated ? _right.value ?? 0 : 0.0;
+    final left = calibrated
+        ? (_left.value ?? 0) *
+              ((autoProtocol || _external) ? _externalPolarity : 1)
+        : 0.0;
+    final right = calibrated
+        ? (_right.value ?? 0) *
+              (_external
+                  ? -_externalPolarity
+                  : autoProtocol
+                  ? _externalPolarity
+                  : 1)
+        : 0.0;
     return {
       ..._metadata,
       'type': 'live_state',
@@ -570,18 +1093,36 @@ class ShoulderRotationAssessment {
       'correct_reps': correctCount,
       'form': !valid || !calibrated
           ? 'Waiting'
-          : _failureSamples.isEmpty
-          ? 'correct'
-          : 'incorrect',
+          : _confirmedLiveFailures.isNotEmpty
+          ? 'incorrect'
+          : _currentFailure != null
+          ? 'Adjusting'
+          : 'correct',
       'feedback': feedback,
       'error_type': _failureSamples.isEmpty ? '' : _failureSamples.keys.first,
       'incorrect_step': _failureSamples.isEmpty ? null : stage,
-      'target_reached': calibrated && _firstSign != null,
+      'target_reached':
+          calibrated &&
+          ((autoProtocol || _external)
+              ? _externalTargetHeld
+              : _firstSign != null),
       'required_target': extremeDegrees,
       'required_left_target': extremeDegrees,
       'required_right_target': extremeDegrees,
-      'target_hold_progress': 0.0,
-      'range_of_motion': math.min(_left.currentExcursion, _right.currentExcursion),
+      'target_hold_progress': (autoProtocol || _external)
+          ? _externalTargetHeld
+                ? 1.0
+                : _extremeSince == null
+                ? 0.0
+                : ((_lastTime! - _extremeSince!) / extremeHoldSeconds).clamp(
+                    0.0,
+                    1.0,
+                  )
+          : 0.0,
+      'range_of_motion': math.min(
+        _left.currentExcursion,
+        _right.currentExcursion,
+      ),
       'left_range_of_motion': _left.currentExcursion,
       'right_range_of_motion': _right.currentExcursion,
       'duration': _startedAt == null ? null : _lastTime! - _startedAt!,
@@ -594,7 +1135,12 @@ class ShoulderRotationAssessment {
       'return_completion': _lastResult['return_completion'],
       'speed': _lastResult['speed'] ?? 'Waiting',
       'tracking_valid': valid,
-      'threshold_summary': thresholdSummary,
+      'tracking_metrics': _trackingMetrics,
+      'threshold_summary': autoProtocol
+          ? appThresholdSummary
+          : _external
+          ? externalThresholdSummary
+          : thresholdSummary,
       'camera_view': 'Front view, upright camera',
     };
   }
@@ -603,7 +1149,7 @@ class ShoulderRotationAssessment {
     for (final index in indices) {
       if (index >= points.length) return false;
       final point = points[index];
-      // The report requires a minimum visibility of 0.7 for every required
+      // The current engineering gate requires visibility of 0.5 for every required
       // landmark and treats a missing value as insufficient tracking, so an
       // absent or non-finite visibility is rejected rather than assumed good.
       final visibility = point['visibility'];
@@ -659,9 +1205,7 @@ class _ArmSignal {
     final weight = delta == null || delta <= 0
         ? 1.0
         : 1 - math.exp(-delta / ShoulderRotationAssessment.filterTauSeconds);
-    value = value == null
-        ? deviation
-        : value! + weight * (deviation - value!);
+    value = value == null ? deviation : value! + weight * (deviation - value!);
     if (_excursionMin == null || value! < _excursionMin!) _excursionMin = value;
     if (_excursionMax == null || value! > _excursionMax!) _excursionMax = value;
     return value!;
@@ -677,14 +1221,14 @@ class _ArmSignal {
     _excursionMax = null;
   }
 
-  double get excursion => _excursionMin == null
-      ? 0
-      : (_excursionMax ?? 0) - (_excursionMin ?? 0);
+  double get excursion =>
+      _excursionMin == null ? 0 : (_excursionMax ?? 0) - (_excursionMin ?? 0);
   double get currentExcursion => excursion;
 }
 
 /// Posture measurements for one frame, in the calibrated body frame.
 class _Posture {
+  final Map<String, double> measurements;
   final bool elbowOk;
   final bool upperArmOk;
   final bool sidewaysLeanOk;
@@ -699,6 +1243,7 @@ class _Posture {
   final double rightAzimuth;
 
   const _Posture({
+    required this.measurements,
     required this.elbowOk,
     required this.upperArmOk,
     required this.sidewaysLeanOk,
@@ -718,8 +1263,11 @@ class _Posture {
     List<Map<String, dynamic>> world,
     List<Map<String, dynamic>> image,
     double width,
-    double height,
-  ) {
+    double height, {
+    bool stableForward = false,
+    bool imageRotationProxy = false,
+    List<double>? forwardReference,
+  }) {
     List<double> w(int index) => [
       (world[index]['x'] as num).toDouble(),
       (world[index]['y'] as num).toDouble(),
@@ -737,14 +1285,52 @@ class _Posture {
       _subtract(shoulderLine, _scale(up, _dot(shoulderLine, up))),
     );
     var forward = _cross(up, lateral);
-    // Fix the sign consistently so the frame is right-handed and stable.
-    if (_dot(forward, _subtract(w(15), w(11))) < 0) {
+    // Choose forward from the resting forearms and retain the calibrated sign.
+    // A moving wrist must not flip the body frame during the cycle.
+    if (stableForward) {
+      final reference =
+          forwardReference ??
+          _mid(_subtract(w(15), w(13)), _subtract(w(16), w(14)));
+      if (_dot(forward, reference) < 0) forward = _scale(forward, -1);
+    }
+    if (!stableForward && _dot(forward, _subtract(w(15), w(11))) < 0) {
       forward = _scale(forward, -1);
     }
 
-    final leftElbow = _angle(w(11), w(13), w(15));
-    final rightElbow = _angle(w(12), w(14), w(16));
-    final elbowOk = leftElbow >= ShoulderRotationAssessment.elbowBendMin &&
+    List<double> xy(int index) => [i(index)[0], i(index)[1], 0];
+    final imageTorso = _subtract(_mid(xy(11), xy(12)), _mid(xy(23), xy(24)));
+    final torsoPixels = math.sqrt(_dot(imageTorso, imageTorso));
+    final torsoWorld = math.sqrt(
+      _dot(
+        _subtract(_mid(w(11), w(12)), _mid(w(23), w(24))),
+        _subtract(_mid(w(11), w(12)), _mid(w(23), w(24))),
+      ),
+    );
+    final sideAxis = _normalize(_subtract(xy(11), xy(12)));
+    final imageMetrics = <String, double>{};
+    for (final (name, e, wr) in [('left', 13, 15), ('right', 14, 16)]) {
+      final foreWorld = _subtract(w(wr), w(e));
+      final ratio =
+          math.sqrt(_dot(foreWorld, foreWorld)) / math.max(.01, torsoWorld);
+      final foreImage = _subtract(xy(wr), xy(e));
+      imageMetrics['${name}_forearm_world_ratio'] = ratio;
+      imageMetrics['${name}_forearm_lateral'] =
+          _dot(foreImage, sideAxis) / math.max(1, torsoPixels);
+      imageMetrics['${name}_projection_quality'] =
+          _dot(foreImage, sideAxis).abs() / math.max(1, torsoPixels * ratio);
+    }
+    final leftWorldElbow = _angle(w(11), w(13), w(15));
+    final rightWorldElbow = _angle(w(12), w(14), w(16));
+    final leftElbow =
+        imageRotationProxy && imageMetrics['left_projection_quality']! >= .65
+        ? _angle(xy(11), xy(13), xy(15))
+        : leftWorldElbow;
+    final rightElbow =
+        imageRotationProxy && imageMetrics['right_projection_quality']! >= .65
+        ? _angle(xy(12), xy(14), xy(16))
+        : rightWorldElbow;
+    final elbowOk =
+        leftElbow >= ShoulderRotationAssessment.elbowBendMin &&
         leftElbow <= ShoulderRotationAssessment.elbowBendMax &&
         rightElbow >= ShoulderRotationAssessment.elbowBendMin &&
         rightElbow <= ShoulderRotationAssessment.elbowBendMax;
@@ -752,7 +1338,8 @@ class _Posture {
     final down = _scale(up, -1);
     final leftUpper = _angleBetween(_subtract(w(13), w(11)), down);
     final rightUpper = _angleBetween(_subtract(w(14), w(12)), down);
-    final upperArmOk = leftUpper <= ShoulderRotationAssessment.upperArmMax &&
+    final upperArmOk =
+        leftUpper <= ShoulderRotationAssessment.upperArmMax &&
         rightUpper <= ShoulderRotationAssessment.upperArmMax;
 
     // Frontal-plane checks use aspect-corrected image coordinates with an
@@ -760,7 +1347,7 @@ class _Posture {
     // Image y grows downward, so an upright torso has a negative y component.
     // Lean is the angle of the torso axis away from vertical in the frontal
     // plane; folding onto +y keeps it independent of camera mirroring.
-    final imageTorso = _subtract(_mid(i(11), i(12)), _mid(i(23), i(24)));
+
     final sidewaysLean =
         math.atan2(imageTorso[0].abs(), imageTorso[1].abs()) * 180 / math.pi;
     final sidewaysLeanOk =
@@ -789,11 +1376,69 @@ class _Posture {
     // toward the subject's left therefore gives both hands a positive sign;
     // no per-arm negation is applied, and `left/right same-side` is covered by
     // the tests.
-    final leftAzimuth =
-        shoulderRotationAzimuth(w(13), w(15), up, lateral, forward);
-    final rightAzimuth =
-        shoulderRotationAzimuth(w(14), w(16), up, lateral, forward);
+    final leftAzimuth = shoulderRotationAzimuth(
+      w(13),
+      w(15),
+      up,
+      lateral,
+      forward,
+    );
+    final rightAzimuth = shoulderRotationAzimuth(
+      w(14),
+      w(16),
+      up,
+      lateral,
+      forward,
+    );
     return _Posture(
+      measurements: {
+        ...imageMetrics,
+        'left_world_elbow_bend': leftWorldElbow,
+        'right_world_elbow_bend': rightWorldElbow,
+        'left_elbow_bend': leftElbow,
+        'right_elbow_bend': rightElbow,
+        'left_upper_arm': leftUpper,
+        'right_upper_arm': rightUpper,
+        'left_image_upper_arm': _angleBetween(
+          [i(13)[0] - i(11)[0], i(13)[1] - i(11)[1], 0],
+          [-imageTorso[0], -imageTorso[1], 0],
+        ),
+        'right_image_upper_arm': _angleBetween(
+          [i(14)[0] - i(12)[0], i(14)[1] - i(12)[1], 0],
+          [-imageTorso[0], -imageTorso[1], 0],
+        ),
+        'sideways_lean': sidewaysLean,
+        'wand_tilt': wandTilt,
+        for (final (name, index) in [('left', 15), ('right', 16)]) ...{
+          'neutral_${name}_x':
+              (i(index)[0] - (i(11)[0] + i(12)[0]) / 2) /
+              math.max(
+                1,
+                math.sqrt(
+                  imageTorso[0] * imageTorso[0] + imageTorso[1] * imageTorso[1],
+                ),
+              ),
+          'neutral_${name}_y':
+              (i(index)[1] - (i(11)[1] + i(12)[1]) / 2) /
+              math.max(
+                1,
+                math.sqrt(
+                  imageTorso[0] * imageTorso[0] + imageTorso[1] * imageTorso[1],
+                ),
+              ),
+        },
+        'shoulder_width_ratio':
+            math.sqrt(
+              math.pow(i(11)[0] - i(12)[0], 2) +
+                  math.pow(i(11)[1] - i(12)[1], 2),
+            ) /
+            math.max(
+              1,
+              math.sqrt(
+                math.pow(imageTorso[0], 2) + math.pow(imageTorso[1], 2),
+              ),
+            ),
+      },
       elbowOk: elbowOk,
       upperArmOk: upperArmOk,
       sidewaysLeanOk: sidewaysLeanOk,
@@ -814,21 +1459,63 @@ class _Posture {
     required List<double> baselineUp,
     required List<double> baselineLateral,
     required List<double> baselineForward,
+    bool requireWandLevel = true,
+    double? baselineShoulderRatio,
+    bool observableElbowChecks = false,
+    List<double>? upperArmReference,
   }) {
-    if (!elbowOk) return 'ELBOW_BEND';
-    if (!upperArmOk) return 'UPPER_ARM_POSITION';
+    if (!elbowOk &&
+        (!observableElbowChecks ||
+            (measurements['left_projection_quality']! >= .65 &&
+                (leftElbow < ShoulderRotationAssessment.elbowBendMin ||
+                    leftElbow > ShoulderRotationAssessment.elbowBendMax)) ||
+            (measurements['right_projection_quality']! >= .65 &&
+                (rightElbow < ShoulderRotationAssessment.elbowBendMin ||
+                    rightElbow > ShoulderRotationAssessment.elbowBendMax)))) {
+      return 'ELBOW_BEND';
+    }
+    if (upperArmReference == null) {
+      if (!upperArmOk) return 'UPPER_ARM_POSITION';
+    } else {
+      // Frontal abduction is visible in image XY. Assess depth changes against
+      // the held neutral pose, instead of grading a static model-depth offset.
+      for (var side = 0; side < 2; side++) {
+        final name = side == 0 ? 'left' : 'right';
+        if (measurements['${name}_image_upper_arm']! >
+                ShoulderRotationAssessment.upperArmMax ||
+            (measurements['${name}_upper_arm']! - upperArmReference[side])
+                    .abs() >
+                ShoulderRotationAssessment.upperArmMax) {
+          return 'UPPER_ARM_POSITION';
+        }
+      }
+    }
     if (!sidewaysLeanOk) return 'TORSO_SIDEWAYS_LEAN';
-    if (!wandLevelOk) return 'WAND_NOT_LEVEL';
+    if (requireWandLevel && !wandLevelOk) return 'WAND_NOT_LEVEL';
     final su = _dot(up, baselineUp);
     final sagittal = math.atan2(_dot(up, baselineForward), su) * 180 / math.pi;
-    if (sagittal.abs() > ShoulderRotationAssessment.forwardLeanChangeMax) {
+    final imageConfirmsChange =
+        baselineShoulderRatio == null ||
+        (measurements['shoulder_width_ratio']! / baselineShoulderRatio - 1)
+                .abs() >
+            .12;
+    if (sagittal.abs() > ShoulderRotationAssessment.forwardLeanChangeMax &&
+        imageConfirmsChange) {
       return 'TORSO_FORWARD_LEAN';
     }
     final yaw =
-        math.atan2(_dot(lateral, baselineForward), _dot(lateral, baselineLateral)) *
-            180 /
-            math.pi;
-    if (yaw.abs() > ShoulderRotationAssessment.torsoTwistMax) {
+        math.atan2(
+          _dot(lateral, baselineForward),
+          _dot(lateral, baselineLateral),
+        ) *
+        180 /
+        math.pi;
+    measurements['torso_yaw_change'] = yaw;
+    final width = measurements['shoulder_width_ratio']!;
+    final imageConfirms =
+        baselineShoulderRatio == null ||
+        (width / baselineShoulderRatio - 1).abs() > .12;
+    if (yaw.abs() > ShoulderRotationAssessment.torsoTwistMax && imageConfirms) {
       return 'TORSO_TWIST';
     }
     return null;
@@ -865,7 +1552,9 @@ class _Posture {
   static double _angleBetween(List<double> a, List<double> b) {
     final denominator = math.sqrt(_dot(a, a) * _dot(b, b));
     if (!denominator.isFinite || denominator < 1e-9) return 180;
-    return math.acos((_dot(a, b) / denominator).clamp(-1.0, 1.0)) * 180 / math.pi;
+    return math.acos((_dot(a, b) / denominator).clamp(-1.0, 1.0)) *
+        180 /
+        math.pi;
   }
 
   /// Three-point angle with the middle point as the vertex.
@@ -884,21 +1573,19 @@ double shoulderRotationAzimuth(
   List<double> lateral,
   List<double> forward,
 ) {
-  final v = [
-    wrist[0] - elbow[0],
-    wrist[1] - elbow[1],
-    wrist[2] - elbow[2],
-  ];
+  final v = [wrist[0] - elbow[0], wrist[1] - elbow[1], wrist[2] - elbow[2]];
   final upComponent = v[0] * up[0] + v[1] * up[1] + v[2] * up[2];
   final projected = [
     v[0] - upComponent * up[0],
     v[1] - upComponent * up[1],
     v[2] - upComponent * up[2],
   ];
-  final lateralComponent = projected[0] * lateral[0] +
+  final lateralComponent =
+      projected[0] * lateral[0] +
       projected[1] * lateral[1] +
       projected[2] * lateral[2];
-  final forwardComponent = projected[0] * forward[0] +
+  final forwardComponent =
+      projected[0] * forward[0] +
       projected[1] * forward[1] +
       projected[2] * forward[2];
   if (lateralComponent.abs() < 1e-12 && forwardComponent.abs() < 1e-12) {

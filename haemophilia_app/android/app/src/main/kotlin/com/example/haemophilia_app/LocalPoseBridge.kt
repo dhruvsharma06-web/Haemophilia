@@ -41,6 +41,9 @@ class LocalPoseBridge(messenger: BinaryMessenger, private val appContext: Contex
     private val rotatedDetectors = mutableMapOf<Int, PoseDetector>()
     /** MediaPipe world-coordinate path, created only when an exercise needs it. */
     private var worldLandmarker: PoseLandmarker? = null
+    private var temporalLandmarker: PoseLandmarker? = null
+    private var videoTimestamp = 0L
+    @Volatile private var useTemporalPose = false
     private val worldRotatedLandmarkers = mutableMapOf<Int, PoseLandmarker>()
     @Volatile private var useWorldPose = false
     @Volatile private var allowSideways = false
@@ -62,11 +65,12 @@ class LocalPoseBridge(messenger: BinaryMessenger, private val appContext: Contex
                 "initialize" -> {
                     allowSideways = call.argument<Boolean>("sideways") == true
                     useWorldPose = call.argument<Boolean>("worldPose") == true
+                    useTemporalPose = useWorldPose && call.argument<Boolean>("temporalPose") == true
                     if (detector == null) detector = PoseDetection.getClient(
                         PoseDetectorOptions.Builder().setDetectorMode(PoseDetectorOptions.STREAM_MODE).build())
                     if (useWorldPose) {
                         try {
-                            worldLandmarker()
+                            if (useTemporalPose) temporalLandmarker() else worldLandmarker()
                         } catch (e: Exception) {
                             useWorldPose = false
                             result.error("WORLD_POSE_UNAVAILABLE", e.message, null)
@@ -83,6 +87,8 @@ class LocalPoseBridge(messenger: BinaryMessenger, private val appContext: Contex
                         preferredRotation = 0
                         lastOrientationSearch = 0
                         previousCameraRotation = -1
+                        temporalLandmarker?.close(); temporalLandmarker = null
+                        videoTimestamp = 0L
                         main.post { result.success(null) }
                     }
                 }
@@ -151,6 +157,21 @@ class LocalPoseBridge(messenger: BinaryMessenger, private val appContext: Contex
         return created
     }
 
+    /** Dedicated full VIDEO model. The independent elbow retains its IMAGE task. */
+    private fun temporalLandmarker(): PoseLandmarker {
+        temporalLandmarker?.let { return it }
+        val created = PoseLandmarker.createFromOptions(appContext,
+            PoseLandmarker.PoseLandmarkerOptions.builder()
+                .setBaseOptions(BaseOptions.builder()
+                    .setModelAssetPath("pose_landmarker_full.task").build())
+                .setRunningMode(RunningMode.VIDEO)
+                .setNumPoses(1)
+                .build())
+        temporalLandmarker = created
+        videoTimestamp = 0L
+        return created
+    }
+
     private fun createWorldLandmarker(): PoseLandmarker = PoseLandmarker.createFromOptions(
         appContext,
         PoseLandmarker.PoseLandmarkerOptions.builder()
@@ -166,6 +187,10 @@ class LocalPoseBridge(messenger: BinaryMessenger, private val appContext: Contex
         val outH = if (cameraRotation % 180 == 0) h else w
         if (previousCameraRotation != cameraRotation) {
             preferredRotation = 0; lastOrientationSearch = 0
+            if (useTemporalPose) {
+                temporalLandmarker?.close(); temporalLandmarker = null
+                videoTimestamp = 0L
+            }
             previousCameraRotation = cameraRotation
         }
         fun input(extra: Int) = InputImage.fromByteArray(bytes, w, h,
@@ -212,6 +237,8 @@ class LocalPoseBridge(messenger: BinaryMessenger, private val appContext: Contex
             if (world != null) {
                 payload["world_landmarks"] = world
                 payload["angle_source"] = "pose_world_landmarks"
+                payload["pose_model"] = if (useTemporalPose) "pose_landmarker_full_v1" else "pose_landmarker_lite_v1"
+                payload["pose_mode"] = if (useTemporalPose) "VIDEO" else "IMAGE"
             }
             main.post { if (!closed) result.success(payload) }
         }
@@ -226,11 +253,18 @@ class LocalPoseBridge(messenger: BinaryMessenger, private val appContext: Contex
             // back to image-plane angles, which the rule engine must not mix.
             try {
                 val extra = 0
-                val mpImage = nv21Image(bytes, w, h)
+                val mpImage = nv21Image(bytes, w, h, cameraRotation)
                 val options = ImageProcessingOptions.builder()
-                    .setRotationDegrees(cameraRotation % 360).build()
-                val detected = worldLandmarkerFor(extra).detect(mpImage, options)
-                mpImage.close()
+                    .setRotationDegrees(0).build()
+                val detected = try {
+                    if (useTemporalPose) {
+                        val task = temporalLandmarker()
+                        videoTimestamp = maxOf(SystemClock.uptimeMillis(), videoTimestamp + 1)
+                        task.detectForVideo(mpImage, options, videoTimestamp)
+                    } else worldLandmarkerFor(extra).detect(mpImage, options)
+                } finally {
+                    mpImage.close()
+                }
                 val imagePoints = worldImagePoints(detected, extra)
                 if (imagePoints == null) {
                     finish(emptyList(), extra, 0.0, emptyList())
@@ -272,15 +306,37 @@ class LocalPoseBridge(messenger: BinaryMessenger, private val appContext: Contex
     }
 
     /**
-     * NV21 camera bytes as a MediaPipe image. MediaPipe reads the buffer from
-     * native code, so it must be direct; `detect` is synchronous, which is why
-     * this scratch copy is safe to discard on return.
+     * PoseLandmarker does not accept MPImage NV21 (format 4). Convert the packed
+     * camera frame to supported RGB on the detection worker, without a lossy
+     * JPEG round trip. Rotate pixels upright before inference so normalized
+     * landmarks and the preview are in the same frame. Do not mirror pixels;
+     * the Flutter overlay mirrors exactly once for a front camera.
      */
-    private fun nv21Image(bytes: ByteArray, w: Int, h: Int): MPImage {
-        val direct = ByteBuffer.allocateDirect(bytes.size)
-        direct.put(bytes)
+    private fun nv21Image(bytes: ByteArray, w: Int, h: Int, rotation: Int): MPImage {
+        require(bytes.size >= w * h * 3 / 2)
+        val direct = ByteBuffer.allocateDirect(w * h * 3)
+        val turn = ((rotation % 360) + 360) % 360
+        require(turn % 90 == 0)
+        val outW = if (turn % 180 == 0) w else h
+        val outH = if (turn % 180 == 0) h else w
+        val chromaStart = w * h
+        for (y in 0 until h) {
+            for (x in 0 until w) {
+                val luminance = ((bytes[y * w + x].toInt() and 255) - 16).coerceAtLeast(0)
+                val chroma = chromaStart + (y / 2) * w + (x and -2)
+                val v = (bytes[chroma].toInt() and 255) - 128
+                val u = (bytes[chroma + 1].toInt() and 255) - 128
+                val scaledY = 1192 * luminance
+                val dx = when (turn) { 90 -> h - 1 - y; 180 -> w - 1 - x; 270 -> y; else -> x }
+                val dy = when (turn) { 90 -> x; 180 -> h - 1 - y; 270 -> w - 1 - x; else -> y }
+                val offset = (dy * outW + dx) * 3
+                direct.put(offset, ((scaledY + 1634 * v) shr 10).coerceIn(0, 255).toByte())
+                direct.put(offset + 1, ((scaledY - 833 * v - 400 * u) shr 10).coerceIn(0, 255).toByte())
+                direct.put(offset + 2, ((scaledY + 2066 * u) shr 10).coerceIn(0, 255).toByte())
+            }
+        }
         direct.rewind()
-        return ByteBufferImageBuilder(direct, w, h, MPImage.IMAGE_FORMAT_NV21).build()
+        return ByteBufferImageBuilder(direct, outW, outH, MPImage.IMAGE_FORMAT_RGB).build()
     }
 
     /**
@@ -322,16 +378,25 @@ class LocalPoseBridge(messenger: BinaryMessenger, private val appContext: Contex
         detected: com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarkerResult,
     ): List<Map<String, Double>> {
         val pose = detected.worldLandmarks().firstOrNull() ?: return emptyList()
+        val image = detected.landmarks().firstOrNull()
         if (pose.size < 33) return emptyList()
         return (0..32).map { id ->
             val p = pose[id]
-            mapOf(
+            val point = mutableMapOf(
                 "x" to p.x().toDouble(),
                 "y" to p.y().toDouble(),
                 "z" to p.z().toDouble(),
-                "visibility" to (p.visibility().orElse(0f)).toDouble(),
-                "presence" to (p.presence().orElse(0f)).toDouble(),
+                "visibility" to p.visibility().orElse(
+                    image?.getOrNull(id)?.visibility()?.orElse(0f) ?: 0f).toDouble(),
             )
+            // Presence is optional in the Tasks API. Missing is not a measured
+            // zero: fabricating 0 makes the elbow engine reject every joint.
+            val presence = if (p.presence().isPresent) p.presence()
+                else image?.getOrNull(id)?.presence()
+            if (presence != null && presence.isPresent) {
+                point["presence"] = presence.get().toDouble()
+            }
+            point
         }
     }
 
@@ -441,6 +506,7 @@ class LocalPoseBridge(messenger: BinaryMessenger, private val appContext: Contex
         detector?.close(); detector = null
         rotatedDetectors.values.forEach { it.close() }
         rotatedDetectors.clear()
+        temporalLandmarker?.close(); temporalLandmarker = null
         worldLandmarker?.close(); worldLandmarker = null
         worldRotatedLandmarkers.values.forEach { it.close() }
         worldRotatedLandmarkers.clear()

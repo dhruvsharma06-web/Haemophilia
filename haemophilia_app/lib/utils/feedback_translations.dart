@@ -2,6 +2,10 @@
 /// sign-in, grievance resolution, reminders, tutorials, calibration and
 /// exercise snapshots.
 const feedbackHindi = <String, String>{
+  'Step back until both shoulders, elbows, wrists and hips are visible. Keep your body facing the camera.':
+      'पीछे जाएँ ताकि दोनों कंधे, कोहनियाँ, कलाइयाँ और कूल्हे दिखाई दें। कैमरे की ओर मुँह रखें।',
+  'Show both shoulders, elbows and wrists clearly. Step back and face the camera.':
+      'दोनों कंधे, कोहनियाँ और कलाइयाँ साफ दिखाएँ। पीछे जाएँ और कैमरे की ओर मुँह रखें।',
   'Filter users': 'उपयोगकर्ता चुनें',
   'All users': 'सभी उपयोगकर्ता',
   'Assigned patients': 'डॉक्टर से जुड़े मरीज़',

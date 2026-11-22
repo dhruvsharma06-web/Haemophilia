@@ -11,7 +11,7 @@
   "angle_source": "pose_world_landmarks",
   "coordinate_units": "MediaPipe estimated metres for 3D angles; aspect-corrected image pixels for 2D frontal checks",
   "rotation_signal": "Signed forearm azimuth in a torso-relative horizontal plane, unwrapped, sign-aligned between hands. A forearm-orientation proxy, not direct anatomical shoulder rotation.",
-  "body_frame": "up = shoulder midpoint - hip midpoint; lateral = shoulder vector projected perpendicular to up; forward = up x lateral with a fixed sign.",
+  "body_frame": "up = shoulder midpoint - hip midpoint; lateral = shoulder vector projected perpendicular to up; forward = up x lateral, oriented by resting forearms at calibration and thereafter sign-aligned with the calibrated reference.",
   "provenance_notes": "Only the elbow bend range (60-120 degrees) and sideways torso lean (12 degrees) are retained from the previous implementation. Every other value is a proposed engineering starting setting, not a learned LSTM threshold and not a clinically validated limit. The previous counting values 8, 10, 3, 15 and 20 were normalized displacement units, not degrees, and were deliberately not converted. A 15-degree minimum excursion and a 25-degree left/right ROM difference exist in the repository but are not active assessment checks and are not adopted here.",
   "thresholds": {
     "elbow_bend": {
@@ -50,14 +50,41 @@
       "status": "proposed"
     },
     "tracking": {
-      "visibility_min": 0.7,
+      "visibility_min": 0.5,
       "maximum_frame_gap_s": 0.5
     }
   },
   "implementation_choices": {
+    "tracking_update_2026_11_22": "Visibility floor reduced from the draft 0.7 to 0.5, matching the independent world-elbow confidence gate after visible wrist samples of 0.64-0.65 repeatedly reset shoulder tracking on the test phone. Angular targets and posture gates are unchanged; below-floor or missing joints are rejected.",
     "filter_tau_seconds": 0.08,
     "note": "The report requires smoothing that reduces jitter without hiding centre crossings and says to tune it on recordings. 0.08 s matches the elbow engine and is an engineering choice, not a value from the report.",
-    "duration_and_speed": "Reported for information only. The report proposes no speed or duration pass/fail limit, so pace never raises an error code."
+    "duration_and_speed": "Reported for information only. The report proposes no speed or duration pass/fail limit, so pace never raises an error code.",
+    "video_update_2026_11_22": {
+      "app_protocols": "After stable neutral calibration, lock the observed bilateral pattern: same-sign azimuth uses the original side-to-side sweep; opposite signs use outward rotation and return. Unilateral motion cannot select a pattern. Reset tracking to choose a new pattern.",
+      "external_cycle": "Both arms reach at least 20 degrees for 0.15 s and return within 5 degrees for 0.2 s. Missed targets produce incorrect-cycle feedback.",
+      "posture_feedback": "In app mode upper-arm/wand-level errors do not block initial calibration. Visible non-ideal cycles are counted and graded. Elbow bend and sideways lean still gate calibration. Wand-level is not a form requirement for independent external rotation.",
+      "body_frame": "Orient forward from the resting forearms and retain the calibrated sign while tracking; a moving wrist cannot flip it.",
+      "upper_arm_reference": "App mode checks the frontal image upper-arm angle against 20 degrees and the world upper-arm angle change from held neutral against 20 degrees. This separates static model-depth offset from movement; the legacy report engine retains absolute world angles. No calibration is applied to elbow flexion/extension.",
+      "wireframe": "Shared color palette: grey for unassessable/calibration, amber for an adjustment, red after a continuously observed failure lasts 0.3 s during an active cycle, green otherwise; completed form still uses the repetition-level decision."
+    },
+    "live_follow_up_2026_11_22": {
+      "pose_pipeline": "Pose Landmarker full float16 v1 in VIDEO mode for shoulder and assisted elbow. Independent elbow retains lite IMAGE and bar exercise retains ML Kit.",
+      "app_signal": "Bounded arcsine of visible forearm lateral travel relative to torso, scaled by the calibrated world forearm/torso length ratio. This is a camera movement proxy, not a validated anatomical rotation angle. It avoids accumulating estimated-depth azimuth winding.",
+      "calibration": "Hold visible hands within 0.04 torso lengths of an anchored body-relative image position for 0.5 seconds; average neutral angles and freeze arm scale.",
+      "cycle": "Both side-to-side and opposite-direction patterns use a movement-and-return cycle relative to the held start, allowing a non-central starting pose. Pattern chosen after paired movement is held 0.15 s; reselect only at rest.",
+      "thresholds": {
+        "onset_degrees": 12,
+        "paired_target_degrees": 20,
+        "target_hold_seconds": 0.15,
+        "return_band_degrees": 10,
+        "return_hold_seconds": 0.2,
+        "minimum_counted_excursion_degrees": 15,
+        "minimum_counted_duration_seconds": 0.8
+      },
+      "posture": "When forearm image projection reaches 0.65 of predicted full length, assess elbow bend in image XY. Do not grade unreliable foreshortened elbow depth as a confirmed form error. Frontal upper-arm lift remains image-based and world upper-arm change remains neutral-relative. Depth-based torso twist/forward lean requires image-span corroboration (12 percent). Existing legacy report rules retain their original world angles and centre threshold. Elbow image quality is based on lateral forearm projection rather than total image length, to avoid falsely reliable vertical foreshortening.",
+      "validation": "Engineering regressions and device runtime checks; no 100-percent or clinical accuracy claim.",
+      "coordination": "App compares direction and timing, with each arm required to reach its target and return. Onset or return lag over 0.6 seconds is a coordination failure; absolute camera angle-amplitude differences are informational. Legacy report mode retains its 15-degree rule."
+    }
   },
   "limitations": "Single-camera depth estimates can make forearm rotation noisy. Before enabling these rules for patients, review representative recordings covering both movement directions, varied camera distance, body proportions, reduced range, incorrect posture and occlusion."
 }

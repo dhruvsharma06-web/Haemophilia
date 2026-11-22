@@ -2,6 +2,29 @@ import 'package:flutter/material.dart';
 
 import 'app_localizations.dart';
 
+/// Patient-facing labels; engine stage identifiers stay unchanged.
+String movementStageLabel(String stage) => tr(
+  const {
+        'POSITIONING': 'Get ready',
+        'CENTRE': 'Ready',
+        'READY': 'Ready',
+        'BENDING': 'Bending',
+        'FLEXING': 'Bending',
+        'EXTENDING': 'Straightening',
+        'ROTATING_OUT': 'Moving',
+        'ROTATING_IN': 'Returning',
+        'RETURNING': 'Returning',
+        'BACK_TO_CENTRE': 'Return to start',
+        'NEED_CENTRE': 'Return to start',
+        'OUT': 'Return to start',
+        'TARGET_REACHED': 'Target held',
+        'RAISING': 'Raising',
+        'LOWERING': 'Lowering',
+        'RISING': 'Standing up',
+      }[stage.toUpperCase()] ??
+      stage,
+);
+
 // Canonical exercise identifiers - Upper Body (existing)
 const String kAssistedShoulderFlexion = 'assisted_shoulder_flexion';
 const String kShoulderRotation = 'shoulder_rotation';

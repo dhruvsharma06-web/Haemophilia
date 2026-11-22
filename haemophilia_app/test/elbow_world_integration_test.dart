@@ -31,9 +31,15 @@ void main() {
   });
 
   test('threshold constants exactly match the supplied source JSON', () {
-    final reference = jsonDecode(File('../docs/calibration/elbow-flexion-extension.json').readAsStringSync()) as Map;
+    final reference = jsonDecode(
+      File('../docs/calibration/elbow-flexion-extension.json')
+          .readAsStringSync(),
+    ) as Map;
     expect(ElbowWorldAssessment.thresholds, reference['thresholds']);
-    expect(ElbowWorldAssessment.sourceSessionId, reference['source_session_id']);
+    expect(
+      ElbowWorldAssessment.sourceSessionId,
+      reference['source_session_id'],
+    );
     expect(ElbowWorldAssessment.provenance, reference['status']);
   });
 
@@ -48,8 +54,15 @@ void main() {
       await service.initialize(rule.id);
       expect(calls.last.method, 'initialize');
       expect(
+        calls.last.arguments['temporalPose'],
+        rule.id == kShoulderRotation || rule.id == kAssistedElbowFlexionV5,
+        reason: rule.id,
+      );
+      expect(
         calls.last.arguments['worldPose'],
-        rule.id == kElbowFlexionExtension || rule.id == kShoulderRotation,
+        rule.id == kElbowFlexionExtension ||
+            rule.id == kShoulderRotation ||
+            rule.id == kAssistedElbowFlexionV5,
         reason: rule.id,
       );
     }
@@ -68,18 +81,21 @@ void main() {
     expect(state['form'], isNot('correct'));
   });
 
-  test('shoulder rotation dispatcher never falls back to image-space angles', () {
-    final engine = ExerciseRulesAssessment(kShoulderRotation);
-    final landmarks = List.generate(
-      33,
-      (_) => <String, dynamic>{'x': .5, 'y': .5, 'z': 0.0, 'visibility': 1.0},
-    );
-    final state = engine.update(landmarks, 1000, 1000, 0);
-    expect(state['tracking_valid'], false);
-    expect(state['rep_count'], 0);
-    expect(state['landmarks'], landmarks);
-    expect(state['form'], isNot('correct'));
-  });
+  test(
+    'shoulder rotation dispatcher never falls back to image-space angles',
+    () {
+      final engine = ExerciseRulesAssessment(kShoulderRotation);
+      final landmarks = List.generate(
+        33,
+        (_) => <String, dynamic>{'x': .5, 'y': .5, 'z': 0.0, 'visibility': 1.0},
+      );
+      final state = engine.update(landmarks, 1000, 1000, 0);
+      expect(state['tracking_valid'], false);
+      expect(state['rep_count'], 0);
+      expect(state['landmarks'], landmarks);
+      expect(state['form'], isNot('correct'));
+    },
+  );
 
   test('shoulder rotation threshold summary is exposed through the rule', () {
     final rule = ExerciseRule.forExercise(kShoulderRotation);
@@ -89,24 +105,60 @@ void main() {
   });
 
   for (final compact in [false, true]) {
-    testWidgets('elbow threshold panel shows candidate targets compact=$compact', (tester) async {
-      await tester.pumpWidget(MaterialApp(home: Scaffold(body: ExerciseThresholds(
-        exercise: kElbowFlexionExtension,
-        compact: compact,
-      ))));
-      expect(find.textContaining('Person-specific candidate'), findsOneWidget);
-      expect(find.text(localizedThresholds(ExerciseRule.forExercise(kElbowFlexionExtension))), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    });
+    testWidgets(
+      'elbow threshold panel shows candidate targets compact=$compact',
+      (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: ExerciseThresholds(
+                exercise: kElbowFlexionExtension,
+                compact: compact,
+              ),
+            ),
+          ),
+        );
+        expect(
+          find.textContaining('Camera measurements are estimates'),
+          findsOneWidget,
+        );
+        expect(
+          find.text(
+            localizedThresholds(
+              ExerciseRule.forExercise(kElbowFlexionExtension),
+            ),
+          ),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
 
-    testWidgets('shoulder rotation panel shows proposed settings compact=$compact', (tester) async {
-      await tester.pumpWidget(MaterialApp(home: Scaffold(body: ExerciseThresholds(
-        exercise: kShoulderRotation,
-        compact: compact,
-      ))));
-      expect(find.textContaining('Proposed engineering settings'), findsWidgets);
-      expect(find.text(localizedThresholds(ExerciseRule.forExercise(kShoulderRotation))), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    });
+    testWidgets(
+      'shoulder rotation panel shows proposed settings compact=$compact',
+      (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: ExerciseThresholds(
+                exercise: kShoulderRotation,
+                compact: compact,
+              ),
+            ),
+          ),
+        );
+        expect(
+          find.textContaining('Proposed engineering settings'),
+          findsWidgets,
+        );
+        expect(
+          find.text(
+            localizedThresholds(ExerciseRule.forExercise(kShoulderRotation)),
+          ),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 }

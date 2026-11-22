@@ -1,4 +1,61 @@
 const onDeviceHindi = <String, String>{
+  'Assign': 'सौंपें',
+  'Pending doctor': 'स्वीकृति की प्रतीक्षा में डॉक्टर',
+  'ROM': 'गति की सीमा',
+  'Stage': 'चरण',
+  'Angle': 'कोण',
+  'Elbow bend': 'कोहनी का मोड़',
+  'Retry': 'फिर कोशिश करें',
+  'Please sign in again.': 'कृपया फिर से साइन इन करें।',
+  'Email:': 'ईमेल:',
+  'Please sign in.': 'कृपया साइन इन करें।',
+  'You': 'आप',
+  'Hello': 'नमस्ते',
+  'Diagnosis status': 'निदान की स्थिति',
+  'Controlled Return': 'नियंत्रित वापसी',
+  'Rest': 'आराम',
+  'Get ready': 'शुरुआती स्थिति बनाएं',
+  'Bending': 'मोड़ रहे हैं',
+  'Straightening': 'सीधा कर रहे हैं',
+  'Moving': 'हिला रहे हैं',
+  'Returning': 'वापस ला रहे हैं',
+  'Raising': 'ऊपर उठा रहे हैं',
+  'Lowering': 'नीचे ला रहे हैं',
+  'Standing up': 'खड़े हो रहे हैं',
+  'Your comfortable, steady starting position':
+      'आपकी आरामदायक, स्थिर शुरुआती स्थिति',
+  'Camera measurements are estimates. Follow your prescribed comfortable range; stop if painful.': 'कैमरे के माप अनुमान हैं। अपने लिए निर्धारित आरामदायक सीमा में व्यायाम करें; दर्द होने पर रुकें।',
+  'Reach each arm’s separately shown flexion target and hold briefly. These person-specific references do not replace your clinician’s comfortable range.': 'हर बांह के लिए अलग से दिखाए मोड़ के लक्ष्य तक पहुंचें और थोड़ा रुकें। ये व्यक्तिगत संदर्भ आपके चिकित्सक की बताई आरामदायक सीमा का विकल्प नहीं हैं।',
+  'Straighten both elbows together with control. Meet each arm’s shown extension and return-error limits.': 'दोनों कोहनियां नियंत्रण के साथ एक साथ सीधी करें। हर बांह की दिखाई गई सीधा करने और शुरुआती स्थिति में लौटने की सीमाओं का पालन करें।',
+  'Hold a steady neutral posture with elbows bent near 90 degrees to calibrate.': 'कोहनियां लगभग 90 डिग्री मोड़कर शुरुआती स्थिति में स्थिर रहें ताकि कैमरा माप तय कर सके।',
+  'Move both forearms together from the neutral position.':
+      'दोनों अग्रबाहुओं को शुरुआती स्थिति से एक साथ हिलाएं।',
+  'Move both forearms slowly, then return to the starting position.':
+      'दोनों अग्रबाहुओं को धीरे-धीरे हिलाएं, फिर शुरुआती स्थिति में लौटें।',
+  'Keep your elbows beside your torso as both forearms move.':
+      'दोनों अग्रबाहुओं को हिलाते समय कोहनियां धड़ के पास रखें।',
+  'Return both forearms to the position held at the start.':
+      'दोनों अग्रबाहुओं को शुरुआत में बनाई स्थिति में वापस लाएं।',
+  'Hold the starting position briefly with both elbows bent.':
+      'दोनों कोहनियां मोड़कर शुरुआती स्थिति में थोड़ा रुकें।',
+  'Move both forearms together; start and return at the same time.':
+      'दोनों अग्रबाहुओं को एक साथ हिलाएं; एक साथ शुरू करें और वापस लौटें।',
+  'Both forearms must reach and briefly hold the movement target before returning.': 'वापस लौटने से पहले दोनों अग्रबाहुओं को गति के लक्ष्य तक पहुंचाएं और थोड़ा रुकें।',
+  'Both forearms must reach and briefly hold the outward target before returning.': 'वापस लौटने से पहले दोनों अग्रबाहुओं को बाहर की ओर लक्ष्य तक ले जाएं और थोड़ा रुकें।',
+  'Both forearms rotated through the full range with steady posture.': 'दोनों अग्रबाहुओं ने स्थिर मुद्रा में पूरी निर्धारित गति की सीमा पूरी की।',
+  'Bend both elbows within your comfortable range.':
+      'दोनों कोहनियों को अपनी आरामदायक सीमा में मोड़ें।',
+  'Hold each arm at its own candidate flexion reference.':
+      'हर बांह के लिए दिखाए गए मोड़ के लक्ष्य पर थोड़ा रुकें।',
+  'Return both elbows to their starting extension.':
+      'दोनों कोहनियों को उनकी शुरुआती सीधी स्थिति में लौटाएं।',
+  'Hold both elbows extended to establish a starting position.':
+      'शुरुआती स्थिति तय करने के लिए दोनों कोहनियां सीधी रखकर स्थिर रहें।',
+  'Both candidate targets held and return completed.':
+      'दोनों दिखाए गए लक्ष्य पर रुके और शुरुआती स्थिति में वापस लौटे।',
+  'Move more slowly; the movement lasted less than 1s.':
+      'धीरे चलें; गति एक सेकंड से कम समय में पूरी हुई।',
+  'Repeat within your comfortable range.': 'अपनी आरामदायक सीमा में दोहराएं।',
   'On-device tracking': 'फोन पर गतिविधि ट्रैकिंग',
   'Starting joint tracking...': 'जोड़ों की ट्रैकिंग शुरू हो रही है...',
   'Could not start joint tracking. Please retry.':
@@ -125,34 +182,46 @@ const onDeviceHindi = <String, String>{
   'Keep the lifting knee straight and raise the leg to about 40 degrees, within your prescribed comfortable range.': 'उठाने वाले पैर का घुटना सीधा रखें और डॉक्टर द्वारा बताई आरामदायक सीमा में पैर लगभग 40 डिग्री तक उठाएं।',
   'Keep the mini squat controlled and shallow.':
       'मिनी स्क्वाट नियंत्रित और हल्का रखें।',
-  'Heel lifting off the surface — keep it down': 'एड़ी सतह से उठ रही है — उसे नीचे रखें।',
-  'Hip lifting off the surface — keep it flat': 'कूल्हा सतह से उठ रहा है — उसे नीचे रखें।',
-  'Slide heel further toward your hips': 'एड़ी को कूल्हे की ओर थोड़ा और खिसकाएं।',
+  'Heel lifting off the surface — keep it down':
+      'एड़ी सतह से उठ रही है — उसे नीचे रखें।',
+  'Hip lifting off the surface — keep it flat':
+      'कूल्हा सतह से उठ रहा है — उसे नीचे रखें।',
+  'Slide heel further toward your hips':
+      'एड़ी को कूल्हे की ओर थोड़ा और खिसकाएं।',
   'Keep the mini squat shallow.': 'मिनी स्क्वाट हल्का रखें।',
-  'Knee past toes — sit back more': 'घुटना पंजों से आगे जा रहा है — कूल्हे पीछे ले जाएं।',
+  'Knee past toes — sit back more':
+      'घुटना पंजों से आगे जा रहा है — कूल्हे पीछे ले जाएं।',
   'Keep your back straight and chest upright': 'पीठ सीधी और छाती ऊपर रखें।',
-  'Keep upper body still — avoid rocking': 'ऊपरी शरीर स्थिर रखें — आगे-पीछे न हिलें।',
-  'Keep pelvis on mat — do not over-lift hip': 'कूल्हा चटाई पर रखें — पैर बहुत ऊंचा न उठाएं।',
-  'Raising too high — lower the leg': 'पैर बहुत ऊंचा उठ रहा है — थोड़ा नीचे करें।',
+  'Keep upper body still — avoid rocking':
+      'ऊपरी शरीर स्थिर रखें — आगे-पीछे न हिलें।',
+  'Keep pelvis on mat — do not over-lift hip':
+      'कूल्हा चटाई पर रखें — पैर बहुत ऊंचा न उठाएं।',
+  'Raising too high — lower the leg':
+      'पैर बहुत ऊंचा उठ रहा है — थोड़ा नीचे करें।',
   'Knee bending — keep your leg straight': 'घुटना मुड़ रहा है — पैर सीधा रखें।',
   'Head lifting — rest your head down': 'सिर उठ रहा है — सिर को नीचे टिकाएं।',
   'Camera estimate; confirm form with your clinician.':
       'कैमरे का अनुमान; अपने चिकित्सक से सही मुद्रा की पुष्टि करें।',
   'Keep your knee straight': 'घुटना सीधा रखें।',
   'Keep head resting down on mat': 'सिर चटाई पर टिकाए रखें।',
-  'Keep your thigh on the pillow — only straighten the knee': 'जांघ तकिए पर रखें — केवल घुटना सीधा करें।',
+  'Keep your thigh on the pillow — only straighten the knee':
+      'जांघ तकिए पर रखें — केवल घुटना सीधा करें।',
   'Leaning too far forward — chest up': 'बहुत आगे झुक रहे हैं — छाती ऊपर रखें।',
-  'Lower back rounding — brace your core': 'कमर गोल हो रही है — पेट की मांसपेशियां सक्रिय रखें।',
+  'Lower back rounding — brace your core':
+      'कमर गोल हो रही है — पेट की मांसपेशियां सक्रिय रखें।',
   'Neck not neutral — look straight ahead': 'गर्दन सीधी रखें — सामने देखें।',
-  'Ankles too close together — widen stance': 'टखने बहुत पास हैं — पैर थोड़ा दूर रखें।',
-  'Knees caving in — push knees out': 'घुटने अंदर जा रहे हैं — उन्हें बाहर की ओर रखें।',
+  'Ankles too close together — widen stance':
+      'टखने बहुत पास हैं — पैर थोड़ा दूर रखें।',
+  'Knees caving in — push knees out':
+      'घुटने अंदर जा रहे हैं — उन्हें बाहर की ओर रखें।',
   'Keep knees aligned with toes': 'घुटनों को पंजों की दिशा में रखें।',
   'Slide your heel further in': 'एड़ी को थोड़ा और अंदर खिसकाएं।',
   'Not deep enough': 'पर्याप्त नीचे नहीं गए।',
   'Extend your knee further': 'घुटना थोड़ा और सीधा करें।',
   'Raise your leg higher': 'पैर थोड़ा और ऊपर उठाएं।',
   'Straighten your knee fully': 'घुटना पूरा सीधा करें।',
-  'Good repetition! Maintain controlled pace.': 'अच्छी पुनरावृत्ति! गति नियंत्रित रखें।',
+  'Good repetition! Maintain controlled pace.':
+      'अच्छी पुनरावृत्ति! गति नियंत्रित रखें।',
   'Move at a slower, controlled pace.': 'धीरे और नियंत्रण के साथ गति करें।',
   'Show the required joints clearly.': 'ज़रूरी जोड़ कैमरे में स्पष्ट दिखाएं।',
   'DOWN': 'गतिविधि जारी है',

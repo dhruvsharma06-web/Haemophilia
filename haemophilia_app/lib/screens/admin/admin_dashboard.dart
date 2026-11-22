@@ -669,7 +669,7 @@ class _UserCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      tr(role),
+                      tr(managedRoleLabel(role)),
                       style: TextStyle(
                         fontSize: 9,
                         fontWeight: FontWeight.w700,
@@ -781,7 +781,7 @@ class _UserCard extends StatelessWidget {
                                 .map(
                                   (value) => DropdownMenuItem<String>(
                                     value: value,
-                                    child: Text(tr(value)),
+                                    child: Text(tr(managedRoleLabel(value))),
                                   ),
                                 )
                                 .toList(),

@@ -2,6 +2,7 @@ import '../services/local_test_config.dart';
 import 'feedback_translations.dart';
 import 'lower_body_translations.dart';
 import 'on_device_translations.dart';
+import 'exercise_feedback_translation.dart';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
@@ -88,12 +89,16 @@ String tr(String key, [BuildContext? context]) {
   }
   if (!AppLocaleService.isHindi) return key;
   if (onDeviceHindi.containsKey(key.trim())) return onDeviceHindi[key.trim()]!;
-  if (lowerBodyHindi.containsKey(key.trim())) return lowerBodyHindi[key.trim()]!;
+  if (lowerBodyHindi.containsKey(key.trim())) {
+    return lowerBodyHindi[key.trim()]!;
+  }
   if (feedbackHindi.containsKey(key.trim())) return feedbackHindi[key.trim()]!;
   if (_hindiTranslations.containsKey(key)) {
     return _hindiTranslations[key]!;
   }
   final trimmed = key.trim();
+  final exerciseFeedback = hindiExerciseFeedback(trimmed);
+  if (exerciseFeedback != null) return exerciseFeedback;
   if (_hindiTranslations.containsKey(trimmed)) {
     return _hindiTranslations[trimmed]!;
   }
@@ -297,14 +302,17 @@ const Map<String, String> _hindiTranslations = {
   'Hip Flexors / Quads': 'कूल्हे / जांघ की मांसपेशियां',
   'Knee / VMO': 'घुटना / जांघ की अंदरूनी मांसपेशी',
   'Lower Body / Hips / Knees': 'निचला शरीर / कूल्हे / घुटने',
-  'Supine knee flexion and extension sliding the heel along the surface to restore knee range of motion.': 'लेटकर एड़ी को सतह पर खिसकाते हुए घुटना मोड़ें और सीधा करें।',
+  'Supine knee flexion and extension sliding the heel along the surface to restore knee range of motion.':
+      'लेटकर एड़ी को सतह पर खिसकाते हुए घुटना मोड़ें और सीधा करें।',
   'Controlled shallow squat with knee angle, heel position, and visible knee alignment feedback.': 'हल्का स्क्वाट करते समय घुटने के कोण, एड़ी की स्थिति और घुटनों की दिखाई देने वाली दिशा पर प्रतिक्रिया पाएं।',
   'Seated knee extension with knee angle and visible torso movement feedback.': 'बैठकर घुटना सीधा करते समय घुटने के कोण और धड़ की दिखाई देने वाली गतिविधि पर प्रतिक्रिया पाएं।',
   'Straight leg elevation with hip angle and lifting-knee position feedback.': 'सीधा पैर उठाते समय कूल्हे के कोण और उठाए गए घुटने की स्थिति पर प्रतिक्रिया पाएं।',
-  'Supine knee extension over a bolster to isolate terminal vastus medialis obliquus extension.': 'लेटकर घुटने के नीचे सहारा रखकर घुटना सीधा करें।',
+  'Supine knee extension over a bolster to isolate terminal vastus medialis obliquus extension.':
+      'लेटकर घुटने के नीचे सहारा रखकर घुटना सीधा करें।',
   'Squat with knee angle, visible knee alignment, torso movement, and heel position feedback.': 'स्क्वाट करते समय घुटने के कोण, घुटनों की दिखाई देने वाली दिशा, धड़ की गतिविधि और एड़ी की स्थिति पर प्रतिक्रिया पाएं।',
   'Show your shoulder, hip, knee and ankle clearly, then return to the starting position.': 'कंधा, कूल्हा, घुटना और टखना कैमरे में स्पष्ट दिखाएं, फिर शुरुआती स्थिति में लौटें।',
-  'Movement timed out. Return to your starting position.': 'गतिविधि का समय समाप्त हुआ। शुरुआती स्थिति में लौटें।',
+  'Movement timed out. Return to your starting position.':
+      'गतिविधि का समय समाप्त हुआ। शुरुआती स्थिति में लौटें।',
   'Mark all as read': 'सभी सूचनाएँ पढ़ी हुई करें',
   'Available for 1 hour from the scheduled start time.':
       'सत्र के निर्धारित समय से 1 घंटे तक उपलब्ध।',

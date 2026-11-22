@@ -10,6 +10,7 @@ import 'dart:math' as math;
 import 'package:camera/camera.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 
 import '../../widgets/session_safety_dialog.dart';
@@ -714,12 +715,18 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
   // ON-DEVICE TRACKING CONNECTION
   // ============================================================
 
-  ExerciseRulesAssessment _createLocalRules(String exercise,
-      {String hand = 'Left'}) {
+  ExerciseRulesAssessment _createLocalRules(
+    String exercise, {
+    String hand = 'Left',
+  }) {
     final rule = ExerciseRule.forExercise(exercise);
     final calibration = _calibrations[normalizeExerciseId(exercise)];
     return rule.isUpperBody
-        ? ExerciseRulesAssessment(exercise, hand: hand, calibration: calibration)
+        ? ExerciseRulesAssessment(
+            exercise,
+            hand: hand,
+            calibration: calibration,
+          )
         : LowerBodyAssessment(exercise, calibration: calibration);
   }
 
@@ -873,6 +880,11 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
 
         debugPrint('[REP DEBUG] REP COMPLETED');
         debugPrint('[REP DEBUG] correct=$correct');
+        if (kDebugMode) {
+          debugPrint(
+            'REP_METRICS ${jsonEncode({'exercise': data['exercise'], 'protocol': completedRep['movement_protocol'], 'hand': completedRep['hand'], 'form': completedRep['form'], 'errors': completedRep['error_codes'], 'rom': completedRep['range_of_motion'], 'duration': completedRep['duration'], 'target_reached': completedRep['target_reached'], 'support_coverage': completedRep['support_coverage']})}',
+          );
+        }
         debugPrint('[REP DEBUG] total=$_currentTotalReps');
         debugPrint('[REP DEBUG] correct=$_currentCorrectReps');
 
@@ -963,6 +975,7 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
           'left_angle',
           'right_angle',
           'score_components',
+          'tracking_metrics',
         ])
           key: data[key],
       };
@@ -1479,6 +1492,69 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
             .toList(),
         angleSource: pose['angle_source'] as String?,
       );
+      if (kDebugMode &&
+          const bool.fromEnvironment('POSE_DIAGNOSTICS') &&
+          _processedPoses < 1800 &&
+          [
+            kShoulderRotation,
+            kAssistedElbowFlexionV5,
+          ].contains(_rules!.rule.id)) {
+        List<List<Object?>> pack(Object? raw, {bool hands = true}) {
+          if (raw is! List) return [];
+          return [
+            for (final i
+                in hands
+                    ? [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24]
+                    : [11, 12, 13, 14, 15, 16, 23, 24])
+              if (i < raw.length)
+                [
+                  i,
+                  for (final key in ['x', 'y', 'z', 'visibility'])
+                    raw[i][key] is num && (raw[i][key] as num).isFinite
+                        ? ((raw[i][key] as num).toDouble() * 10000).round() /
+                              10000
+                        : null,
+                ],
+          ];
+        }
+
+        debugPrint(
+          'POSE_IMAGE ${jsonEncode({'exercise': _rules!.rule.id, 't': timestamp, 'width': pose['width'], 'height': pose['height'], 'source': state['angle_source'], 'model': pose['pose_model'], 'mode': pose['pose_mode'], 'image': pack(pose['landmarks']), 'stage': state['state'], 'hand': state['expected_hand'], 'reps': state['rep_count'], 'form': state['form']})}',
+        );
+        debugPrint(
+          'POSE_WORLD ${jsonEncode({'exercise': _rules!.rule.id, 't': timestamp, 'world': pack(pose['world_landmarks'], hands: false)})}',
+        );
+      }
+      if (kDebugMode &&
+          _processedPoses % 30 == 0 &&
+          [
+            kShoulderRotation,
+            kAssistedElbowFlexionV5,
+          ].contains(_rules!.rule.id)) {
+        debugPrint(
+          'EXERCISE_DIAGNOSTIC ${jsonEncode({
+            'exercise': _rules!.rule.id,
+            'source': state['angle_source'] ?? pose['angle_source'] ?? 'mlkit_image',
+            'stage': state['state'],
+            'hand': state['expected_hand'],
+            'left': state['left_angle'],
+            'right': state['right_angle'],
+            'reps': state['rep_count'],
+            'support_distance_ratio': state['support_distance_ratio'],
+            'support_contact_ratio': state['support_contact_ratio'],
+            'movement_protocol': state['movement_protocol'],
+            'form': state['form'],
+            'error': state['error_type'],
+            'pose_model': pose['pose_model'],
+            'pose_mode': pose['pose_mode'],
+            'posture': state['tracking_metrics'],
+            'feedback': state['feedback'],
+            'visibility': {
+              for (final index in [11, 12, 13, 14, 15, 16, 23, 24]) '$index': landmarks.length > index ? landmarks[index]['visibility'] : null,
+            },
+          })}',
+        );
+      }
       if (state['state'] == 'READY') {
         _repReviewFrame = null;
         _latestErrorFrame = null;
@@ -2726,6 +2802,7 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
                   showExerciseDemoDialog(
                     context,
                     exerciseName: _currentExerciseDisplayName(),
+                    ruleOverride: _rules?.rule,
                   );
                 },
                 icon: const Icon(
@@ -2805,10 +2882,9 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
     return Stack(
       fit: StackFit.expand,
       children: [
-        CameraPreview(_controller!),
-
-        // Skeleton overlay isolated with RepaintBoundary
-        Positioned.fill(
+        // Preview and skeleton share the exact same viewport and orientation.
+        CameraPreview(
+          _controller!,
           child: IgnorePointer(
             child: RepaintBoundary(
               child: CustomPaint(
@@ -2990,6 +3066,7 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
                       showExerciseDemoDialog(
                         context,
                         exerciseName: _currentExerciseDisplayName(),
+                        ruleOverride: _rules?.rule,
                       );
                     },
                     child: Container(
@@ -3041,7 +3118,9 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
               children: [
                 _compactStat(
                   tr('Stage'),
-                  tr((_movementMetrics['state'] ?? 'POSITIONING').toString()),
+                  movementStageLabel(
+                    (_movementMetrics['state'] ?? 'POSITIONING').toString(),
+                  ),
                 ),
                 _compactStat(
                   tr(_rules?.rule.isUpperBody == false ? 'Leg' : 'Arm'),
@@ -3060,8 +3139,12 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
                       : tr('Not yet'),
                 ),
                 _compactStat(
-                  tr(ExerciseRule.forExercise(_currentAssignedExercise())
-                          .isUpperBody ? 'Last score' : 'Camera score'),
+                  tr(
+                    ExerciseRule.forExercise(_currentAssignedExercise())
+                            .isUpperBody
+                        ? 'Last score'
+                        : 'Camera score',
+                  ),
                   _scoreAvailable ? _score.toStringAsFixed(0) : '—',
                 ),
               ],
@@ -3165,9 +3248,9 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
                           'descriptive_movement_control'
                       ? 'CONTROL'
                       : _movementMetrics['score_kind'] ==
-                              'rule_heuristic_not_accuracy'
-                          ? 'Camera score'
-                          : 'Last score',
+                            'rule_heuristic_not_accuracy'
+                      ? 'Camera score'
+                      : 'Last score',
                 ),
                 _scoreAvailable ? _score.toStringAsFixed(0) : '—',
               ),
@@ -3207,6 +3290,7 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
                   content: SingleChildScrollView(
                     child: ExerciseThresholds(
                       exercise: _currentAssignedExercise(),
+                      ruleOverride: _rules?.rule,
                     ),
                   ),
                   actions: [
@@ -3238,9 +3322,22 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
                   tr(_rules?.rule.isUpperBody == false ? 'Leg' : 'Arm'),
                   tr(_movementMetrics['expected_hand'].toString()),
                 ),
+                if (_rules?.rule.id == kShoulderRotation &&
+                    _movementMetrics['tracking_metrics'] is Map) ...[
+                  _compactStat(
+                    tr('Elbow bend'),
+                    'L ${_toDouble((_movementMetrics['tracking_metrics'] as Map)['left_elbow_bend']).toStringAsFixed(0)}° / R ${_toDouble((_movementMetrics['tracking_metrics'] as Map)['right_elbow_bend']).toStringAsFixed(0)}°',
+                  ),
+                  _compactStat(
+                    tr('Upper arm position'),
+                    'L ${_toDouble((_movementMetrics['tracking_metrics'] as Map)['left_image_upper_arm']).toStringAsFixed(0)}° / R ${_toDouble((_movementMetrics['tracking_metrics'] as Map)['right_image_upper_arm']).toStringAsFixed(0)}°',
+                  ),
+                ],
                 _compactStat(
                   tr('Stage'),
-                  tr((_movementMetrics['state'] ?? 'READY').toString()),
+                  movementStageLabel(
+                    (_movementMetrics['state'] ?? 'READY').toString(),
+                  ),
                 ),
                 _compactStat(
                   tr('Angle'),
@@ -3494,7 +3591,10 @@ class _LiveAssessmentScreenState extends State<LiveAssessmentScreen>
               ),
             ],
             const SizedBox(height: 12),
-            ExerciseThresholds(exercise: _currentAssignedExercise()),
+            ExerciseThresholds(
+              exercise: _currentAssignedExercise(),
+              ruleOverride: _rules?.rule,
+            ),
           ],
         ),
       ),
