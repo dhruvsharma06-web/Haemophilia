@@ -989,6 +989,8 @@ const Map<String, String> _hindiTranslations = {
   // Admin Dashboard
   'Admin Dashboard': 'एडमिन डैशबोर्ड',
   'Total Users': 'कुल उपयोगकर्ता',
+  'Doctors are counted after approval. Total Users includes all active accounts, including admins and pending doctors.':
+      'डॉक्टरों की गिनती मंज़ूरी के बाद होती है। कुल उपयोगकर्ताओं में सभी सक्रिय खाते शामिल हैं, जिनमें व्यवस्थापक और मंज़ूरी की प्रतीक्षा कर रहे डॉक्टर भी हैं।',
   'Doctors': 'डॉक्टर',
   'Patients': 'मरीज़',
   'Manage Users': 'उपयोगकर्ता प्रबंधित करें',

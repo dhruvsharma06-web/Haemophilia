@@ -27,6 +27,7 @@ class AdminDashboard extends StatefulWidget {
 }
 
 class _AdminDashboardState extends State<AdminDashboard> {
+  late final _usersStream = ClinicalDataService().watchAllUsers();
   bool _isLoggingOut = false;
   int _section = 0;
   String _userFilter = 'all';
@@ -134,14 +135,14 @@ class _AdminDashboardState extends State<AdminDashboard> {
         ],
       ),
       bottomNavigationBar: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: service.watchAllUsers(),
+        stream: _usersStream,
         builder: (context, snapshot) {
           final pending = snapshot.data?.docs.where(_isNewPatient).length ?? 0;
           final pendingDoctors =
               snapshot.data?.docs
                   .where(
                     (doc) =>
-                        doc.data()['accountActive'] != false &&
+                        countsAsActiveUser(doc.data()) &&
                         matchesUserFilter(doc.data(), 'pending_doctor'),
                   )
                   .length ??
@@ -197,7 +198,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       body: _section == 3
           ? const HelpScreen(admin: true)
           : StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-              stream: service.watchAllUsers(),
+              stream: _usersStream,
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
                   return Center(
@@ -226,10 +227,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     ? allDocs
                           .where(
                             (doc) =>
-                                doc.data()['accountActive'] != false &&
-                                (doc.data()['role'] == 'pending_doctor' ||
-                                    (doc.data()['role'] == 'doctor' &&
-                                        doc.data()['isApproved'] == false)),
+                                countsAsActiveUser(doc.data()) &&
+                                matchesUserFilter(doc.data(), 'pending_doctor'),
                           )
                           .toList()
                     : allDocs
@@ -248,12 +247,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         _createdAt(b.data()).compareTo(_createdAt(a.data())),
                   );
                 }
-                final doctors = allDocs
-                    .where((doc) => doc.data()['role'] == 'doctor')
-                    .length;
-                final patients = allDocs
-                    .where((doc) => doc.data()['role'] == 'patient')
-                    .length;
+                final counts = adminUserCounts(
+                  allDocs.map((doc) => doc.data()),
+                );
 
                 return ListView(
                   padding: const EdgeInsets.fromLTRB(20, 10, 20, 32),
@@ -270,17 +266,17 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         final metrics = [
                           _Metric(
                             tr('Doctors'),
-                            '$doctors',
+                            '${counts.doctors}',
                             Icons.medical_services_outlined,
                           ),
                           _Metric(
                             tr('Patients'),
-                            '$patients',
+                            '${counts.patients}',
                             Icons.people_outline,
                           ),
                           _Metric(
                             tr('Total Users'),
-                            '${allDocs.length}',
+                            '${counts.total}',
                             Icons.groups_outlined,
                           ),
                         ];
@@ -313,6 +309,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
                           ],
                         );
                       },
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      tr(
+                        'Doctors are counted after approval. Total Users includes all active accounts, including admins and pending doctors.',
+                      ),
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
                     const SizedBox(height: 28),
                     Text(
@@ -386,10 +389,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
 bool _isNewPatient(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
   final data = doc.data();
-  final doctorId = data['doctorId']?.toString().trim();
-  return data['role'] == 'patient' &&
-      data['accountActive'] != false &&
-      (doctorId == null || doctorId.isEmpty);
+  return countsAsActiveUser(data) && matchesUserFilter(data, 'pending_patient');
 }
 
 DateTime _createdAt(Map<String, dynamic> data) =>

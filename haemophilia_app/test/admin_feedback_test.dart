@@ -56,4 +56,42 @@ void main() {
     );
     expect(matchesUserFilter({'role': 'admin'}, 'patient'), isFalse);
   });
+
+  test(
+    'dashboard totals update as accounts register, gain approval or close',
+    () {
+      final users = <Map<String, dynamic>>[
+        {'role': 'admin'},
+        {'role': 'doctor'}, // Legacy approved account.
+        {'role': 'doctor', 'isApproved': false},
+        {'role': 'patient', 'doctorId': 'doctor'},
+        {'role': 'patient', 'accountActive': false},
+        {'role': 'doctor', 'status': 'removed'},
+        {'role': 'patient', 'status': 'rejected'},
+        {'role': 'admin', 'status': 'inactive'},
+      ];
+      expect(adminUserCounts(users), (doctors: 1, patients: 1, total: 4));
+
+      final patient = <String, dynamic>{
+        'role': 'patient',
+        'accountActive': true,
+      };
+      final applicant = <String, dynamic>{
+        'role': 'pending_doctor',
+        'isApproved': false,
+      };
+      users.addAll([patient, applicant]);
+      expect(adminUserCounts(users), (doctors: 1, patients: 2, total: 6));
+
+      patient['doctorId'] = 'doctor';
+      expect(adminUserCounts(users), (doctors: 1, patients: 2, total: 6));
+
+      applicant.addAll({'role': 'doctor', 'isApproved': true});
+      expect(adminUserCounts(users), (doctors: 2, patients: 2, total: 6));
+
+      applicant['accountActive'] = false;
+      patient['status'] = 'rejected';
+      expect(adminUserCounts(users), (doctors: 1, patients: 1, total: 4));
+    },
+  );
 }

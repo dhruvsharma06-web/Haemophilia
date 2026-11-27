@@ -22,6 +22,24 @@ List<String> allowedManagedRoles(String role) => switch (role) {
   _ => [],
 };
 
+bool countsAsActiveUser(Map<String, dynamic> data) =>
+    data['accountActive'] != false &&
+    !const {'inactive', 'rejected', 'removed'}.contains(data['status']);
+
+({int doctors, int patients, int total}) adminUserCounts(
+  Iterable<Map<String, dynamic>> users,
+) {
+  var doctors = 0;
+  var patients = 0;
+  var total = 0;
+  for (final user in users.where(countsAsActiveUser)) {
+    total++;
+    if (matchesUserFilter(user, 'doctor')) doctors++;
+    if (user['role'] == 'patient') patients++;
+  }
+  return (doctors: doctors, patients: patients, total: total);
+}
+
 bool matchesUserFilter(Map<String, dynamic> data, String filter) {
   if (filter == 'all') return true;
   final pendingDoctor =
