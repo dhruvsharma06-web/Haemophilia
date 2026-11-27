@@ -979,6 +979,8 @@ class _UserCard extends StatelessWidget {
                 'hospital',
               ])
                 Text(doc.data()[field]?.toString() ?? tr('Not available')),
+              const SizedBox(height: 12),
+              DoctorDocuments(userId: doc.id, data: doc.data()),
             ],
           ),
         ),

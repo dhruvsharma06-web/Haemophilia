@@ -773,14 +773,6 @@ class _AssignExercisesScreenState extends State<AssignExercisesScreen> {
                           ),
                         ),
                       ],
-                      if (exercise == kAssistedElbowFlexionV5)
-                        Text(
-                          tr('Experimental model'),
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.amber.shade900,
-                          ),
-                        ),
                     ],
                   ),
                 ),

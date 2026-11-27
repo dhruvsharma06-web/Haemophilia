@@ -32,7 +32,9 @@ class AuthService {
       'Your account was signed in on another device, so this device was signed out. Sign in again to continue here.';
   FirebaseAuth get _auth => LocalTestConfig.auth;
   FirebaseFirestore get _firestore => LocalTestConfig.database;
-  final GoogleSignIn _googleSignIn = GoogleSignIn();
+  // The email-only admin portal does not configure a Google OAuth client.
+  static GoogleSignIn? _googleClient;
+  GoogleSignIn get _googleSignIn => _googleClient ??= GoogleSignIn();
 
   /// Institutional email domain requirement (e.g. '@somaiya.edu').
   /// Kept null to prevent breaking existing Firebase authentication.
@@ -466,7 +468,11 @@ class AuthService {
       }
     }
     try {
-      await _googleSignIn.signOut();
+      if (kIsWeb) {
+        await _googleClient?.signOut();
+      } else {
+        await _googleSignIn.signOut();
+      }
     } catch (_) {
       // Best effort sign-out from Google
     }
