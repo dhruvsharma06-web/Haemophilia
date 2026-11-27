@@ -848,7 +848,7 @@ class _DoctorAssignmentStatusCard extends StatelessWidget {
     final int completionPct = (completionFraction * 100).toInt();
 
     final int accuracyPct = totalAttemptedReps > 0
-        ? ((correctReps / totalAttemptedReps) * 100).clamp(0, 100).toInt()
+        ? ((correctReps / totalAttemptedReps) * 100).clamp(0, 100).round()
         : (correctReps > 0 ? 100 : 0);
 
     return Card(

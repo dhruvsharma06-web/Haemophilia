@@ -366,6 +366,13 @@ class AssessmentSession {
 
   double get averageDuration => _average(repsData, ['duration']);
 
+  bool get hasConfidence => repsData.any((rep) {
+    final value =
+        _nullableNumber(rep['confidence']) ??
+        _nullableNumber(rep['lstm_confidence']);
+    return value != null && value >= 0;
+  });
+
   double get averageConfidence {
     final raw = _average(repsData, ['confidence', 'lstm_confidence']);
     return raw <= 1.0 && raw > 0 ? raw * 100.0 : raw;
@@ -883,7 +890,7 @@ class _SessionStatsGrid extends StatelessWidget {
                 label: tr('Average Duration'),
                 value: '${session.averageDuration.toStringAsFixed(1)}s',
               ),
-              if (session.repsData.any((rep) => rep['confidence'] != null))
+              if (session.hasConfidence)
                 _StatTile(
                   label: tr('AI Confidence'),
                   value: '${session.averageConfidence.toStringAsFixed(0)}%',

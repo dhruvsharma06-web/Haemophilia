@@ -406,8 +406,9 @@ class _SessionAnalyticsChartState extends State<SessionAnalyticsChart> {
                                 '${selectedSession.averageRom.toStringAsFixed(0)}°'),
                             _miniMetric(tr('Correct'),
                                 '${selectedSession.correctReps}/${selectedSession.reps} (${selectedSession.correctRate.toStringAsFixed(0)}%)'),
-                            _miniMetric(tr('AI Confidence'),
-                                '${selectedSession.averageConfidence.toStringAsFixed(0)}%'),
+                            if (selectedSession.hasConfidence)
+                              _miniMetric(tr('AI Confidence'),
+                                  '${selectedSession.averageConfidence.toStringAsFixed(0)}%'),
                           ],
                         ),
                       ],
